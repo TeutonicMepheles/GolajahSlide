@@ -1,0 +1,2612 @@
+<!doctype html>
+<html lang="{{LANG}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{DECK_TITLE}}</title>
+  <style>
+    /* ===========================================
+       THEME TOKENS — inherited from the reference deck
+       =========================================== */
+    :root {
+      --stage-bg: #111111;
+      --slide-bg: #FFFFFF;
+      --accent: #6F60E5;
+      --accent-strong: #4C3BC6;
+      --accent-soft: #F0EEFF;
+      --accent-line: #D6D0FF;
+      --ink: #111111;
+      --muted: rgba(17,17,17,.72);
+      --line: #D7D6DD;
+      --font: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+      --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --content-top: 214px;
+      --content-height: 716px;
+      --ease: cubic-bezier(.16,1,.3,1);
+      --radius-sm: 8px;
+      --radius-md: 16px;
+      --radius-lg: 24px;
+      --space-1: 6px;
+      --space-2: 12px;
+      --space-3: 18px;
+      --space-4: 24px;
+    }
+    * { box-sizing: border-box; }
+
+    /* ===========================================
+       FIXED 16:9 STAGE: full viewport-base.css
+       =========================================== */
+    html,
+    body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: var(--stage-bg, #000);
+    }
+    .deck-viewport {
+        position: fixed;
+        inset: 0;
+        overflow: hidden;
+        background: var(--stage-bg, #000);
+    }
+    .deck-stage {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        transform-origin: 0 0;
+        background: var(--slide-bg, #fff);
+    }
+    .slide {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        display: block;
+        visibility: hidden;
+        opacity: 0;
+        pointer-events: none;
+        background: var(--slide-bg, #fff);
+    }
+    .slide.active,
+    .slide.visible {
+        visibility: visible;
+        opacity: 1;
+        pointer-events: auto;
+        z-index: 1;
+    }
+    img,
+    video,
+    canvas,
+    svg {
+        max-width: 100%;
+        max-height: 100%;
+    }
+    .deck-controls {
+        position: fixed;
+        left: 50%;
+        bottom: 22px;
+        transform: translateX(-50%);
+        z-index: 1000;
+    }
+    @media print {
+        html,
+        body {
+            width: 1920px;
+            height: auto;
+            overflow: visible;
+            background: #fff;
+        }
+        .deck-viewport {
+            position: static;
+            overflow: visible;
+            background: #fff;
+        }
+        .deck-stage {
+            position: static;
+            width: auto;
+            height: auto;
+            transform: none !important;
+            background: none;
+        }
+        .slide {
+            position: relative;
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+            width: 1920px;
+            height: 1080px;
+            break-after: page;
+            page-break-after: always;
+        }
+        .slide:last-child {
+            break-after: auto;
+            page-break-after: auto;
+        }
+        .deck-controls { display: none !important; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+        }
+    }
+
+    /* ===========================================
+       BASE TYPOGRAPHY AND CONTENT FRAME
+       =========================================== */
+    body {
+      font-family: var(--font);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    button { font: inherit; }
+    h1, h2, h3, p, li, th, td, figcaption {
+      line-break: strict;
+      overflow-wrap: break-word;
+      word-break: normal;
+      text-wrap: pretty;
+    }
+    h1, h2, h3 { text-wrap: balance; }
+    a { color: var(--accent-strong); text-decoration-thickness: 2px; text-underline-offset: 4px; }
+    code { font-family: var(--mono); background: #F1F0F5; padding: .08em .26em; border-radius: 5px; }
+    .content-slide {
+      background:
+        linear-gradient(90deg, rgba(111,96,229,.055) 1px, transparent 1px),
+        linear-gradient(rgba(111,96,229,.04) 1px, transparent 1px),
+        #fff;
+      background-size: 96px 96px;
+    }
+    .content-slide::before {
+      content: "";
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 14px;
+      background: linear-gradient(90deg, var(--accent) 0 35%, rgba(111,96,229,.12) 35% 100%);
+    }
+    .slide-header {
+      position: absolute;
+      top: 66px;
+      left: 110px;
+      right: 110px;
+      height: 118px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: flex-start;
+      text-align: left;
+      overflow: hidden;
+    }
+    .slide-header h1 {
+      margin: 0;
+      max-width: 1540px;
+      font-size: 54px;
+      line-height: 1.15;
+      font-weight: 700;
+      letter-spacing: -.02em;
+    }
+    .slide-header .subtitle {
+      margin: 6px 0 0;
+      max-width: 1540px;
+      color: var(--muted);
+      font-size: 34px;
+      line-height: 1.18;
+      font-weight: 500;
+    }
+    .content {
+      position: absolute;
+      left: 110px;
+      right: 110px;
+      top: var(--content-top);
+      height: var(--content-height);
+      max-height: var(--content-height);
+      overflow: hidden;
+    }
+    .content > * { min-width: 0; min-height: 0; max-height: 100%; }
+    .section-footer {
+      position: absolute;
+      left: 110px;
+      right: 110px;
+      bottom: 34px;
+      height: 54px;
+      display: grid;
+      grid-template-columns: repeat(var(--section-count), minmax(0, 1fr));
+      border-top: 2px solid #C9C8CF;
+      z-index: 4;
+    }
+    .section-footer span {
+      position: relative;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding: 0 10px 2px;
+      color: #9998A1;
+      font-size: 22px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .section-footer span.active { color: var(--accent); font-weight: 700; }
+    .section-footer span.active::before {
+      content: "";
+      position: absolute;
+      top: -3px;
+      left: 0;
+      right: 0;
+      height: 5px;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+
+    /* ===========================================
+       COVER AND SECTION PLACEHOLDERS
+       No reference-deck imagery is bundled into the template.
+       =========================================== */
+    .cover-slide, .section-slide {
+      background:
+        radial-gradient(circle at 0 100%, rgba(111,96,229,.16), transparent 38%),
+        linear-gradient(135deg, #FBFAFF, #FFFFFF 58%, #F2F0FF);
+    }
+    .hero-shell {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr);
+      gap: 72px;
+      align-items: center;
+      padding: 104px 110px;
+    }
+    .hero-copy { min-width: 0; }
+    .hero-kicker {
+      margin: 0 0 30px;
+      color: var(--accent);
+      font-size: 25px;
+      line-height: 1.2;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .hero-copy h1 {
+      margin: 0;
+      font-size: 82px;
+      line-height: 1.08;
+      letter-spacing: -.035em;
+    }
+    .hero-subtitle {
+      margin: 30px 0 0;
+      color: var(--muted);
+      font-size: 38px;
+      line-height: 1.34;
+    }
+    .hero-meta { margin: 54px 0 0; color: var(--muted); font-size: 26px; }
+    .section-slide .hero-copy h1 { font-size: 74px; }
+    .hero-visual { height: 760px; min-width: 0; min-height: 0; }
+    .hero-layout-hero-reverse .hero-copy { order: 2; }
+    .hero-layout-hero-reverse .hero-visual { order: 1; }
+    .hero-layout-hero-full { grid-template-columns: minmax(0, 1fr); }
+    .hero-layout-hero-full .hero-visual {
+      position: absolute;
+      inset: 54px;
+      height: auto;
+      opacity: .25;
+    }
+    .hero-layout-hero-full .hero-copy {
+      position: relative;
+      z-index: 2;
+      width: 1120px;
+      padding: 70px;
+      border-radius: var(--radius-lg);
+      background: rgba(255,255,255,.86);
+      backdrop-filter: blur(12px);
+    }
+    .visual-placeholder {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 3px dashed rgba(111,96,229,.35);
+      border-radius: var(--radius-lg);
+      background:
+        linear-gradient(135deg, rgba(111,96,229,.09), rgba(255,255,255,.5)),
+        repeating-linear-gradient(135deg, transparent 0 26px, rgba(111,96,229,.035) 26px 52px);
+    }
+    .placeholder-mark {
+      width: 124px;
+      height: 98px;
+      border: 5px solid rgba(111,96,229,.34);
+      border-radius: 16px;
+      transform: translateY(-45px);
+    }
+    .placeholder-mark::before {
+      content: "";
+      position: absolute;
+      width: 23px;
+      height: 23px;
+      margin: 16px;
+      border-radius: 50%;
+      background: rgba(111,96,229,.34);
+    }
+    .visual-placeholder figcaption {
+      position: absolute;
+      left: 30px;
+      right: 30px;
+      bottom: 54px;
+      text-align: center;
+      color: var(--accent-strong);
+      font-size: 28px;
+      font-weight: 700;
+    }
+    .visual-placeholder figcaption small {
+      display: block;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 21px;
+      font-weight: 500;
+    }
+
+    /* ===========================================
+       REUSABLE CARDS, TABLES AND COPY
+       =========================================== */
+    .card {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      overflow: hidden;
+      border: 2px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: rgba(255,255,255,.97);
+    }
+    .soft { border-color: var(--accent-line); background: rgba(240,238,255,.96); }
+    .text-card { padding: 28px 32px; }
+    .text-card h3 { margin: 0 0 14px; color: var(--accent-strong); font-size: 34px; line-height: 1.2; }
+    .text-card p { margin: 0; font-size: 29px; line-height: 1.46; }
+    .text-card p + p { margin-top: 12px; }
+    .text-card ul, .text-card ol { margin: 0; padding-left: 1.25em; font-size: 28px; line-height: 1.42; }
+    .text-card li + li { margin-top: 8px; }
+    .callout-card { border-left: 8px solid var(--accent); }
+    .callout-card > strong { display: block; margin-bottom: 10px; color: var(--accent-strong); font-size: 32px; line-height: 1.2; }
+    .callout-card p { font-size: 28px; }
+    .code-card { padding: 24px 28px; }
+    .code-label { display: block; margin-bottom: 12px; color: var(--accent-strong); font-size: 27px; line-height: 1.2; font-weight: 700; }
+    .code-card pre { margin: 0; white-space: pre-wrap; }
+    .code-card code { padding: 0; background: transparent; font-size: 23px; line-height: 1.4; }
+    .table-card { width: 100%; max-height: 100%; }
+    .data-table { width: 100%; table-layout: auto; border-collapse: separate; border-spacing: 0; background: #fff; }
+    .data-table th, .data-table td {
+      padding: 16px 18px;
+      border-right: 2px solid var(--line);
+      border-bottom: 2px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+      font-size: 25px;
+      line-height: 1.32;
+      overflow-wrap: break-word;
+    }
+    .data-table th { color: var(--accent-strong); background: var(--accent-soft); font-size: 26px; font-weight: 700; }
+    .data-table[data-rows="1"] th, .data-table[data-rows="1"] td,
+    .data-table[data-rows="2"] th, .data-table[data-rows="2"] td,
+    .data-table[data-rows="3"] th, .data-table[data-rows="3"] td,
+    .data-table[data-rows="4"] th, .data-table[data-rows="4"] td,
+    .data-table[data-rows="5"] th, .data-table[data-rows="5"] td {
+      padding-top: 20px;
+      padding-bottom: 20px;
+      font-size: 28px;
+    }
+    .data-table[data-rows="1"] th,
+    .data-table[data-rows="2"] th,
+    .data-table[data-rows="3"] th,
+    .data-table[data-rows="4"] th,
+    .data-table[data-rows="5"] th { font-size: 31px; }
+    .data-table tr > *:last-child { border-right: 0; }
+    .data-table tr:last-child > * { border-bottom: 0; }
+    .data-table code { white-space: normal; overflow-wrap: normal; }
+
+    /* ===========================================
+       TEXT DENSITY LAYOUTS
+       =========================================== */
+    .text-grid {
+      display: grid;
+      width: 100%;
+      height: 100%;
+      gap: var(--space-3);
+      align-content: center;
+      overflow: hidden;
+    }
+    .text-grid.count-1 { grid-template-columns: minmax(0, 1fr); }
+    .text-grid.count-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .text-grid.count-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .text-grid.count-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .text-grid.count-5, .text-grid.count-6, .text-grid.count-7 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .text-grid.focus-grid .card { padding: 54px 64px; }
+    .text-grid.focus-grid .text-card p { font-size: 38px; line-height: 1.45; }
+    .text-grid.focus-grid .text-card h3 { font-size: 44px; }
+    .density-speaking .text-card p,
+    .density-speaking .text-card ul,
+    .density-speaking .text-card ol { font-size: 32px; }
+    .density-speaking .text-card h3 { font-size: 38px; }
+    .table-layout {
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .table-layout > .table-card:only-child { max-height: 100%; }
+
+    /* ===========================================
+       SHAPE-AWARE MEDIA LAYOUTS
+       =========================================== */
+    .media-figure {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      background: rgba(255,255,255,.98);
+    }
+    .media-figure > [data-visual-content] {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .media-figure img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-position: center;
+    }
+    .media-figure figcaption,
+    .chart-card figcaption {
+      position: absolute;
+      right: 14px;
+      bottom: 12px;
+      z-index: 8;
+      max-width: 78%;
+      padding: 6px 13px;
+      border: 1px solid rgba(17,17,17,.12);
+      border-radius: 999px;
+      background: rgba(255,255,255,.94);
+      color: var(--muted);
+      font-size: 21px;
+      line-height: 1.2;
+    }
+    .split-layout {
+      display: grid;
+      grid-template-columns: 700px minmax(0, 1fr);
+      gap: 28px;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    .split-layout.portrait { grid-template-columns: 560px minmax(0, 1fr); }
+    .split-layout.landscape { grid-template-columns: 820px minmax(0, 1fr); }
+    .split-layout.media-right { grid-template-columns: minmax(0, 1fr) 700px; }
+    .split-layout.media-right .split-media { order: 2; }
+    .split-layout.media-right .split-copy { order: 1; }
+    .split-media { min-width: 0; min-height: 0; height: 100%; }
+    .split-copy, .gallery-copy, .chart-copy, .wide-copy {
+      display: grid;
+      gap: var(--space-3);
+      min-width: 0;
+      min-height: 0;
+      height: 100%;
+      align-content: center;
+      overflow: hidden;
+    }
+    .split-copy .text-card { padding: 26px 30px; }
+    .split-copy .text-card p, .split-copy .text-card ul, .split-copy .text-card ol { font-size: 28px; }
+    .wide-media-layout {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+      gap: var(--space-3);
+      height: 100%;
+      overflow: hidden;
+    }
+    .wide-media-stage { min-width: 0; min-height: 0; }
+    .wide-copy { height: auto; max-height: 124px; }
+    .wide-copy .card { padding: 18px 26px; }
+    .wide-copy .text-card h3 { display: none; }
+    .wide-copy .text-card p { font-size: 27px; line-height: 1.38; }
+    .wide-copy .text-card ul, .wide-copy .text-card ol { font-size: 25px; line-height: 1.32; }
+    .gallery-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(420px, .65fr);
+      gap: 24px;
+      height: 100%;
+      overflow: hidden;
+    }
+    .gallery-layout.gallery-only { grid-template-columns: minmax(0, 1fr); }
+    .gallery-stage { min-width: 0; min-height: 0; height: 100%; }
+    .media-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; width: 100%; height: 100%; }
+    .media-tabs { position: relative; width: 100%; height: 100%; }
+    .media-tabs > .media-figure { position: absolute; inset: 0; visibility: hidden; opacity: 0; pointer-events: none; }
+    .media-tabs > .media-figure.active { visibility: visible; opacity: 1; pointer-events: auto; }
+    .media-tab-list {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      z-index: 24;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 6px;
+      padding: 5px;
+      border: 1px solid rgba(17,17,17,.16);
+      border-radius: 999px;
+      background: rgba(255,255,255,.94);
+      box-shadow: 0 4px 18px rgba(0,0,0,.12);
+    }
+    .media-tab-list button {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border: 0;
+      border-radius: 50%;
+      background: transparent;
+      color: var(--muted);
+      font-size: 20px;
+      cursor: pointer;
+    }
+    .media-tab-list button.active { color: #fff; background: var(--accent); font-weight: 700; }
+
+    /* ===========================================
+       CHART LAYOUT
+       =========================================== */
+    .chart-layout {
+      display: grid;
+      grid-template-rows: minmax(0, 1fr) auto;
+      gap: 18px;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    .chart-stage { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; min-height: 0; }
+    .chart-stage > .chart-card:only-child { grid-column: 1 / -1; }
+    .chart-card { position: relative; width: 100%; height: 100%; margin: 0; }
+    .chart-content { position: absolute !important; inset: 0; display: grid; place-items: center; }
+    .chart-svg { display: block; width: 100%; height: 100%; }
+    .chart-copy { height: auto; max-height: 130px; }
+    .chart-copy .card { padding: 18px 26px; }
+    .chart-copy .text-card p, .chart-copy .text-card ul { font-size: 26px; }
+
+    /* ===========================================
+       STANDARD VISUAL WIDGET
+       Reused from the reference deck for images, charts and tables.
+       =========================================== */
+    [data-visual-widget] { position: relative; touch-action: none; cursor: default; outline: none; isolation: isolate; }
+    [data-visual-widget]:focus-visible { outline: 4px solid rgba(111,96,229,.7); outline-offset: 3px; }
+    [data-visual-widget].is-zoomed:not(.is-annotating), [data-visual-widget].is-space-pan { cursor: grab; }
+    [data-visual-widget].is-panning { cursor: grabbing; }
+    [data-visual-widget].is-annotating:not(.is-space-pan) { cursor: crosshair; }
+    [data-visual-widget].is-disabled { cursor: text; }
+    [data-visual-widget] [data-visual-content] { transform-origin: center center; will-change: transform; transition: transform .12s ease; }
+    [data-visual-widget="table"] > [data-visual-content] { width: 100%; min-width: 0; }
+    [data-visual-widget].is-panning [data-visual-content], [data-visual-widget].is-drawing [data-visual-content] { transition: none; }
+    [data-visual-widget] [data-visual-content] > img { user-select: none; pointer-events: none; }
+    .visual-annotation-layer { position: absolute; inset: 0; z-index: 6; overflow: hidden; pointer-events: none; }
+    .visual-annotation {
+      position: absolute;
+      border: 3px solid #FF3B30;
+      border-radius: 4px;
+      background: rgba(255,59,48,.13);
+      box-shadow: 0 0 0 1px rgba(255,255,255,.72);
+      pointer-events: none;
+    }
+    .visual-widget-tools {
+      position: absolute;
+      left: 12px;
+      bottom: 12px;
+      z-index: 20;
+      display: flex;
+      gap: 6px;
+      padding: 5px;
+      border-radius: 999px;
+      background: rgba(17,17,17,.82);
+      box-shadow: 0 4px 18px rgba(0,0,0,.22);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .18s ease;
+    }
+    [data-visual-widget]:hover > .visual-widget-tools,
+    [data-visual-widget]:focus-within > .visual-widget-tools,
+    [data-visual-widget].is-annotating > .visual-widget-tools,
+    [data-visual-widget].is-fullscreen > .visual-widget-tools { opacity: 1; pointer-events: auto; }
+    .visual-widget-tools button, .visual-widget-close {
+      min-width: 36px;
+      height: 36px;
+      padding: 0 9px;
+      border: 0;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      background: rgba(255,255,255,.14);
+      color: #fff;
+      font-size: 20px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .visual-widget-tools button:hover,
+    .visual-widget-tools button:focus-visible,
+    .visual-widget-tools button[aria-pressed="true"],
+    .visual-widget-close:hover,
+    .visual-widget-close:focus-visible { background: var(--accent); outline: none; }
+    .visual-widget-close {
+      position: absolute;
+      right: 22px;
+      top: 22px;
+      z-index: 22;
+      width: 46px;
+      height: 46px;
+      display: none;
+      background: rgba(17,17,17,.82);
+      font-size: 28px;
+    }
+    .visual-widget-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    .visual-widget-overlay { position: fixed; inset: 0; z-index: 20000; display: grid; place-items: center; overflow: hidden; background: #111; }
+    .visual-widget-overlay[hidden] { display: none; }
+    [data-visual-widget]:fullscreen,
+    [data-visual-widget]:-webkit-full-screen,
+    [data-visual-widget].is-fallback-fullscreen {
+      width: 100vw !important;
+      height: 100vh !important;
+      max-width: none !important;
+      max-height: none !important;
+      margin: 0 !important;
+      padding: 32px !important;
+      border: 0 !important;
+      border-radius: 0 !important;
+      display: flex !important;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden !important;
+      background: #111 !important;
+    }
+    [data-visual-widget]:fullscreen::backdrop { background: #111; }
+    [data-visual-widget].is-fullscreen > .visual-widget-close { display: grid; }
+    [data-visual-widget].is-fullscreen > .visual-widget-tools { left: 24px; bottom: 24px; }
+    [data-visual-widget="image"].is-fullscreen > [data-visual-content] { inset: 32px; width: auto; height: auto; }
+    [data-visual-widget="table"].is-fullscreen > [data-visual-content] { width: calc(100% - 64px); max-height: calc(100% - 64px); }
+    [data-visual-widget="table"].is-fullscreen .data-table { background: #fff; }
+
+    /* ===========================================
+       MOTION, CONTROLS AND DEBUGGING
+       =========================================== */
+    .reveal {
+      opacity: 0;
+      transform: translateY(18px);
+      transition: opacity .42s var(--ease), transform .42s var(--ease);
+      transition-delay: var(--reveal-delay, 0ms);
+    }
+    .slide.visible .reveal { opacity: 1; transform: translateY(0); }
+    .slide.diagnostic-layout .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+    .slide[data-editor-typography="true"] :is(.text-card p, .text-card li, .code-card code, .data-table td) {
+      line-height: var(--editor-body-line-height) !important;
+      color: var(--editor-body-color) !important;
+      font-weight: var(--editor-body-weight) !important;
+    }
+    .control-hotzone { position: fixed; left: 0; top: 0; width: 92px; height: 92px; z-index: 10000; }
+    .deck-controls {
+      left: 18px;
+      top: 18px;
+      bottom: auto;
+      transform: none;
+      display: flex;
+      gap: 10px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .2s ease;
+    }
+    .deck-controls.show, .deck-controls.active, .deck-controls:focus-within { opacity: 1; pointer-events: auto; }
+    .deck-controls button {
+      width: 46px;
+      height: 46px;
+      border: 1px solid rgba(255,255,255,.32);
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: rgba(17,17,17,.82);
+      color: #fff;
+      font-size: 22px;
+      cursor: pointer;
+    }
+    .deck-controls button:hover, .deck-controls button.active { background: var(--accent); }
+    .deck-controls button:focus-visible,
+    .layout-editor-panel :is(button, input, select):focus-visible {
+      outline: 3px solid #fff;
+      outline-offset: 3px;
+    }
+    .deck-status {
+      position: fixed;
+      right: 18px;
+      top: 18px;
+      z-index: 1000;
+      padding: 8px 14px;
+      border-radius: 999px;
+      color: #fff;
+      background: rgba(17,17,17,.72);
+      font-size: 14px;
+      opacity: .25;
+      pointer-events: none;
+    }
+    [contenteditable="true"] { outline: 3px dashed rgba(111,96,229,.48); outline-offset: 3px; }
+    html[data-debug="true"] [data-overflow="true"] { outline: 6px solid #FF3B30 !important; outline-offset: -6px; }
+
+    /* ===========================================
+       LAYOUT EDITOR — outside-stage controls + authored-pixel guides
+       =========================================== */
+    .layout-editor-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 15000;
+      width: min(390px, 100vw);
+      display: flex;
+      flex-direction: column;
+      color: #F7F6FB;
+      background: #17161D;
+      border-left: 1px solid rgba(255,255,255,.12);
+      box-shadow: -18px 0 54px rgba(0,0,0,.32);
+      transform: translateX(105%);
+      transition: transform .24s var(--ease);
+      font-size: 14px;
+    }
+    body.editor-open .layout-editor-panel { transform: translateX(0); }
+    .layout-editor-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 22px 22px 18px;
+      border-bottom: 1px solid rgba(255,255,255,.12);
+    }
+    .layout-editor-header strong { display: block; font-size: 19px; line-height: 1.25; }
+    .layout-editor-header small { display: block; margin-top: 5px; color: rgba(255,255,255,.58); font-size: 12px; }
+    .layout-editor-close {
+      width: 34px;
+      height: 34px;
+      flex: 0 0 auto;
+      border: 0;
+      border-radius: 50%;
+      color: #fff;
+      background: rgba(255,255,255,.1);
+      cursor: pointer;
+    }
+    .layout-editor-body { flex: 1; overflow: auto; padding: 18px 22px 26px; }
+    .editor-group { padding: 0 0 20px; margin: 0 0 20px; border-bottom: 1px solid rgba(255,255,255,.1); }
+    .editor-group:last-child { border-bottom: 0; }
+    .editor-label {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+      color: rgba(255,255,255,.76);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .editor-help { margin: 8px 0 0; color: rgba(255,255,255,.5); font-size: 12px; line-height: 1.45; }
+    .editor-select,
+    .editor-number,
+    .editor-color {
+      width: 100%;
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 10px;
+      color: #fff;
+      background: rgba(255,255,255,.075);
+      outline: none;
+    }
+    .editor-select { height: 42px; padding: 0 12px; }
+    .editor-number { height: 38px; padding: 0 9px; font-variant-numeric: tabular-nums; }
+    .editor-color { height: 38px; padding: 4px; cursor: pointer; }
+    .editor-select:focus, .editor-number:focus, .editor-color:focus { border-color: #9B8EFF; box-shadow: 0 0 0 3px rgba(111,96,229,.24); }
+    .editor-region-tabs { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 7px; }
+    .editor-region-tab,
+    .editor-button {
+      min-height: 38px;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 10px;
+      color: rgba(255,255,255,.78);
+      background: rgba(255,255,255,.07);
+      cursor: pointer;
+    }
+    .editor-region-tab.active { color: #fff; border-color: #9B8EFF; background: rgba(111,96,229,.34); }
+    .editor-region-tab[data-region="content"]::before { content: ""; border-color: #9B8EFF; }
+    .editor-region-tab[data-region="visual"]::before { content: ""; border-color: #56B4FF; }
+    .editor-region-tab[data-region="copy"]::before { content: ""; border-color: #FFB454; }
+    .editor-region-tab::before {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      margin-right: 6px;
+      border: 2px solid;
+      border-radius: 2px;
+    }
+    .editor-coordinate-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px; margin-top: 12px; }
+    .editor-coordinate-grid label { color: rgba(255,255,255,.56); font-size: 11px; }
+    .editor-coordinate-grid span { display: block; margin-bottom: 5px; }
+    .editor-button-row { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; margin-top: 10px; }
+    .editor-button { padding: 8px 10px; font-weight: 600; }
+    .editor-button:hover { color: #fff; border-color: rgba(255,255,255,.3); background: rgba(255,255,255,.12); }
+    .editor-button.primary { color: #fff; border-color: #806FF0; background: #6F60E5; }
+    .editor-button.primary:hover { background: #8173E8; }
+    .editor-button.danger { color: #FFB4AE; }
+    .editor-toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .editor-toggle-row button[aria-pressed="true"] { color: #fff; border-color: #806FF0; background: rgba(111,96,229,.38); }
+    .editor-order-list {
+      min-height: 40px;
+      margin: 12px 0 0;
+      padding: 10px 12px 10px 34px;
+      border-radius: 10px;
+      color: rgba(255,255,255,.78);
+      background: rgba(255,255,255,.055);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .editor-order-list:empty { display: none; }
+    .editor-status {
+      min-height: 38px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      color: #CFC9FF;
+      background: rgba(111,96,229,.16);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+    .editor-status.warning { color: #FFD2A6; background: rgba(214,112,32,.2); }
+    .layout-editor-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 120;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    body.editor-open .slide.active .layout-editor-overlay { visibility: visible; pointer-events: auto; }
+    body.editor-text-mode .slide.active .layout-editor-overlay { pointer-events: none; opacity: .35; }
+    body.editor-animation-mode .slide.active .layout-editor-overlay { visibility: hidden; pointer-events: none; }
+    .layout-region-box {
+      position: absolute;
+      border: 3px solid var(--region-color);
+      border-radius: 8px;
+      background: rgba(111,96,229,.08);
+      box-shadow: 0 0 0 1px rgba(255,255,255,.82), 0 10px 28px rgba(0,0,0,.12);
+      cursor: move;
+      user-select: none;
+      touch-action: none;
+    }
+    .layout-region-box[data-region="content"] { --region-color: #7B68EE; border-style: dashed; }
+    .layout-region-box[data-region="visual"] { --region-color: #168FE8; background: rgba(22,143,232,.08); }
+    .layout-region-box[data-region="copy"] { --region-color: #E98518; background: rgba(233,133,24,.08); }
+    .layout-region-box.active { border-width: 5px; z-index: 4; }
+    .layout-region-label {
+      position: absolute;
+      left: 8px;
+      top: 8px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      color: #fff;
+      background: var(--region-color);
+      font-size: 20px;
+      line-height: 1;
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
+    .layout-region-handle {
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      border: 3px solid #fff;
+      border-radius: 50%;
+      background: var(--region-color);
+      box-shadow: 0 2px 7px rgba(0,0,0,.22);
+    }
+    .layout-region-handle[data-handle="nw"] { left: -10px; top: -10px; cursor: nwse-resize; }
+    .layout-region-handle[data-handle="ne"] { right: -10px; top: -10px; cursor: nesw-resize; }
+    .layout-region-handle[data-handle="sw"] { left: -10px; bottom: -10px; cursor: nesw-resize; }
+    .layout-region-handle[data-handle="se"] { right: -10px; bottom: -10px; cursor: nwse-resize; }
+    .layout-region-box:not(.active) .layout-region-handle { display: none; }
+    .editor-live-visual-placeholder {
+      position: absolute;
+      z-index: 1;
+      border-color: rgba(22,143,232,.46);
+      background:
+        linear-gradient(135deg, rgba(22,143,232,.09), rgba(255,255,255,.78)),
+        repeating-linear-gradient(135deg, transparent 0 26px, rgba(22,143,232,.04) 26px 52px);
+    }
+    .editor-live-visual-placeholder figcaption { color: #0B6EB8; }
+    .animation-editor-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 132;
+      visibility: hidden;
+      pointer-events: none;
+    }
+    body.editor-animation-mode .slide.active .animation-editor-overlay { visibility: visible; pointer-events: auto; }
+    .animation-order-box {
+      position: absolute;
+      padding: 0;
+      border: 4px solid #19A974;
+      border-radius: 12px;
+      color: #fff;
+      background: rgba(25,169,116,.08);
+      box-shadow: 0 0 0 1px rgba(255,255,255,.9), 0 10px 30px rgba(0,0,0,.14);
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .animation-order-box.marked { border-color: #6F60E5; background: rgba(111,96,229,.12); }
+    .animation-order-badge {
+      position: absolute;
+      left: 10px;
+      top: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      max-width: calc(100% - 20px);
+      padding: 6px 11px;
+      border-radius: 999px;
+      color: #fff;
+      background: #15805B;
+      font-size: 20px;
+      line-height: 1;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .animation-order-box.marked .animation-order-badge { background: #5B4BD1; }
+    .editor-toast {
+      position: fixed;
+      left: 50%;
+      bottom: 32px;
+      z-index: 16000;
+      transform: translate(-50%, 20px);
+      padding: 11px 16px;
+      border-radius: 999px;
+      color: #fff;
+      background: rgba(17,17,17,.9);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .18s ease, transform .18s ease;
+      font-size: 13px;
+    }
+    .editor-toast.show { opacity: 1; transform: translate(-50%, 0); }
+    body.editor-open .deck-status { right: 408px; }
+    body.editor-open .deck-controls { opacity: 1; pointer-events: auto; }
+    @media (hover: none) {
+      .control-hotzone { display: none; }
+      .deck-controls { opacity: .82; pointer-events: auto; }
+      .deck-controls button { width: 44px; height: 44px; }
+    }
+    @media print {
+      .visual-widget-tools, .visual-widget-close, .visual-annotation-layer, .visual-widget-overlay,
+      .deck-status, .layout-editor-panel, .layout-editor-overlay, .animation-editor-overlay, .editor-toast { display: none !important; }
+      [data-visual-content] { transform: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="deck-viewport">
+    <main class="deck-stage" id="deckStage" aria-label="{{DECK_TITLE_ATTR}}">
+{{SLIDES}}
+    </main>
+  </div>
+  <div class="control-hotzone" aria-hidden="true"></div>
+  <nav class="deck-controls" aria-label="演示控制">
+    <button id="prev" aria-label="上一页" title="上一页">‹</button>
+    <button id="next" aria-label="下一页" title="下一页">›</button>
+    <button id="edit" aria-label="打开页面编辑器" aria-controls="layoutEditorPanel" aria-expanded="false" title="页面编辑器（E）">✦</button>
+    <button id="save" aria-label="下载 HTML" title="下载 HTML">⇩</button>
+  </nav>
+  <div class="deck-status" aria-live="polite"><span id="currentPage">1</span> / {{SLIDE_COUNT}}</div>
+  <aside class="layout-editor-panel" id="layoutEditorPanel" role="dialog" aria-modal="false" aria-label="页面布局编辑器" aria-hidden="true" inert>
+    <header class="layout-editor-header">
+      <div><strong>页面编辑器</strong><small id="editorPageName">当前页</small></div>
+      <button type="button" class="layout-editor-close" id="editorClose" aria-label="关闭页面编辑器">×</button>
+    </header>
+    <div class="layout-editor-body">
+      <section class="editor-group">
+        <label class="editor-label" for="editorLayout">布局类型 <span id="editorLayoutSource">自动</span></label>
+        <select class="editor-select" id="editorLayout"></select>
+        <p class="editor-help">选择布局后会生成一组稳健的默认区域；再用画面中的矩形框微调。</p>
+      </section>
+      <section class="editor-group">
+        <div class="editor-label">编辑区域 <span>1920×1080 px</span></div>
+        <div class="editor-region-tabs" role="tablist" aria-label="选择要调整的区域">
+          <button type="button" role="tab" aria-selected="true" class="editor-region-tab active" data-region="content">内容</button>
+          <button type="button" role="tab" aria-selected="false" class="editor-region-tab" data-region="visual">图像</button>
+          <button type="button" role="tab" aria-selected="false" class="editor-region-tab" data-region="copy">文字</button>
+        </div>
+        <div class="editor-coordinate-grid">
+          <label><span>X</span><input class="editor-number" id="editorRegionX" type="number" min="0" max="1920" step="1"></label>
+          <label><span>Y</span><input class="editor-number" id="editorRegionY" type="number" min="0" max="1080" step="1"></label>
+          <label><span>宽度</span><input class="editor-number" id="editorRegionWidth" type="number" min="48" max="1920" step="1"></label>
+          <label><span>高度</span><input class="editor-number" id="editorRegionHeight" type="number" min="48" max="1080" step="1"></label>
+        </div>
+        <div class="editor-button-row">
+          <button type="button" class="editor-button" id="editorResetRegion">重置此区域</button>
+          <button type="button" class="editor-button" id="editorApplyPreset">重套布局预设</button>
+        </div>
+        <p class="editor-help">拖动矩形框调整位置；拖动四角圆点改变尺寸。调整“内容”时，图像和文字区域会等比跟随。</p>
+      </section>
+      <section class="editor-group">
+        <div class="editor-toggle-row">
+          <div><div class="editor-label">文字内容</div><p class="editor-help">开启后直接点击标题或正文修改。</p></div>
+          <button type="button" class="editor-button" id="editorTextMode" aria-pressed="false">文字编辑</button>
+        </div>
+      </section>
+      <section class="editor-group">
+        <div class="editor-label">正文排版 <span>当前页</span></div>
+        <div class="editor-coordinate-grid">
+          <label><span>行间距</span><input class="editor-number" id="editorBodyLineHeight" type="number" min="1.1" max="1.8" step="0.05" value="1.46"></label>
+          <label><span>字体颜色</span><input class="editor-color" id="editorBodyColor" type="color" value="#111111"></label>
+        </div>
+        <div class="editor-button-row">
+          <button type="button" class="editor-button" id="editorBodyBold" aria-pressed="false">正文加粗</button>
+          <button type="button" class="editor-button" id="editorResetTypography">恢复正文排版</button>
+        </div>
+        <p class="editor-help">只影响正文、列表、代码正文和表格数据，不改变页面标题与块标题层级。</p>
+      </section>
+      <section class="editor-group">
+        <div class="editor-label">内容显示动画 <span id="editorAnimationSource">默认顺序</span></div>
+        <div class="editor-button-row">
+          <button type="button" class="editor-button primary" id="editorAnimationMode" aria-pressed="false">点击容器编排</button>
+          <button type="button" class="editor-button" id="editorPreviewAnimation">预览动画</button>
+        </div>
+        <button type="button" class="editor-button" id="editorResetAnimation" style="width:100%;margin-top:8px">使用默认生成顺序</button>
+        <ol class="editor-order-list" id="editorAnimationOrder" aria-label="自定义内容显示顺序"></ol>
+        <p class="editor-help">进入编排后，按希望出现的顺序点击页面容器；再次点击可取消标记。未标记内容会按默认顺序追加。</p>
+      </section>
+      <section class="editor-group">
+        <div class="editor-label">交给生成器</div>
+        <div class="editor-button-row">
+          <button type="button" class="editor-button primary" id="editorExport">导出布局 JSON</button>
+          <button type="button" class="editor-button" id="editorImport">导入布局 JSON</button>
+        </div>
+        <input id="editorImportFile" type="file" accept="application/json,.json" hidden>
+        <div class="editor-button-row">
+          <button type="button" class="editor-button" id="editorCopyCommand">复制构建命令</button>
+          <button type="button" class="editor-button" id="editorDownloadHtml">下载当前 HTML</button>
+        </div>
+        <p class="editor-help">导出的 `{{OVERRIDES_FILENAME}}` 可由构建器直接读取，页面重建后仍能还原布局。</p>
+      </section>
+      <section class="editor-group">
+        <div class="editor-button-row">
+          <button type="button" class="editor-button danger" id="editorResetPage">重置当前页</button>
+          <button type="button" class="editor-button danger" id="editorResetDeck">清除全部布局</button>
+        </div>
+      </section>
+      <div class="editor-status" id="editorStatus" role="status">布局会自动保存在本机。</div>
+    </div>
+  </aside>
+  <div class="editor-toast" id="editorToast" role="status"></div>
+  <script id="deckEditorConfig" type="application/json">{{EDITOR_CONFIG}}</script>
+  <script>
+    /* ===========================================
+       STANDARD IMAGE / CHART / TABLE VIEWER
+       =========================================== */
+    class SlideVisualWidget {
+      constructor(root, manager) {
+        this.root = root;
+        this.manager = manager;
+        this.kind = root.dataset.visualWidget || "image";
+        this.scale = 1;
+        this.x = 0;
+        this.y = 0;
+        this.pointerId = null;
+        this.pointerMode = null;
+        this.isAnnotating = false;
+        this.isFullscreen = false;
+        this.placeholder = null;
+        this.ensureStructure();
+        this.bind();
+        this.applyTransform();
+      }
+      ensureStructure() {
+        this.root.classList.add("visual-widget");
+        this.root.tabIndex = this.root.tabIndex >= 0 ? this.root.tabIndex : 0;
+        this.root.setAttribute("role", "group");
+        if (!this.root.hasAttribute("aria-label")) this.root.setAttribute("aria-label", `${this.kind === "table" ? "表格" : "图像"}查看器：支持缩放、全屏与标注`);
+        this.content = this.root.querySelector(":scope > [data-visual-content]");
+        if (!this.content) return;
+        this.annotationLayer = document.createElement("div");
+        this.annotationLayer.className = "visual-annotation-layer";
+        this.annotationLayer.setAttribute("aria-hidden", "true");
+        this.content.appendChild(this.annotationLayer);
+        this.tools = document.createElement("div");
+        this.tools.className = "visual-widget-tools";
+        this.tools.setAttribute("aria-label", "图表查看工具");
+        this.tools.innerHTML = `
+          <button type="button" data-action="zoom-out" aria-label="缩小">−</button>
+          <button type="button" data-action="reset" aria-label="重置">1:1</button>
+          <button type="button" data-action="zoom-in" aria-label="放大">＋</button>
+          <button type="button" data-action="fullscreen" aria-label="全屏" aria-keyshortcuts="F">⛶</button>
+          <button type="button" data-action="annotate" aria-label="标注" aria-keyshortcuts="A" aria-pressed="false">▣</button>`;
+        this.root.appendChild(this.tools);
+        this.closeButton = document.createElement("button");
+        this.closeButton.type = "button";
+        this.closeButton.className = "visual-widget-close";
+        this.closeButton.setAttribute("aria-label", "退出全屏");
+        this.closeButton.textContent = "×";
+        this.root.appendChild(this.closeButton);
+        this.status = document.createElement("span");
+        this.status.className = "visual-widget-status";
+        this.status.setAttribute("aria-live", "polite");
+        this.root.appendChild(this.status);
+      }
+      bind() {
+        this.root.addEventListener("pointerenter", () => this.manager.activate(this));
+        this.root.addEventListener("focusin", () => this.manager.activate(this));
+        this.root.addEventListener("wheel", event => {
+          if (this.manager.editing || event.target.closest("button")) return;
+          event.preventDefault();
+          event.stopPropagation();
+          this.zoom(event.deltaY < 0 ? .18 : -.18);
+        }, {passive: false});
+        this.root.addEventListener("dblclick", event => {
+          if (this.manager.editing || this.isAnnotating || event.target.closest("button")) return;
+          event.preventDefault();
+          this.scale > 1 ? this.reset() : this.zoom(.75);
+        });
+        this.root.addEventListener("pointerdown", event => this.pointerDown(event));
+        this.root.addEventListener("pointermove", event => this.pointerMove(event));
+        this.root.addEventListener("pointerup", event => this.pointerEnd(event));
+        this.root.addEventListener("pointercancel", event => this.pointerEnd(event, true));
+        this.tools.querySelector('[data-action="zoom-out"]').addEventListener("click", event => { event.stopPropagation(); this.zoom(-.25); });
+        this.tools.querySelector('[data-action="zoom-in"]').addEventListener("click", event => { event.stopPropagation(); this.zoom(.25); });
+        this.tools.querySelector('[data-action="reset"]').addEventListener("click", event => { event.stopPropagation(); this.reset(); });
+        this.tools.querySelector('[data-action="fullscreen"]').addEventListener("click", event => { event.stopPropagation(); this.manager.toggleFullscreen(this); });
+        this.tools.querySelector('[data-action="annotate"]').addEventListener("click", event => { event.stopPropagation(); this.toggleAnnotation(); });
+        this.closeButton.addEventListener("click", event => { event.stopPropagation(); this.manager.exitFullscreen(); });
+      }
+      announce(message) { this.status.textContent = message; }
+      applyTransform() {
+        if (!this.content) return;
+        this.content.style.transform = `translate(${this.x}px, ${this.y}px) scale(${this.scale})`;
+        this.root.classList.toggle("is-zoomed", this.scale > 1);
+      }
+      zoom(delta) {
+        if (this.manager.editing) return;
+        this.scale = Math.round(Math.max(1, Math.min(4, this.scale + delta)) * 100) / 100;
+        if (this.scale === 1) { this.x = 0; this.y = 0; }
+        this.applyTransform();
+        this.announce(`缩放 ${Math.round(this.scale * 100)}%`);
+      }
+      reset() {
+        this.scale = 1; this.x = 0; this.y = 0;
+        this.applyTransform();
+        this.announce("已重置为 1:1");
+      }
+      toggleAnnotation() {
+        if (this.manager.editing) return;
+        this.isAnnotating = !this.isAnnotating;
+        this.root.classList.toggle("is-annotating", this.isAnnotating);
+        this.tools.querySelector('[data-action="annotate"]').setAttribute("aria-pressed", String(this.isAnnotating));
+        if (!this.isAnnotating) this.annotationLayer.replaceChildren();
+        this.announce(this.isAnnotating ? "拖拽创建矩形标注；按住空格可平移" : "已退出标注模式");
+      }
+      localPoint(event) {
+        const bounds = this.content.getBoundingClientRect();
+        return {
+          x: Math.max(0, Math.min(1, (event.clientX - bounds.left) / Math.max(1, bounds.width))),
+          y: Math.max(0, Math.min(1, (event.clientY - bounds.top) / Math.max(1, bounds.height)))
+        };
+      }
+      pointerDown(event) {
+        this.manager.activate(this);
+        if (this.manager.editing || event.button !== 0 || event.target.closest("button, a, figcaption")) return;
+        const draw = this.isAnnotating && !this.manager.spacePressed;
+        const pan = this.scale > 1 && (!this.isAnnotating || this.manager.spacePressed);
+        if (!draw && !pan) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.pointerId = event.pointerId;
+        this.pointerMode = draw ? "draw" : "pan";
+        this.startClientX = this.lastX = event.clientX;
+        this.startClientY = this.lastY = event.clientY;
+        this.root.setPointerCapture?.(event.pointerId);
+        if (draw) {
+          this.annotationStart = this.localPoint(event);
+          this.draft = document.createElement("div");
+          this.draft.className = "visual-annotation";
+          this.annotationLayer.appendChild(this.draft);
+          this.root.classList.add("is-drawing");
+        } else this.root.classList.add("is-panning");
+      }
+      pointerMove(event) {
+        if (event.pointerId !== this.pointerId) return;
+        if (this.pointerMode === "pan") {
+          const authoredScale = this.root.getBoundingClientRect().width / Math.max(1, this.root.offsetWidth);
+          this.x += (event.clientX - this.lastX) / Math.max(.001, authoredScale);
+          this.y += (event.clientY - this.lastY) / Math.max(.001, authoredScale);
+          this.lastX = event.clientX;
+          this.lastY = event.clientY;
+          this.applyTransform();
+        } else if (this.pointerMode === "draw" && this.draft) {
+          const point = this.localPoint(event);
+          const left = Math.min(this.annotationStart.x, point.x);
+          const top = Math.min(this.annotationStart.y, point.y);
+          Object.assign(this.draft.style, {
+            left: `${left * 100}%`, top: `${top * 100}%`,
+            width: `${Math.abs(point.x - this.annotationStart.x) * 100}%`,
+            height: `${Math.abs(point.y - this.annotationStart.y) * 100}%`
+          });
+        }
+      }
+      pointerEnd(event, cancelled = false) {
+        if (event.pointerId !== this.pointerId) return;
+        if (this.pointerMode === "draw" && this.draft) {
+          const small = Math.abs(event.clientX - this.startClientX) < 8 || Math.abs(event.clientY - this.startClientY) < 8;
+          if (cancelled || small) this.draft.remove();
+        }
+        this.pointerId = null;
+        this.pointerMode = null;
+        this.draft = null;
+        this.root.classList.remove("is-panning", "is-drawing");
+      }
+      stopAnnotation() {
+        if (!this.isAnnotating) return;
+        this.isAnnotating = false;
+        this.root.classList.remove("is-annotating", "is-space-pan");
+        this.annotationLayer.replaceChildren();
+        this.tools.querySelector('[data-action="annotate"]').setAttribute("aria-pressed", "false");
+      }
+    }
+
+    class SlideVisualWidgetManager {
+      constructor() {
+        this.widgets = [...document.querySelectorAll("[data-visual-widget]")].map(root => new SlideVisualWidget(root, this));
+        this.active = null;
+        this.fullscreenWidget = null;
+        this.spacePressed = false;
+        this.editing = false;
+        this.overlay = document.createElement("div");
+        this.overlay.className = "visual-widget-overlay";
+        this.overlay.hidden = true;
+        document.body.appendChild(this.overlay);
+        this.bind();
+      }
+      bind() {
+        addEventListener("keydown", event => {
+          if (event.key === "Escape") {
+            if (this.active?.isAnnotating) {
+              event.preventDefault();
+              event.stopImmediatePropagation();
+              this.active.stopAnnotation();
+            } else if (this.fullscreenWidget) {
+              event.preventDefault();
+              event.stopImmediatePropagation();
+              this.exitFullscreen();
+            }
+            return;
+          }
+          if (event.target.closest?.("input, textarea, select, button, a, [contenteditable=true]")) return;
+          if (event.key === " " && this.active?.isAnnotating) {
+            this.spacePressed = true;
+            this.active.root.classList.add("is-space-pan");
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          } else if (event.key.toLowerCase() === "f" && this.active && !this.editing) {
+            event.preventDefault(); event.stopImmediatePropagation(); this.toggleFullscreen(this.active);
+          } else if (event.key.toLowerCase() === "a" && this.active && !this.editing) {
+            event.preventDefault(); event.stopImmediatePropagation(); this.active.toggleAnnotation();
+          }
+        }, true);
+        addEventListener("keyup", event => {
+          if (event.key === " ") {
+            this.spacePressed = false;
+            this.active?.root.classList.remove("is-space-pan");
+          }
+        }, true);
+      }
+      activate(widget) {
+        if (widget === this.active) return;
+        this.active?.stopAnnotation();
+        this.active = widget;
+      }
+      async toggleFullscreen(widget) {
+        if (this.fullscreenWidget === widget) return this.exitFullscreen();
+        if (this.fullscreenWidget) await this.exitFullscreen();
+        this.activate(widget);
+        const request = widget.root.requestFullscreen || widget.root.webkitRequestFullscreen;
+        if (request) {
+          let timeoutId = null;
+          try {
+            await Promise.race([
+              Promise.resolve(request.call(widget.root)),
+              new Promise((_, reject) => { timeoutId = setTimeout(() => reject(new Error("fullscreen timeout")), 800); })
+            ]);
+            clearTimeout(timeoutId);
+            const nativeElement = document.fullscreenElement || document.webkitFullscreenElement;
+            if (nativeElement !== widget.root) throw new Error("fullscreen not activated");
+            widget.root.classList.add("is-fullscreen");
+            widget.isFullscreen = true;
+            widget.fullscreenMode = "native";
+            this.fullscreenWidget = widget;
+            document.addEventListener("fullscreenchange", () => {
+              if (!document.fullscreenElement && this.fullscreenWidget === widget) this.clearFullscreen(widget);
+            }, {once: true});
+            return;
+          } catch (_) {
+            clearTimeout(timeoutId);
+            /* Fall through to the overlay when the API is unavailable or lies. */
+          }
+        }
+        widget.placeholder = document.createComment("visual-widget-placeholder");
+        widget.root.before(widget.placeholder);
+        this.overlay.appendChild(widget.root);
+        this.overlay.hidden = false;
+        widget.root.classList.add("is-fullscreen", "is-fallback-fullscreen");
+        widget.isFullscreen = true;
+        widget.fullscreenMode = "fallback";
+        this.fullscreenWidget = widget;
+      }
+      async exitFullscreen() {
+        const widget = this.fullscreenWidget;
+        if (!widget) return;
+        if (widget.fullscreenMode === "native" && document.fullscreenElement) {
+          await document.exitFullscreen();
+          this.clearFullscreen(widget);
+        } else {
+          if (widget.placeholder?.parentNode) {
+            widget.placeholder.parentNode.insertBefore(widget.root, widget.placeholder);
+            widget.placeholder.remove();
+          }
+          this.overlay.hidden = true;
+          this.clearFullscreen(widget);
+        }
+      }
+      clearFullscreen(widget) {
+        widget.root.classList.remove("is-fullscreen", "is-fallback-fullscreen");
+        widget.isFullscreen = false;
+        widget.fullscreenMode = null;
+        widget.placeholder = null;
+        if (this.fullscreenWidget === widget) this.fullscreenWidget = null;
+      }
+      handleSlideChange() {
+        this.widgets.forEach(widget => widget.stopAnnotation());
+        this.active = null;
+        if (this.fullscreenWidget) this.exitFullscreen();
+      }
+      setEditing(editing) {
+        this.editing = editing;
+        this.widgets.forEach(widget => widget.root.classList.toggle("is-disabled", editing));
+        if (editing && this.fullscreenWidget) this.exitFullscreen();
+      }
+      sanitizeClone(clone) {
+        clone.querySelector(".visual-widget-overlay")?.remove();
+        clone.querySelectorAll(".visual-widget-tools, .visual-widget-close, .visual-widget-status, .visual-annotation-layer").forEach(node => node.remove());
+        clone.querySelectorAll("[data-visual-content]").forEach(node => node.style.removeProperty("transform"));
+        clone.querySelectorAll("[data-visual-widget]").forEach(node => node.classList.remove("is-zoomed", "is-panning", "is-drawing", "is-annotating", "is-space-pan", "is-fullscreen", "is-fallback-fullscreen", "is-disabled"));
+      }
+    }
+
+    /* ===========================================
+       MULTI-IMAGE VIEWER
+       =========================================== */
+    class MediaTabs {
+      constructor(shell) {
+        this.buttons = [...shell.querySelectorAll("[data-media-target]")];
+        this.panels = [...shell.querySelectorAll("[data-media-panel]")];
+        this.buttons.forEach(button => button.addEventListener("click", event => {
+          event.stopPropagation();
+          this.show(button.dataset.mediaTarget);
+        }));
+      }
+      show(target) {
+        this.buttons.forEach(button => button.classList.toggle("active", button.dataset.mediaTarget === target));
+        this.panels.forEach(panel => panel.classList.toggle("active", panel.dataset.mediaPanel === target));
+      }
+    }
+
+    /* ===========================================
+       PAGE LAYOUT EDITOR
+       Layout choices and rectangle guides are persisted as generator input.
+       =========================================== */
+    class SlideLayoutEditor {
+      constructor(embeddedConfig) {
+        this.schemaVersion = "1.0";
+        this.stageSize = {width: 1920, height: 1080};
+        this.source = embeddedConfig?.source || {{SOURCE_FILENAME_JSON}};
+        this.outputName = {{OVERRIDES_FILENAME_JSON}};
+        this.deckTitle = embeddedConfig?.deckTitle || {{DECK_TITLE_JSON}};
+        this.htmlOutputName = {{OUTPUT_FILENAME_JSON}};
+        const embeddedSlides = embeddedConfig?.slides;
+        this.entries = this.clone(embeddedSlides && typeof embeddedSlides === "object" && !Array.isArray(embeddedSlides) ? embeddedSlides : {});
+        this.presentation = null;
+        this.active = false;
+        this.textMode = false;
+        this.animationMode = false;
+        this.selectedRegion = "content";
+        this.dragState = null;
+        this.toastTimer = null;
+        this.fieldCommitTimer = null;
+        this.resetDeckTimer = null;
+        this.storageWarning = "";
+        this.panel = document.getElementById("layoutEditorPanel");
+        this.layoutSelect = document.getElementById("editorLayout");
+        this.pageName = document.getElementById("editorPageName");
+        this.layoutSource = document.getElementById("editorLayoutSource");
+        this.animationSource = document.getElementById("editorAnimationSource");
+        this.animationOrderList = document.getElementById("editorAnimationOrder");
+        this.bodyLineHeight = document.getElementById("editorBodyLineHeight");
+        this.bodyColor = document.getElementById("editorBodyColor");
+        this.bodyBold = document.getElementById("editorBodyBold");
+        this.status = document.getElementById("editorStatus");
+        this.toastNode = document.getElementById("editorToast");
+        this.fields = {
+          x: document.getElementById("editorRegionX"),
+          y: document.getElementById("editorRegionY"),
+          width: document.getElementById("editorRegionWidth"),
+          height: document.getElementById("editorRegionHeight")
+        };
+        this.restoreLocal();
+        this.bindPanel();
+      }
+      attach(presentation) {
+        this.presentation = presentation;
+        this.presentation.slides.forEach(slide => {
+          slide.dataset.generatedLayout = slide.dataset.layoutResolved;
+          this.registerAnimationCandidates(slide);
+          this.ensureOverlay(slide);
+          this.ensureAnimationOverlay(slide);
+        });
+        this.applyAll();
+        this.refreshPanel();
+      }
+      storageKey() { return `slides-template-layouts:${location.pathname}:${this.deckTitle}`; }
+      clone(value) { return JSON.parse(JSON.stringify(value)); }
+      normalizeTypography(value) {
+        if (!value || typeof value !== "object") return null;
+        const lineHeightValue = Number(value.lineHeight);
+        const lineHeight = Number.isFinite(lineHeightValue) ? Math.max(1.1, Math.min(1.8, Math.round(lineHeightValue * 100) / 100)) : 1.46;
+        let color = /^#[0-9a-f]{6}$/i.test(String(value.color || "")) ? String(value.color).toUpperCase() : "#111111";
+        if (/^#[0-9a-f]{3}$/i.test(String(value.color || ""))) color = "#" + [...String(value.color).slice(1)].map(character => character.repeat(2)).join("").toUpperCase();
+        const bold = value.bold === true || Number(value.bold) >= 600 || ["true","yes","on","bold"].includes(String(value.bold).toLowerCase());
+        return {lineHeight, color, bold};
+      }
+      normalizeAnimation(value) {
+        if (!value || typeof value !== "object") return null;
+        const mode = value.mode === "custom" ? "custom" : "auto";
+        const order = Array.isArray(value.order)
+          ? [...new Set(value.order.map(String).filter(key => /^[0-9A-Za-z_-]{1,64}$/.test(key)))].slice(0, 64)
+          : [];
+        const stepValue = Number(value.stepMs);
+        const stepMs = Number.isFinite(stepValue) ? Math.max(40, Math.min(600, Math.round(stepValue))) : 120;
+        return {mode, order, stepMs};
+      }
+      restoreLocal() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(this.storageKey()) || "{}");
+          if (saved && typeof saved === "object" && saved.slides && typeof saved.slides === "object" && !Array.isArray(saved.slides)) {
+            this.entries = {...this.entries, ...saved.slides};
+          }
+        } catch (_) {
+          this.storageWarning = "浏览器无法读取之前的本地布局；当前仍可编辑并导出 JSON。";
+        }
+      }
+      saveLocal() {
+        const previousWarning = this.storageWarning;
+        try {
+          localStorage.setItem(this.storageKey(), JSON.stringify(this.exportPayload()));
+          this.storageWarning = "";
+        } catch (_) {
+          this.storageWarning = "无法自动保存到浏览器；请导出布局 JSON 防止丢失。";
+        }
+        this.updateStatus();
+        if (this.storageWarning && this.storageWarning !== previousWarning) this.toast(this.storageWarning);
+        return !this.storageWarning;
+      }
+      markStorageFailure(message = "无法自动保存到浏览器；请下载当前 HTML 防止文字丢失。") {
+        const changed = this.storageWarning !== message;
+        this.storageWarning = message;
+        this.updateStatus();
+        if (changed) this.toast(message);
+      }
+      exportPayload() {
+        return {
+          schemaVersion: this.schemaVersion,
+          stage: {...this.stageSize},
+          deckTitle: this.deckTitle,
+          source: this.source,
+          slides: this.clone(this.entries)
+        };
+      }
+      currentSlide() { return this.presentation?.slides[this.presentation.current] || null; }
+      currentId() { return this.currentSlide()?.dataset.slideId || null; }
+      defaultContent(slide) {
+        return slide?.dataset.slideKind === "content"
+          ? {x: 110, y: 214, width: 1700, height: 716}
+          : {x: 110, y: 104, width: 1700, height: 760};
+      }
+      generatedLayout(slide) { return slide?.dataset.generatedLayout || slide?.dataset.layoutResolved || "text"; }
+      effectiveLayout(slide, entry = null) {
+        const selected = entry?.layout || "auto";
+        return selected === "auto" ? this.generatedLayout(slide) : selected;
+      }
+      layoutOptions(slide) {
+        if (slide?.dataset.slideKind === "cover" || slide?.dataset.slideKind === "section") {
+          return [
+            ["auto", "自动（保持生成结果）", true],
+            ["hero-split", "主视觉在右", true],
+            ["hero-reverse", "主视觉在左", true],
+            ["hero-full", "全幅视觉 + 文字浮层", true]
+          ];
+        }
+        const mediaCount = Number(slide?.dataset.mediaCount || 0);
+        const blockCount = Number(slide?.dataset.blockCount || 0);
+        const textLength = Number(slide?.dataset.textLength || 0);
+        const hasTable = slide?.dataset.hasTable === "true";
+        const hasChart = slide?.dataset.hasChart === "true";
+        const mediaEligible = textLength <= 96 && blockCount <= 1;
+        return [
+          ["auto", "自动（保持生成结果）", true],
+          ["text", "纯文字 / 卡片", true],
+          ["split", "图文左右", true],
+          ["media", mediaEligible ? "大图 + 底部说明" : "大图 + 底部说明（说明需在两行内）", mediaEligible],
+          ["gallery", mediaCount >= 2 ? "多图画廊" : "多图画廊（需至少 2 张图）", mediaCount >= 2],
+          ["table", hasTable ? "通栏表格" : "通栏表格（需 Markdown 表格）", hasTable],
+          ["chart", hasChart ? "通栏图表" : "通栏图表（需 chart 块）", hasChart]
+        ];
+      }
+      isLayoutSupported(slide, layout) {
+        return this.layoutOptions(slide).some(([value, , enabled]) => value === layout && enabled);
+      }
+      presetRegions(slide, layout, content = null) {
+        const base = this.normalizeRegion(content || this.defaultContent(slide));
+        const gap = 28;
+        const result = {content: base};
+        if (["hero-split", "hero-reverse"].includes(layout)) {
+          const visualWidth = Math.round(base.width * .48);
+          const copyWidth = base.width - visualWidth - 72;
+          if (layout === "hero-reverse") {
+            result.visual = {x: base.x, y: base.y, width: visualWidth, height: base.height};
+            result.copy = {x: base.x + visualWidth + 72, y: base.y, width: copyWidth, height: base.height};
+          } else {
+            result.copy = {x: base.x, y: base.y, width: copyWidth, height: base.height};
+            result.visual = {x: base.x + copyWidth + 72, y: base.y, width: visualWidth, height: base.height};
+          }
+        } else if (layout === "hero-full") {
+          result.visual = {...base};
+          result.copy = {
+            x: base.x + Math.round(base.width * .08),
+            y: base.y + Math.round(base.height * .16),
+            width: Math.round(base.width * .66),
+            height: Math.round(base.height * .68)
+          };
+        } else if (layout === "split") {
+          const visualWidth = Math.round((base.width - gap) * .42);
+          result.visual = {x: base.x, y: base.y, width: visualWidth, height: base.height};
+          result.copy = {x: base.x + visualWidth + gap, y: base.y, width: base.width - visualWidth - gap, height: base.height};
+        } else if (layout === "media") {
+          const copyHeight = Math.min(132, Math.round(base.height * .18));
+          result.visual = {x: base.x, y: base.y, width: base.width, height: base.height - copyHeight - 18};
+          result.copy = {x: base.x, y: base.y + base.height - copyHeight, width: base.width, height: copyHeight};
+        } else if (layout === "gallery") {
+          const visualWidth = Math.round((base.width - gap) * .67);
+          result.visual = {x: base.x, y: base.y, width: visualWidth, height: base.height};
+          result.copy = {x: base.x + visualWidth + gap, y: base.y, width: base.width - visualWidth - gap, height: base.height};
+        } else if (layout === "chart") {
+          const copyHeight = Math.min(138, Math.round(base.height * .2));
+          result.visual = {x: base.x, y: base.y, width: base.width, height: base.height - copyHeight - 18};
+          result.copy = {x: base.x, y: base.y + base.height - copyHeight, width: base.width, height: copyHeight};
+        } else {
+          result.visual = {...base};
+          result.copy = {...base};
+        }
+        return Object.fromEntries(Object.entries(result).map(([key, value]) => [key, this.normalizeRegion(value)]));
+      }
+      normalizeRegion(region) {
+        const finite = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
+        const width = Math.max(48, Math.min(this.stageSize.width, Math.round(finite(region?.width, 48))));
+        const height = Math.max(48, Math.min(this.stageSize.height, Math.round(finite(region?.height, 48))));
+        return {
+          x: Math.max(0, Math.min(this.stageSize.width - width, Math.round(finite(region?.x, 0)))),
+          y: Math.max(0, Math.min(this.stageSize.height - height, Math.round(finite(region?.y, 0)))),
+          width,
+          height
+        };
+      }
+      clampToContent(region, content) {
+        const outer = this.normalizeRegion(content);
+        const normalized = this.normalizeRegion(region);
+        const width = Math.max(48, Math.min(outer.width, normalized.width));
+        const height = Math.max(48, Math.min(outer.height, normalized.height));
+        return {
+          x: Math.max(outer.x, Math.min(outer.x + outer.width - width, normalized.x)),
+          y: Math.max(outer.y, Math.min(outer.y + outer.height - height, normalized.y)),
+          width,
+          height
+        };
+      }
+      ensureEntry(slide, persist = false) {
+        const id = slide.dataset.slideId;
+        let entry = this.entries[id];
+        if (!entry) {
+          entry = {
+            layout: "auto",
+            regions: this.presetRegions(slide, this.generatedLayout(slide)),
+            title: slide.dataset.title,
+            sourcePage: slide.dataset.sourcePage
+          };
+          if (persist) this.entries[id] = entry;
+        } else {
+          entry.layout ||= "auto";
+          if (!this.isLayoutSupported(slide, entry.layout)) {
+            entry.layout = "auto";
+            entry.regions = this.presetRegions(slide, this.generatedLayout(slide));
+          }
+          const supplied = entry.regions && typeof entry.regions === "object" ? entry.regions : {};
+          const content = this.normalizeRegion(supplied.content || this.defaultContent(slide));
+          const preset = this.presetRegions(slide, this.effectiveLayout(slide, entry), content);
+          entry.regions = {...preset, ...supplied, content};
+          for (const name of ["visual", "copy"]) {
+            if (entry.regions[name]) entry.regions[name] = this.clampToContent(entry.regions[name], content);
+          }
+          if (entry.typography) entry.typography = this.normalizeTypography(entry.typography);
+          if (entry.animation) entry.animation = this.normalizeAnimation(entry.animation);
+          entry.title = slide.dataset.title;
+          entry.sourcePage = slide.dataset.sourcePage;
+        }
+        return entry;
+      }
+      bindPanel() {
+        document.getElementById("editorClose").addEventListener("click", () => this.setActive(false));
+        this.layoutSelect.addEventListener("change", () => this.changeLayout(this.layoutSelect.value));
+        const regionTabs = [...document.querySelectorAll(".editor-region-tab")];
+        regionTabs.forEach((button, index) => {
+          button.addEventListener("click", () => this.selectRegion(button.dataset.region));
+          button.addEventListener("keydown", event => {
+            if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+            event.preventDefault();
+            const nextIndex = event.key === "Home" ? 0
+              : event.key === "End" ? regionTabs.length - 1
+              : (index + (event.key === "ArrowRight" ? 1 : -1) + regionTabs.length) % regionTabs.length;
+            this.selectRegion(regionTabs[nextIndex].dataset.region);
+            regionTabs[nextIndex].focus();
+          });
+        });
+        Object.values(this.fields).forEach(field => {
+          field.addEventListener("input", () => {
+            clearTimeout(this.fieldCommitTimer);
+            this.fieldCommitTimer = setTimeout(() => this.commitFields(), 140);
+          });
+          field.addEventListener("change", () => {
+            clearTimeout(this.fieldCommitTimer);
+            this.commitFields();
+          });
+        });
+        document.getElementById("editorResetRegion").addEventListener("click", () => this.resetRegion());
+        document.getElementById("editorApplyPreset").addEventListener("click", () => this.applyPreset());
+        document.getElementById("editorTextMode").addEventListener("click", () => this.setTextMode(!this.textMode));
+        this.bodyLineHeight.addEventListener("input", () => {
+          clearTimeout(this.fieldCommitTimer);
+          this.fieldCommitTimer = setTimeout(() => this.commitTypography(), 140);
+        });
+        this.bodyLineHeight.addEventListener("change", () => this.commitTypography());
+        this.bodyColor.addEventListener("input", () => this.commitTypography());
+        this.bodyBold.addEventListener("click", () => {
+          this.bodyBold.setAttribute("aria-pressed", String(this.bodyBold.getAttribute("aria-pressed") !== "true"));
+          this.commitTypography();
+        });
+        document.getElementById("editorResetTypography").addEventListener("click", () => this.resetTypography());
+        document.getElementById("editorAnimationMode").addEventListener("click", () => this.setAnimationMode(!this.animationMode));
+        document.getElementById("editorPreviewAnimation").addEventListener("click", () => this.previewAnimation());
+        document.getElementById("editorResetAnimation").addEventListener("click", () => this.resetAnimation());
+        document.getElementById("editorExport").addEventListener("click", () => this.downloadJSON());
+        document.getElementById("editorImport").addEventListener("click", () => document.getElementById("editorImportFile").click());
+        document.getElementById("editorImportFile").addEventListener("change", event => this.importJSON(event.target.files?.[0]));
+        document.getElementById("editorCopyCommand").addEventListener("click", () => this.copyBuildCommand());
+        document.getElementById("editorDownloadHtml").addEventListener("click", () => this.presentation?.save());
+        document.getElementById("editorResetPage").addEventListener("click", () => this.resetPage());
+        document.getElementById("editorResetDeck").addEventListener("click", () => this.resetDeck());
+      }
+      ensureOverlay(slide) {
+        let overlay = slide.querySelector(":scope > .layout-editor-overlay");
+        if (overlay) return overlay;
+        overlay = document.createElement("div");
+        overlay.className = "layout-editor-overlay";
+        overlay.setAttribute("aria-label", "页面布局调整区域");
+        for (const region of ["content", "visual", "copy"]) {
+          const box = document.createElement("div");
+          box.className = "layout-region-box";
+          box.dataset.region = region;
+          box.innerHTML = `<span class="layout-region-label">${{content:"内容范围",visual:"图像范围",copy:"文字范围"}[region]}</span>` +
+            ["nw","ne","sw","se"].map(handle => `<span class="layout-region-handle" data-handle="${handle}"></span>`).join("");
+          box.addEventListener("pointerdown", event => this.pointerDown(event, slide, region));
+          box.addEventListener("pointermove", event => this.pointerMove(event));
+          box.addEventListener("pointerup", event => this.pointerEnd(event));
+          box.addEventListener("pointercancel", event => this.pointerEnd(event, true));
+          overlay.appendChild(box);
+        }
+        slide.appendChild(overlay);
+        return overlay;
+      }
+      registerAnimationCandidates(slide) {
+        slide.querySelector(":scope > .content")?.classList.remove("reveal");
+        const candidates = [];
+        if (slide.dataset.slideKind !== "content") {
+          const copy = slide.querySelector(".hero-copy");
+          const visual = slide.querySelector(".hero-visual");
+          if (copy) candidates.push([copy, "hero-copy", "封面文字"]);
+          if (visual) candidates.push([visual, "visual", "封面视觉"]);
+        } else {
+          const header = slide.querySelector(":scope > .slide-header");
+          if (header) candidates.push([header, "header", "页面标题"]);
+          const visual = slide.querySelector(".split-media, .wide-media-stage, .gallery-stage, .chart-stage");
+          if (visual) candidates.push([visual, "visual", slide.dataset.hasChart === "true" ? "图表" : "图像"]);
+          const blocks = [...slide.querySelectorAll(".content .text-card, .content .code-card, .content .table-card")];
+          blocks.forEach((block, index) => {
+            const heading = block.querySelector("h3, :scope > strong, .code-label");
+            let label = heading?.textContent?.trim() || (block.classList.contains("table-card") ? "表格" : `内容 ${index + 1}`);
+            if (label.length > 18) label = label.slice(0, 18) + "…";
+            candidates.push([block, `block-${index + 1}`, label]);
+          });
+        }
+        for (const [node, key, label] of candidates) {
+          node.dataset.revealKey = key;
+          node.dataset.revealLabel = label;
+          node.classList.add("reveal");
+        }
+      }
+      animationCandidates(slide) {
+        return [...slide.querySelectorAll("[data-reveal-key]")];
+      }
+      ensureAnimationOverlay(slide) {
+        let overlay = slide.querySelector(":scope > .animation-editor-overlay");
+        if (!overlay) {
+          overlay = document.createElement("div");
+          overlay.className = "animation-editor-overlay";
+          overlay.setAttribute("aria-label", "内容显示顺序编排区");
+          slide.appendChild(overlay);
+        }
+        return overlay;
+      }
+      effectiveAnimationOrder(slide, entry = null) {
+        const defaults = this.animationCandidates(slide).map(node => node.dataset.revealKey);
+        const animation = this.normalizeAnimation(entry?.animation);
+        if (!animation || animation.mode !== "custom") return defaults;
+        const selected = animation.order.filter(key => defaults.includes(key));
+        return [...selected, ...defaults.filter(key => !selected.includes(key))];
+      }
+      refreshAnimationOverlay() {
+        const slide = this.currentSlide();
+        if (!slide) return;
+        const overlay = this.ensureAnimationOverlay(slide);
+        overlay.replaceChildren();
+        const entry = this.entries[slide.dataset.slideId] || null;
+        const customOrder = this.normalizeAnimation(entry?.animation)?.order || [];
+        const slideRect = slide.getBoundingClientRect();
+        const scale = Number(this.presentation?.stage.dataset.scale || 1);
+        this.animationCandidates(slide).forEach(candidate => {
+          const rect = candidate.getBoundingClientRect();
+          if (rect.width < 4 || rect.height < 4) return;
+          const key = candidate.dataset.revealKey;
+          const customIndex = customOrder.indexOf(key);
+          const box = document.createElement("button");
+          box.type = "button";
+          box.className = `animation-order-box${customIndex >= 0 ? " marked" : ""}`;
+          box.dataset.revealTarget = key;
+          box.setAttribute("aria-label", `${customIndex >= 0 ? `第 ${customIndex + 1} 个` : "未标记"}：${candidate.dataset.revealLabel}`);
+          Object.assign(box.style, {
+            left: `${(rect.left - slideRect.left) / Math.max(.001, scale)}px`,
+            top: `${(rect.top - slideRect.top) / Math.max(.001, scale)}px`,
+            width: `${rect.width / Math.max(.001, scale)}px`,
+            height: `${rect.height / Math.max(.001, scale)}px`
+          });
+          const badge = document.createElement("span");
+          badge.className = "animation-order-badge";
+          badge.textContent = `${customIndex >= 0 ? customIndex + 1 : "+"} · ${candidate.dataset.revealLabel}`;
+          box.appendChild(badge);
+          box.addEventListener("click", event => {
+            event.preventDefault();
+            event.stopPropagation();
+            this.toggleAnimationTarget(key);
+          });
+          overlay.appendChild(box);
+        });
+      }
+      selectRegion(name) {
+        this.selectedRegion = name;
+        document.querySelectorAll(".editor-region-tab").forEach(button => {
+          const selected = button.dataset.region === name;
+          button.classList.toggle("active", selected);
+          button.setAttribute("aria-selected", String(selected));
+          button.tabIndex = selected ? 0 : -1;
+        });
+        this.refreshOverlay();
+        this.refreshFields();
+      }
+      regionIsVisible(layout, name) {
+        if (name === "content") return true;
+        if (["text", "table"].includes(layout)) return name === "copy";
+        return true;
+      }
+      refreshPanel() {
+        const slide = this.currentSlide();
+        if (!slide) return;
+        const id = slide.dataset.slideId;
+        const entry = this.entries[id] || this.ensureEntry(slide, false);
+        const selectedLayout = entry.layout || "auto";
+        this.pageName.textContent = `${slide.dataset.sourcePage} · ${slide.dataset.title}`;
+        this.layoutSource.textContent = this.entries[id] ? "已覆盖" : `生成：${this.generatedLayout(slide)}`;
+        this.layoutSelect.replaceChildren(...this.layoutOptions(slide).map(([value, label, enabled]) => {
+          const option = document.createElement("option");
+          option.value = value;
+          option.textContent = label;
+          option.selected = value === selectedLayout;
+          option.disabled = !enabled;
+          return option;
+        }));
+        this.refreshOverlay();
+        this.refreshFields();
+        this.refreshTypographyControls();
+        this.refreshAnimationControls();
+        requestAnimationFrame(() => this.refreshAnimationOverlay());
+        this.updateStatus();
+      }
+      refreshOverlay() {
+        const slide = this.currentSlide();
+        if (!slide) return;
+        const overlay = this.ensureOverlay(slide);
+        const entry = this.entries[slide.dataset.slideId] || this.ensureEntry(slide, false);
+        const layout = this.effectiveLayout(slide, entry);
+        for (const box of overlay.querySelectorAll(".layout-region-box")) {
+          const name = box.dataset.region;
+          const region = entry.regions[name] || this.defaultContent(slide);
+          Object.assign(box.style, {left:`${region.x}px`, top:`${region.y}px`, width:`${region.width}px`, height:`${region.height}px`});
+          box.hidden = !this.regionIsVisible(layout, name);
+          box.classList.toggle("active", name === this.selectedRegion);
+        }
+      }
+      refreshFields() {
+        const slide = this.currentSlide();
+        if (!slide) return;
+        const entry = this.entries[slide.dataset.slideId] || this.ensureEntry(slide, false);
+        const region = entry.regions[this.selectedRegion] || this.defaultContent(slide);
+        for (const [name, field] of Object.entries(this.fields)) field.value = String(region[name]);
+      }
+      refreshTypographyControls() {
+        const slide = this.currentSlide();
+        const entry = slide && this.entries[slide.dataset.slideId];
+        const typography = this.normalizeTypography(entry?.typography) || {lineHeight:1.46, color:"#111111", bold:false};
+        this.bodyLineHeight.value = String(typography.lineHeight);
+        this.bodyColor.value = typography.color.toLowerCase();
+        this.bodyBold.setAttribute("aria-pressed", String(typography.bold));
+        this.bodyBold.textContent = typography.bold ? "已加粗" : "正文加粗";
+        const disabled = slide?.dataset.slideKind !== "content";
+        this.bodyLineHeight.disabled = disabled;
+        this.bodyColor.disabled = disabled;
+        this.bodyBold.disabled = disabled;
+        document.getElementById("editorResetTypography").disabled = disabled;
+      }
+      commitTypography() {
+        const slide = this.currentSlide();
+        if (!slide || slide.dataset.slideKind !== "content") return;
+        const entry = this.ensureEntry(slide, true);
+        entry.typography = this.normalizeTypography({
+          lineHeight: this.bodyLineHeight.value,
+          color: this.bodyColor.value,
+          bold: this.bodyBold.getAttribute("aria-pressed") === "true"
+        });
+        this.applyTypography(slide, entry);
+        this.saveLocal();
+        this.refreshTypographyControls();
+        this.toast("正文排版已保存");
+        requestAnimationFrame(() => { if (typeof inspectSlides === "function") inspectSlides(); });
+      }
+      resetTypography() {
+        const slide = this.currentSlide();
+        if (!slide) return;
+        const entry = this.entries[slide.dataset.slideId];
+        if (entry) delete entry.typography;
+        this.clearTypography(slide);
+        this.saveLocal();
+        this.refreshTypographyControls();
+        this.toast("正文排版已恢复默认");
+      }
+      refreshAnimationControls() {
+        const slide = this.currentSlide();
+        if (!slide) return;
+        const entry = this.entries[slide.dataset.slideId];
+        const animation = this.normalizeAnimation(entry?.animation);
+        const custom = animation?.mode === "custom";
+        const labels = new Map(this.animationCandidates(slide).map(node => [node.dataset.revealKey, node.dataset.revealLabel]));
+        this.animationSource.textContent = custom ? `自定义 ${animation.order.length} 项` : "默认顺序";
+        this.animationOrderList.replaceChildren(...(custom ? animation.order : []).filter(key => labels.has(key)).map(key => {
+          const item = document.createElement("li");
+          item.textContent = labels.get(key);
+          return item;
+        }));
+        const modeButton = document.getElementById("editorAnimationMode");
+        modeButton.setAttribute("aria-pressed", String(this.animationMode));
+        modeButton.textContent = this.animationMode ? "结束顺序编排" : "点击容器编排";
+      }
+      setAnimationMode(active) {
+        if (active && this.textMode) this.setTextMode(false);
+        this.animationMode = active;
+        document.body.classList.toggle("editor-animation-mode", active);
+        this.refreshAnimationControls();
+        this.refreshAnimationOverlay();
+      }
+      toggleAnimationTarget(key) {
+        const slide = this.currentSlide();
+        if (!slide) return;
+        const entry = this.ensureEntry(slide, true);
+        const current = this.normalizeAnimation(entry.animation);
+        const order = current?.mode === "custom" ? [...current.order] : [];
+        const index = order.indexOf(key);
+        if (index >= 0) order.splice(index, 1);
+        else order.push(key);
+        entry.animation = {mode:"custom", order, stepMs:current?.stepMs || 120};
+        this.applyAnimation(slide, entry);
+        this.saveLocal();
+        this.refreshAnimationControls();
+        this.refreshAnimationOverlay();
+        this.toast(index >= 0 ? "已取消该容器顺序" : `已标记为第 ${order.length} 个显示`);
+      }
+      resetAnimation() {
+        const slide = this.currentSlide();
+        if (!slide) return;
+        const entry = this.entries[slide.dataset.slideId];
+        if (entry) delete entry.animation;
+        this.applyAnimation(slide, entry || null);
+        this.saveLocal();
+        this.refreshAnimationControls();
+        this.refreshAnimationOverlay();
+        this.toast("已恢复默认生成顺序");
+      }
+      previewAnimation() {
+        const slide = this.currentSlide();
+        if (!slide) return;
+        this.applyAnimation(slide, this.entries[slide.dataset.slideId] || null);
+        slide.classList.remove("visible");
+        requestAnimationFrame(() => requestAnimationFrame(() => slide.classList.add("visible")));
+      }
+      commitFields() {
+        const slide = this.currentSlide();
+        if (!slide) return;
+        const entry = this.ensureEntry(slide, true);
+        const previous = this.clone(entry.regions[this.selectedRegion] || this.defaultContent(slide));
+        const next = this.normalizeRegion(Object.fromEntries(Object.entries(this.fields).map(([name, field]) => [name, field.value])));
+        this.updateRegion(entry, this.selectedRegion, previous, next);
+        this.commit(slide, "已更新区域坐标");
+      }
+      updateRegion(entry, name, previous, next) {
+        if (name === "content") {
+          const sx = next.width / Math.max(1, previous.width);
+          const sy = next.height / Math.max(1, previous.height);
+          for (const child of ["visual", "copy"]) {
+            const region = entry.regions[child];
+            if (!region) continue;
+            entry.regions[child] = this.clampToContent({
+              x: next.x + (region.x - previous.x) * sx,
+              y: next.y + (region.y - previous.y) * sy,
+              width: region.width * sx,
+              height: region.height * sy
+            }, next);
+          }
+        }
+        entry.regions[name] = name === "content" ? next : this.clampToContent(next, entry.regions.content);
+      }
+      changeLayout(layout) {
+        const slide = this.currentSlide();
+        if (!slide) return;
+        if (!this.isLayoutSupported(slide, layout)) {
+          this.refreshPanel();
+          this.toast("当前页缺少该布局所需的内容类型");
+          return;
+        }
+        const entry = this.ensureEntry(slide, true);
+        entry.layout = layout;
+        const effective = this.effectiveLayout(slide, entry);
+        entry.regions = this.presetRegions(slide, effective, entry.regions.content);
+        this.selectedRegion = "content";
+        this.commit(slide, `已切换为 ${this.layoutSelect.selectedOptions[0]?.textContent || layout}`);
+      }
+      applyPreset() {
+        const slide = this.currentSlide();
+        if (!slide) return;
+        const entry = this.ensureEntry(slide, true);
+        entry.regions = this.presetRegions(slide, this.effectiveLayout(slide, entry), entry.regions.content);
+        this.commit(slide, "已按当前内容范围重新分配图文区域");
+      }
+      resetRegion() {
+        const slide = this.currentSlide();
+        if (!slide) return;
+        const entry = this.ensureEntry(slide, true);
+        const preset = this.presetRegions(slide, this.effectiveLayout(slide, entry), entry.regions.content);
+        if (this.selectedRegion === "content") entry.regions = this.presetRegions(slide, this.effectiveLayout(slide, entry));
+        else entry.regions[this.selectedRegion] = preset[this.selectedRegion];
+        this.commit(slide, "已重置所选区域");
+      }
+      pointerDown(event, slide, regionName) {
+        if (!this.active || this.textMode || this.animationMode || event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.selectRegion(regionName);
+        const entry = this.ensureEntry(slide, true);
+        const box = event.currentTarget;
+        box.setPointerCapture?.(event.pointerId);
+        this.dragState = {
+          pointerId: event.pointerId,
+          box,
+          entry,
+          slide,
+          regionName,
+          handle: event.target.dataset.handle || null,
+          startX: event.clientX,
+          startY: event.clientY,
+          startRegion: this.clone(entry.regions[regionName]),
+          startRegions: this.clone(entry.regions)
+        };
+      }
+      pointerMove(event) {
+        const state = this.dragState;
+        if (!state || event.pointerId !== state.pointerId) return;
+        event.preventDefault();
+        const scale = Number(this.presentation?.stage.dataset.scale || 1);
+        const dx = (event.clientX - state.startX) / Math.max(.001, scale);
+        const dy = (event.clientY - state.startY) / Math.max(.001, scale);
+        let next = {...state.startRegion};
+        const handle = state.handle;
+        if (!handle) {
+          next.x += dx;
+          next.y += dy;
+        } else {
+          if (handle.includes("e")) next.width += dx;
+          if (handle.includes("s")) next.height += dy;
+          if (handle.includes("w")) { next.x += dx; next.width -= dx; }
+          if (handle.includes("n")) { next.y += dy; next.height -= dy; }
+        }
+        next = this.normalizeRegion({
+          x: Math.round(next.x / 4) * 4,
+          y: Math.round(next.y / 4) * 4,
+          width: Math.round(next.width / 4) * 4,
+          height: Math.round(next.height / 4) * 4
+        });
+        state.entry.regions = this.clone(state.startRegions);
+        this.updateRegion(state.entry, state.regionName, state.startRegion, next);
+        this.applySlide(state.slide, state.entry);
+        this.refreshOverlay();
+        this.refreshFields();
+      }
+      pointerEnd(event, cancelled = false) {
+        const state = this.dragState;
+        if (!state || event.pointerId !== state.pointerId) return;
+        if (cancelled) state.entry.regions = state.startRegions;
+        this.dragState = null;
+        this.commit(state.slide, cancelled ? "已取消调整" : "区域已保存");
+      }
+      commit(slide, message) {
+        this.applyEntry(slide, this.entries[slide.dataset.slideId]);
+        this.saveLocal();
+        this.refreshPanel();
+        this.toast(message);
+        requestAnimationFrame(() => { if (typeof inspectSlides === "function") inspectSlides(); });
+      }
+      actualParts(slide) {
+        if (slide.dataset.slideKind !== "content") {
+          return {
+            content: slide.querySelector(".hero-shell"),
+            visual: slide.querySelector(".hero-visual"),
+            copy: slide.querySelector(".hero-copy")
+          };
+        }
+        const content = slide.querySelector(":scope > .content");
+        const root = content?.firstElementChild || null;
+        const visual = root?.querySelector(":scope > .split-media, :scope > .wide-media-stage, :scope > .gallery-stage, :scope > .chart-stage") || null;
+        let copy = root?.querySelector(":scope > .split-copy, :scope > .wide-copy, :scope > .gallery-copy, :scope > .chart-copy") || null;
+        if (!copy && root && !visual) copy = root;
+        return {content, root, visual, copy};
+      }
+      createLiveVisualPlaceholder(root) {
+        if (!root) return null;
+        const placeholder = document.createElement("figure");
+        placeholder.className = "visual-placeholder editor-live-visual-placeholder";
+        placeholder.dataset.editorPlaceholder = "true";
+        placeholder.setAttribute("aria-label", "生成后的视觉内容预览占位");
+        placeholder.innerHTML = '<span class="placeholder-mark" aria-hidden="true"></span><figcaption>视觉内容生成预览<small>导出布局 JSON 并重建后写入真实结构</small></figcaption>';
+        root.appendChild(placeholder);
+        return placeholder;
+      }
+      markStyle(node, styles) {
+        if (!node) return;
+        node.dataset.editorApplied = "true";
+        Object.assign(node.style, styles);
+      }
+      relativeRegion(region, content) {
+        return {x: region.x - content.x, y: region.y - content.y, width: region.width, height: region.height};
+      }
+      positionPart(node, region, content) {
+        if (!node || !region) return;
+        const relative = this.relativeRegion(region, content);
+        this.markStyle(node, {
+          position: "absolute",
+          left: `${relative.x}px`,
+          top: `${relative.y}px`,
+          width: `${relative.width}px`,
+          height: `${relative.height}px`,
+          maxHeight: "none",
+          margin: "0",
+          overflow: "hidden"
+        });
+      }
+      applyTypography(slide, entry) {
+        this.clearTypography(slide);
+        const typography = this.normalizeTypography(entry?.typography);
+        if (!typography || slide.dataset.slideKind !== "content") return;
+        slide.dataset.editorTypography = "true";
+        slide.style.setProperty("--editor-body-line-height", String(typography.lineHeight));
+        slide.style.setProperty("--editor-body-color", typography.color);
+        slide.style.setProperty("--editor-body-weight", typography.bold ? "700" : "400");
+      }
+      clearTypography(slide) {
+        delete slide.dataset.editorTypography;
+        slide.style.removeProperty("--editor-body-line-height");
+        slide.style.removeProperty("--editor-body-color");
+        slide.style.removeProperty("--editor-body-weight");
+        if (!slide.getAttribute("style")) slide.removeAttribute("style");
+      }
+      applyAnimation(slide, entry) {
+        const animation = this.normalizeAnimation(entry?.animation) || {mode:"auto", order:[], stepMs:120};
+        const order = this.effectiveAnimationOrder(slide, entry);
+        const byKey = new Map(this.animationCandidates(slide).map(node => [node.dataset.revealKey, node]));
+        order.forEach((key, index) => {
+          const node = byKey.get(key);
+          if (!node) return;
+          node.style.setProperty("--reveal-delay", `${index * animation.stepMs}ms`);
+          node.dataset.animationIndex = String(index + 1);
+        });
+      }
+      applyEntry(slide, entry) {
+        if (entry) this.applySlide(slide, entry);
+        this.applyTypography(slide, entry || null);
+        this.applyAnimation(slide, entry || null);
+      }
+      applySlide(slide, entry) {
+        this.clearAppliedStyles(slide, false);
+        if (!entry) return;
+        const layout = this.effectiveLayout(slide, entry);
+        const regions = entry.regions || this.presetRegions(slide, layout);
+        slide.dataset.layoutResolved = layout;
+        [...slide.classList].filter(name => name.startsWith("layout-")).forEach(name => slide.classList.remove(name));
+        slide.classList.add(`layout-${layout}`);
+        const parts = this.actualParts(slide);
+        const content = this.normalizeRegion(regions.content || this.defaultContent(slide));
+        if (slide.dataset.slideKind !== "content") {
+          this.markStyle(parts.content, {position:"absolute", inset:"0", display:"block", padding:"0"});
+          this.positionPart(parts.visual, regions.visual, {x:0,y:0,width:1920,height:1080});
+          this.positionPart(parts.copy, regions.copy, {x:0,y:0,width:1920,height:1080});
+          parts.content?.classList.remove("hero-layout-hero-split", "hero-layout-hero-reverse", "hero-layout-hero-full");
+          parts.content?.classList.add(`hero-layout-${layout}`);
+          return;
+        }
+        this.markStyle(parts.content, {
+          left: `${content.x}px`, top: `${content.y}px`, right: "auto", bottom: "auto",
+          width: `${content.width}px`, height: `${content.height}px`, maxHeight: "none"
+        });
+        if (parts.root) this.markStyle(parts.root, {position:"relative", display:"block", width:"100%", height:"100%", maxHeight:"none", overflow:"hidden"});
+        if (["text", "table"].includes(layout)) {
+          if (parts.visual) this.markStyle(parts.visual, {display:"none"});
+          if (parts.copy && parts.copy !== parts.root) this.positionPart(parts.copy, content, content);
+        } else {
+          if (!parts.visual && parts.root) parts.visual = this.createLiveVisualPlaceholder(parts.root);
+          if (parts.visual) {
+            this.markStyle(parts.visual, {display:"grid"});
+            this.positionPart(parts.visual, regions.visual, content);
+          }
+          if (parts.copy && parts.copy !== parts.root) {
+            this.markStyle(parts.copy, {display:"grid"});
+            this.positionPart(parts.copy, regions.copy, content);
+          } else if (parts.root && regions.copy) {
+            const copy = this.relativeRegion(regions.copy, content);
+            this.markStyle(parts.root, {
+              boxSizing: "border-box",
+              paddingTop: `${Math.max(0, copy.y)}px`,
+              paddingRight: `${Math.max(0, content.width - copy.x - copy.width)}px`,
+              paddingBottom: `${Math.max(0, content.height - copy.y - copy.height)}px`,
+              paddingLeft: `${Math.max(0, copy.x)}px`
+            });
+          }
+        }
+      }
+      clearAppliedStyles(slide, restoreLayout = true) {
+        slide.querySelectorAll("[data-editor-placeholder]").forEach(node => node.remove());
+        slide.querySelectorAll("[data-editor-applied]").forEach(node => {
+          node.removeAttribute("style");
+          node.removeAttribute("data-editor-applied");
+        });
+        if (restoreLayout) {
+          [...slide.classList].filter(name => name.startsWith("layout-")).forEach(name => slide.classList.remove(name));
+          const generated = this.generatedLayout(slide);
+          slide.classList.add(`layout-${generated}`);
+          slide.dataset.layoutResolved = generated;
+          const hero = slide.querySelector(".hero-shell");
+          hero?.classList.remove("hero-layout-hero-split", "hero-layout-hero-reverse", "hero-layout-hero-full");
+          if (hero) hero.classList.add(`hero-layout-${generated}`);
+        }
+      }
+      applyAll() {
+        if (!this.presentation) return;
+        this.presentation.slides.forEach(slide => {
+          const entry = this.entries[slide.dataset.slideId];
+          this.applyEntry(slide, entry ? this.ensureEntry(slide, false) : null);
+        });
+      }
+      onSlideChange() { if (this.active) this.refreshPanel(); }
+      setActive(active) {
+        this.active = active;
+        document.body.classList.toggle("editor-open", active);
+        this.panel.setAttribute("aria-hidden", String(!active));
+        this.panel.toggleAttribute("inert", !active);
+        const editButton = document.getElementById("edit");
+        editButton.classList.toggle("active", active);
+        editButton.setAttribute("aria-expanded", String(active));
+        editButton.setAttribute("aria-label", active ? "关闭页面编辑器" : "打开页面编辑器");
+        if (!active) {
+          this.setTextMode(false);
+          this.setAnimationMode(false);
+        }
+        this.presentation?.widgetManager.setEditing(active || this.textMode);
+        this.presentation?.fit();
+        this.refreshPanel();
+        requestAnimationFrame(() => {
+          const target = active ? document.getElementById("editorClose") : editButton;
+          target?.focus({preventScroll:true});
+        });
+      }
+      toggle() { this.setActive(!this.active); }
+      setTextMode(active) {
+        if (active && this.animationMode) this.setAnimationMode(false);
+        this.textMode = active;
+        document.body.classList.toggle("editor-text-mode", active);
+        if (this.presentation) {
+          this.presentation.editing = active;
+          this.presentation.stage.contentEditable = active ? "true" : "false";
+          this.presentation.widgetManager.setEditing(this.active || active);
+        }
+        const button = document.getElementById("editorTextMode");
+        button.setAttribute("aria-pressed", String(active));
+        button.textContent = active ? "结束文字编辑" : "文字编辑";
+      }
+      resetPage() {
+        const slide = this.currentSlide();
+        if (!slide) return;
+        delete this.entries[slide.dataset.slideId];
+        this.clearAppliedStyles(slide, true);
+        this.clearTypography(slide);
+        this.applyAnimation(slide, null);
+        this.saveLocal();
+        this.refreshPanel();
+        this.toast("当前页已恢复为生成结果");
+      }
+      resetDeck() {
+        const button = document.getElementById("editorResetDeck");
+        if (button.dataset.confirm !== "true") {
+          button.dataset.confirm = "true";
+          button.textContent = "再次点击确认清除";
+          clearTimeout(this.resetDeckTimer);
+          this.resetDeckTimer = setTimeout(() => {
+            button.dataset.confirm = "false";
+            button.textContent = "清除全部布局";
+          }, 3200);
+          this.toast("再次点击以确认清除全部布局配置");
+          return;
+        }
+        clearTimeout(this.resetDeckTimer);
+        button.dataset.confirm = "false";
+        button.textContent = "清除全部布局";
+        this.entries = {};
+        this.presentation?.slides.forEach(slide => {
+          this.clearAppliedStyles(slide, true);
+          this.clearTypography(slide);
+          this.applyAnimation(slide, null);
+        });
+        this.saveLocal();
+        this.refreshPanel();
+        this.toast("全部布局已恢复为生成结果");
+      }
+      updateStatus() {
+        const count = Object.keys(this.entries).length;
+        let message = count
+          ? `已保存 ${count} 页编辑配置。导出 JSON 后，生成器可稳定复现布局、动画与正文排版。`
+          : "当前没有页面覆盖；布局、动画与正文排版使用生成结果。";
+        const slide = this.currentSlide();
+        const entry = slide && this.entries[slide.dataset.slideId];
+        if (slide && entry && this.effectiveLayout(slide, entry) !== this.generatedLayout(slide)) {
+          message += " 当前 HTML 的内容结构来自原布局；矩形与占位为生成预览，导出并重建后会生成完整结构。";
+        }
+        if (this.storageWarning) message = `${this.storageWarning} ${message}`;
+        this.status.classList.toggle("warning", Boolean(this.storageWarning));
+        this.status.textContent = message;
+      }
+      toast(message) {
+        clearTimeout(this.toastTimer);
+        this.toastNode.textContent = message;
+        this.toastNode.classList.add("show");
+        this.toastTimer = setTimeout(() => this.toastNode.classList.remove("show"), 1500);
+      }
+      downloadJSON() {
+        const source = JSON.stringify(this.exportPayload(), null, 2) + "\n";
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(new Blob([source], {type:"application/json"}));
+        link.download = this.outputName;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(link.href), 500);
+        this.toast(`已导出 ${this.outputName}`);
+      }
+      async importJSON(file) {
+        if (!file) return;
+        try {
+          if (file.size > 2 * 1024 * 1024) throw new Error("文件超过 2 MB，请拆分或精简配置");
+          const payload = JSON.parse(await file.text());
+          if (!payload || typeof payload !== "object" || typeof payload.slides !== "object" || Array.isArray(payload.slides)) throw new Error("缺少 slides 对象");
+          const sourceStage = payload.stage && typeof payload.stage === "object" ? payload.stage : this.stageSize;
+          const sourceWidth = Number(sourceStage.width) > 0 ? Number(sourceStage.width) : this.stageSize.width;
+          const sourceHeight = Number(sourceStage.height) > 0 ? Number(sourceStage.height) : this.stageSize.height;
+          const scaleX = this.stageSize.width / sourceWidth;
+          const scaleY = this.stageSize.height / sourceHeight;
+          const validIds = new Set(this.presentation.slides.map(slide => slide.dataset.slideId));
+          const imported = {};
+          let adjusted = 0;
+          for (const [id, value] of Object.entries(payload.slides)) {
+            if (!validIds.has(id) || !value || typeof value !== "object") continue;
+            const slide = this.presentation.slides.find(candidate => candidate.dataset.slideId === id);
+            const requestedLayout = String(value.layout || "auto");
+            const layout = this.isLayoutSupported(slide, requestedLayout) ? requestedLayout : "auto";
+            if (layout !== requestedLayout) adjusted += 1;
+            const entry = {layout, regions: {}};
+            for (const [name, region] of Object.entries(value.regions || {})) {
+              if (["content","visual","copy"].includes(name)) {
+                entry.regions[name] = this.normalizeRegion({
+                  x: Number(region?.x || 0) * scaleX,
+                  y: Number(region?.y || 0) * scaleY,
+                  width: Number(region?.width ?? region?.w ?? 48) * scaleX,
+                  height: Number(region?.height ?? region?.h ?? 48) * scaleY
+                });
+              }
+            }
+            const preset = this.presetRegions(slide, this.effectiveLayout(slide, entry), entry.regions.content);
+            entry.regions = {...preset, ...entry.regions};
+            if (value.typography) entry.typography = this.normalizeTypography(value.typography);
+            if (value.animation) {
+              const animation = this.normalizeAnimation(value.animation);
+              if (animation) {
+                const validRevealKeys = new Set(this.animationCandidates(slide).map(node => node.dataset.revealKey));
+                animation.order = animation.order.filter(key => validRevealKeys.has(key));
+                entry.animation = animation;
+              }
+            }
+            entry.title = slide.dataset.title;
+            entry.sourcePage = slide.dataset.sourcePage;
+            imported[id] = entry;
+          }
+          this.entries = {...this.entries, ...imported};
+          this.applyAll();
+          this.saveLocal();
+          this.refreshPanel();
+          this.toast(`已导入 ${Object.keys(imported).length} 页编辑配置${adjusted ? `，${adjusted} 页布局已回退自动` : ""}`);
+        } catch (error) {
+          this.toast(`导入失败：${error.message}`);
+        } finally {
+          document.getElementById("editorImportFile").value = "";
+        }
+      }
+      async copyBuildCommand() {
+        const quote = value => `'${String(value).replaceAll("'", `'"'"'`)}'`;
+        const command = `python3 build_slides.py ${quote(this.source)} --overrides ${quote(this.outputName)} -o ${quote(this.htmlOutputName)}`;
+        try {
+          await navigator.clipboard.writeText(command);
+        } catch (_) {
+          const textarea = document.createElement("textarea");
+          textarea.value = command;
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand("copy");
+          textarea.remove();
+        }
+        this.toast("构建命令已复制");
+      }
+      prepareClone(clone) {
+        clone.body.classList.remove("editor-open", "editor-text-mode", "editor-animation-mode");
+        clone.querySelectorAll(".layout-editor-overlay").forEach(node => node.remove());
+        clone.querySelectorAll(".animation-editor-overlay").forEach(node => node.remove());
+        clone.querySelector("#layoutEditorPanel")?.setAttribute("aria-hidden", "true");
+        clone.querySelector("#edit")?.classList.remove("active");
+        const config = clone.querySelector("#deckEditorConfig");
+        if (config) config.textContent = JSON.stringify(this.exportPayload()).replaceAll("<", "\\u003c");
+        clone.querySelectorAll("[contenteditable]").forEach(node => node.removeAttribute("contenteditable"));
+      }
+    }
+
+    /* ===========================================
+       PRESENTATION CONTROLLER
+       =========================================== */
+    class SlidePresentation {
+      constructor(widgetManager, layoutEditor) {
+        this.widgetManager = widgetManager;
+        this.layoutEditor = layoutEditor;
+        this.slides = [...document.querySelectorAll(".slide")];
+        this.stage = document.getElementById("deckStage");
+        this.current = Math.max(0, Math.min(this.slides.length - 1, (parseInt(location.hash.slice(1), 10) || 1) - 1));
+        this.locked = false;
+        this.editing = false;
+        this.layoutEditor.attach(this);
+        this.fit();
+        this.bind();
+        this.restoreEdits();
+        this.show(this.current, false);
+      }
+      fit() {
+        const reserved = document.body.classList.contains("editor-open") && innerWidth >= 860 ? 390 : 0;
+        const availableWidth = Math.max(320, innerWidth - reserved);
+        const scale = Math.min(availableWidth / 1920, innerHeight / 1080);
+        const x = (availableWidth - 1920 * scale) / 2;
+        const y = (innerHeight - 1080 * scale) / 2;
+        this.stage.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+        this.stage.dataset.scale = String(scale);
+      }
+      show(next, updateHash = true) {
+        const resolved = (next + this.slides.length) % this.slides.length;
+        if (resolved !== this.current) this.widgetManager.handleSlideChange();
+        this.current = resolved;
+        this.slides.forEach((slide, index) => {
+          slide.classList.toggle("active", index === this.current);
+          slide.classList.toggle("visible", index === this.current);
+        });
+        document.getElementById("currentPage").textContent = String(this.current + 1);
+        document.title = `${this.current + 1}/${this.slides.length} · ${this.slides[this.current].dataset.title || this.layoutEditor.deckTitle}`;
+        this.layoutEditor.onSlideChange();
+        if (updateHash) history.replaceState(null, "", `#${this.current + 1}`);
+      }
+      step(delta) { this.show(this.current + delta); }
+      toggleEdit() { this.layoutEditor.toggle(); }
+      storageKey() { return `slides-template-edits:${location.pathname}:{{DECK_TITLE_ATTR}}`; }
+      restoreEdits() {
+        let index = 0;
+        this.stage.querySelectorAll("h1, h3, p, li, th, td, figcaption").forEach(node => {
+          if (!node.dataset.editKey) node.dataset.editKey = String(index++);
+        });
+        try {
+          const saved = JSON.parse(localStorage.getItem(this.storageKey()) || "{}");
+          if (!saved || typeof saved !== "object" || Array.isArray(saved)) throw new Error("invalid saved edits");
+          Object.entries(saved).forEach(([key, value]) => {
+            const node = this.stage.querySelector(`[data-edit-key="${CSS.escape(key)}"]`);
+            if (node && typeof value === "string") node.innerHTML = value;
+          });
+        } catch (_) {
+          this.layoutEditor.markStorageFailure("浏览器无法读取之前的文字编辑；当前仍可继续编辑并下载 HTML。");
+        }
+        this.stage.addEventListener("input", () => {
+          const edits = {};
+          this.stage.querySelectorAll("[data-edit-key]").forEach(node => edits[node.dataset.editKey] = node.innerHTML);
+          try { localStorage.setItem(this.storageKey(), JSON.stringify(edits)); }
+          catch (_) { this.layoutEditor.markStorageFailure(); }
+        });
+      }
+      save() {
+        const clone = document.documentElement.cloneNode(true);
+        this.layoutEditor.prepareClone(clone);
+        this.widgetManager.sanitizeClone(clone);
+        const source = "<!doctype html>\n" + clone.outerHTML;
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(new Blob([source], {type: "text/html"}));
+        link.download = this.layoutEditor.htmlOutputName;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(link.href), 500);
+      }
+      bind() {
+        addEventListener("resize", () => this.fit());
+        addEventListener("hashchange", () => {
+          const target = parseInt(location.hash.slice(1), 10);
+          if (Number.isFinite(target)) this.show(target - 1, false);
+        });
+        addEventListener("keydown", event => {
+          if (event.defaultPrevented || this.widgetManager.fullscreenWidget) return;
+          if (event.key === "Escape" && this.layoutEditor.active) {
+            event.preventDefault();
+            this.layoutEditor.setActive(false);
+            return;
+          }
+          if (event.metaKey || event.ctrlKey || event.altKey || event.target.isContentEditable || event.target.closest?.("button,input,textarea,select")) return;
+          if (["ArrowRight","ArrowDown","PageDown"," "].includes(event.key)) { event.preventDefault(); this.step(1); }
+          else if (["ArrowLeft","ArrowUp","PageUp"].includes(event.key)) { event.preventDefault(); this.step(-1); }
+          else if (event.key === "Home") this.show(0);
+          else if (event.key === "End") this.show(this.slides.length - 1);
+          else if (event.key === "e" || event.key === "E") this.toggleEdit();
+        });
+        addEventListener("wheel", event => {
+          if (this.layoutEditor.active || event.target.closest?.("[data-visual-widget],.layout-editor-panel") || this.locked || Math.abs(event.deltaY) < 18) return;
+          this.locked = true;
+          this.step(event.deltaY > 0 ? 1 : -1);
+          setTimeout(() => this.locked = false, 420);
+        }, {passive: true});
+        let touchStart = null;
+        const interactive = "[data-visual-widget],.layout-editor-panel,.deck-controls,button,input,textarea,select,a,[contenteditable=true]";
+        addEventListener("touchstart", event => {
+          const touch = event.changedTouches[0];
+          touchStart = !this.layoutEditor.active && event.touches.length === 1 && !event.target.closest?.(interactive)
+            ? {x: touch.clientX, y: touch.clientY}
+            : null;
+        }, {passive: true});
+        addEventListener("touchend", event => {
+          if (!touchStart) return;
+          const touch = event.changedTouches[0];
+          const dx = touch.clientX - touchStart.x;
+          const dy = touch.clientY - touchStart.y;
+          touchStart = null;
+          if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.25) this.step(dx < 0 ? 1 : -1);
+        }, {passive: true});
+        addEventListener("touchcancel", () => touchStart = null, {passive: true});
+        document.getElementById("prev").addEventListener("click", () => this.step(-1));
+        document.getElementById("next").addEventListener("click", () => this.step(1));
+        document.getElementById("edit").addEventListener("click", () => this.toggleEdit());
+        document.getElementById("save").addEventListener("click", () => this.save());
+        const hotzone = document.querySelector(".control-hotzone");
+        const controls = document.querySelector(".deck-controls");
+        let hideTimer = null;
+        const show = () => { clearTimeout(hideTimer); controls.classList.add("show"); };
+        const hide = () => { hideTimer = setTimeout(() => { if (!this.layoutEditor.active) controls.classList.remove("show"); }, 400); };
+        hotzone.addEventListener("mouseenter", show);
+        hotzone.addEventListener("mouseleave", hide);
+        hotzone.addEventListener("click", show);
+        controls.addEventListener("mouseenter", show);
+        controls.addEventListener("mouseleave", hide);
+      }
+    }
+
+    /* ===========================================
+       RUNTIME LAYOUT DIAGNOSTICS
+       Query window.__SLIDE_DIAGNOSTICS__ in browser tests.
+       =========================================== */
+    function inspectSlides() {
+      const issues = [];
+      document.querySelectorAll(".slide").forEach((slide, index) => {
+        slide.classList.add("diagnostic-layout");
+        slide.querySelectorAll(".slide-header, .content, .card, .text-grid, .split-copy, .gallery-copy, .chart-copy, .wide-copy").forEach(node => {
+          const overflowX = node.scrollWidth - node.clientWidth;
+          const overflowY = node.scrollHeight - node.clientHeight;
+          const bad = overflowX > 2 || overflowY > 2;
+          node.dataset.overflow = String(bad);
+          if (bad) issues.push({slide: index + 1, element: node.className, overflowX, overflowY});
+        });
+        slide.classList.remove("diagnostic-layout");
+      });
+      window.__SLIDE_DIAGNOSTICS__ = {
+        stage: {width: 1920, height: 1080, scale: Number(document.getElementById("deckStage").dataset.scale)},
+        slides: document.querySelectorAll(".slide").length,
+        issues
+      };
+      if (issues.length) console.warn("Slide layout diagnostics", issues);
+      return window.__SLIDE_DIAGNOSTICS__;
+    }
+
+    let embeddedEditorConfig = {};
+    try { embeddedEditorConfig = JSON.parse(document.getElementById("deckEditorConfig")?.textContent || "{}"); } catch (_) { /* invalid embedded data falls back to empty */ }
+    const visualWidgetManager = new SlideVisualWidgetManager();
+    const layoutEditor = new SlideLayoutEditor(embeddedEditorConfig);
+    const presentation = new SlidePresentation(visualWidgetManager, layoutEditor);
+    window.__SLIDE_LAYOUT_EDITOR__ = layoutEditor;
+    window.__SLIDE_PRESENTATION__ = presentation;
+    document.querySelectorAll("[data-media-tabs]").forEach(shell => new MediaTabs(shell));
+    addEventListener("load", () => requestAnimationFrame(() => {
+      if (new URLSearchParams(location.search).get("debug") === "1") document.documentElement.dataset.debug = "true";
+      inspectSlides();
+    }));
+  </script>
+</body>
+</html>

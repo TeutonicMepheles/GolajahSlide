@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1080" viewBox="0 0 720 1080" role="img" aria-labelledby="title desc">
+  <title id="title">竖版图片比例示意</title>
+  <desc id="desc">用于验证竖版图片会使用窄图文左右布局。</desc>
+  <rect width="720" height="1080" rx="54" fill="#f8f7ff"/>
+  <rect x="74" y="82" width="572" height="916" rx="42" fill="#fff" stroke="#d6d0ff" stroke-width="8"/>
+  <rect x="128" y="190" width="464" height="390" rx="28" fill="#f0eeff"/>
+  <path d="M184 520 292 350l92 106 82-96 80 160H184Z" fill="#6f60e5"/>
+  <rect x="128" y="640" width="390" height="32" rx="16" fill="#6f60e5" opacity=".78"/>
+  <rect x="128" y="708" width="464" height="24" rx="12" fill="#d6d0ff"/>
+  <rect x="128" y="754" width="410" height="24" rx="12" fill="#d6d0ff"/>
+  <text x="360" y="910" text-anchor="middle" font-family="PingFang SC, sans-serif" font-size="46" font-weight="700" fill="#4c3bc6">2 : 3</text>
+</svg>

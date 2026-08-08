@@ -1,0 +1,23 @@
+{
+  "source": "examples/basic/slides.md",
+  "output": "examples/basic/index.html",
+  "slides": 8,
+  "layouts": {
+    "1": "hero-split",
+    "2": "hero-split",
+    "3": "split",
+    "4": "media",
+    "5": "text",
+    "6": "table",
+    "7": "chart",
+    "8": "text"
+  },
+  "layoutOverrides": {
+    "source": "examples/basic/slides.layout.json",
+    "appliedSlides": [
+      "square-image"
+    ]
+  },
+  "warnings": [],
+  "errors": []
+}

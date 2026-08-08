@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">十六比九图片比例示意</title>
+  <desc id="desc">用于验证接近屏幕比例的图片会自动优先占满展示区域。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b1737"/>
+      <stop offset=".55" stop-color="#6f60e5"/>
+      <stop offset="1" stop-color="#bfb8f7"/>
+    </linearGradient>
+    <pattern id="grid" width="80" height="80" patternUnits="userSpaceOnUse">
+      <path d="M80 0H0V80" fill="none" stroke="#fff" stroke-opacity=".08" stroke-width="2"/>
+    </pattern>
+  </defs>
+  <rect width="1600" height="900" rx="42" fill="url(#bg)"/>
+  <rect width="1600" height="900" rx="42" fill="url(#grid)"/>
+  <g fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" opacity=".88">
+    <path d="M270 610 520 425 720 520 955 285 1290 480"/>
+    <circle cx="520" cy="425" r="18" fill="#fff"/>
+    <circle cx="955" cy="285" r="18" fill="#fff"/>
+  </g>
+  <text x="190" y="220" font-family="PingFang SC, sans-serif" font-size="90" font-weight="700" fill="#fff">16 : 9</text>
+  <text x="196" y="290" font-family="PingFang SC, sans-serif" font-size="34" fill="#fff" opacity=".78">图片优先占满内容展示区域</text>
+</svg>

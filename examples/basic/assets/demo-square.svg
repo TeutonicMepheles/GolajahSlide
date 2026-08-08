@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="900" viewBox="0 0 900 900" role="img" aria-labelledby="title desc">
+  <title id="title">正方形图片比例示意</title>
+  <desc id="desc">用于验证接近一比一图片会自动进入图文左右布局。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f0eeff"/>
+      <stop offset="1" stop-color="#d6d0ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="900" rx="48" fill="url(#bg)"/>
+  <circle cx="450" cy="390" r="220" fill="#fff" opacity=".84"/>
+  <path d="M300 470 390 330l92 108 76-82 82 114H300Z" fill="#6f60e5" opacity=".9"/>
+  <circle cx="555" cy="294" r="38" fill="#978cf0"/>
+  <text x="450" y="710" text-anchor="middle" font-family="PingFang SC, sans-serif" font-size="54" font-weight="700" fill="#4c3bc6">1 : 1</text>
+  <text x="450" y="770" text-anchor="middle" font-family="PingFang SC, sans-serif" font-size="28" fill="#514d68">自动选择图文左右布局</text>
+</svg>

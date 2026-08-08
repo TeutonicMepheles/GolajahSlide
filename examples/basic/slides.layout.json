@@ -1,0 +1,49 @@
+{
+  "schemaVersion": "1.0",
+  "stage": {
+    "width": 1920,
+    "height": 1080
+  },
+  "deckTitle": "通用 Markdown Slides 工程模板",
+  "source": "slides.md",
+  "slides": {
+    "square-image": {
+      "layout": "split",
+      "typography": {
+        "lineHeight": 1.45,
+        "color": "#222222",
+        "bold": false
+      },
+      "animation": {
+        "mode": "custom",
+        "order": [
+          "header",
+          "visual",
+          "block-1",
+          "block-2"
+        ],
+        "stepMs": 120
+      },
+      "regions": {
+        "content": {
+          "x": 110,
+          "y": 214,
+          "width": 1700,
+          "height": 716
+        },
+        "visual": {
+          "x": 110,
+          "y": 214,
+          "width": 650,
+          "height": 716
+        },
+        "copy": {
+          "x": 790,
+          "y": 214,
+          "width": 1020,
+          "height": 716
+        }
+      }
+    }
+  }
+}
