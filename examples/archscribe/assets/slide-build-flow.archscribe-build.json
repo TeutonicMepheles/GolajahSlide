@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "1.0",
+  "spec": "assets/slide-build-flow.spec.json",
+  "crop": "50,160,1110,330",
+  "mask": "895,0,215,42",
+  "safeMargin": 24.0,
+  "renderer": "pillow",
+  "minimumRasterMargin": 26
+}

@@ -1,0 +1,28 @@
+{
+  "source": "examples/archscribe/slides.md",
+  "output": "examples/archscribe/index.html",
+  "slides": 1,
+  "layouts": {
+    "1": "chart"
+  },
+  "layoutOverrides": {
+    "source": null,
+    "appliedSlides": []
+  },
+  "warnings": [],
+  "errors": [],
+  "archscribe": {
+    "detected": 1,
+    "renderRequested": false,
+    "rendered": [],
+    "cached": [],
+    "typography": {
+      "archscribe-build-flow": {
+        "sourceMinFontSize": 17.0,
+        "projectedMinFontSize": 28.18,
+        "minimumSafeMargin": 30.0,
+        "minimumRasterMargin": 26.0
+      }
+    }
+  }
+}

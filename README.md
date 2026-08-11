@@ -66,6 +66,7 @@ python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 - GFM 表格、callout 和代码块
 - PNG、JPEG、GIF、WebP、SVG 与远程图片
 - `bar`、`line`、`donut` 单序列轻量图表
+- 可选 Archscribe 动态流程图（GIF 动画、PNG 减少动态效果降级、Excalidraw 可编辑源文件）
 - 自动选择文字、左右图文、大图、画廊、表格和图表布局
 - 图片缩放、拖拽、全屏和临时标注
 - 页面级布局、坐标、正文样式和动画顺序覆盖
@@ -86,6 +87,29 @@ python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 
 ```bash
 python3 -m unittest discover -s tests -v
+```
+
+## 清晰规整的流程图
+
+Mermaid 与 Excalidraw 都作为构建期源格式，统一导出、校验并以内联 SVG 写入 HTML。发布页面不加载图表渲染器；已有预生成 SVG 时仍可零依赖构建。完整协议和取舍见 [构建期 SVG 图表方案](docs/DIAGRAMS.md)，可运行内容见 [中文双引擎示例](examples/diagrams/slides.md)。
+
+安装锁定的构建工具并重新生成 SVG：
+
+```bash
+npm install
+python3 build_slides.py examples/diagrams/slides.md -o examples/diagrams/index.html --render-diagrams --strict
+```
+
+普通构建只读取已提交的 SVG 与质量报告：
+
+```bash
+python3 build_slides.py examples/diagrams/slides.md -o examples/diagrams/index.html --strict
+```
+
+Archscribe 保留为特殊动画能力，不再作为默认流程图渲染器；见 [Archscribe 动态流程图接入方案](docs/ARCHSCRIBE-INTEGRATION.md)和[动画中文示例](examples/archscribe/slides.md)。
+
+```bash
+python3 build_slides.py examples/archscribe/slides.md -o examples/archscribe/index.html
 ```
 
 ## 与 AI 协作

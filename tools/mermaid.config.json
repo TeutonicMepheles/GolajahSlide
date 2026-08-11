@@ -1,0 +1,36 @@
+{
+  "theme": "base",
+  "securityLevel": "strict",
+  "htmlLabels": false,
+  "fontFamily": "PingFang SC, Noto Sans CJK SC, Microsoft YaHei, sans-serif",
+  "themeVariables": {
+    "fontFamily": "PingFang SC, Noto Sans CJK SC, Microsoft YaHei, sans-serif",
+    "fontSize": "28px",
+    "primaryColor": "#E8F0F8",
+    "primaryTextColor": "#151515",
+    "primaryBorderColor": "#2C8C99",
+    "secondaryColor": "#D9E9DF",
+    "secondaryTextColor": "#151515",
+    "secondaryBorderColor": "#24836D",
+    "tertiaryColor": "#F8F6F0",
+    "tertiaryTextColor": "#151515",
+    "tertiaryBorderColor": "#6F60E5",
+    "lineColor": "#2B2A28",
+    "textColor": "#151515",
+    "background": "#F8F6F0",
+    "mainBkg": "#F8F6F0",
+    "nodeBorder": "#2C8C99",
+    "clusterBkg": "#F8F6F0",
+    "clusterBorder": "#B8B3A8",
+    "edgeLabelBackground": "#F8F6F0"
+  },
+  "flowchart": {
+    "defaultRenderer": "dagre-wrapper",
+    "diagramPadding": 32,
+    "nodeSpacing": 56,
+    "rankSpacing": 72,
+    "curve": "rounded",
+    "padding": 18,
+    "wrappingWidth": 220
+  }
+}
