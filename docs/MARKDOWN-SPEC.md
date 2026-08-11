@@ -219,6 +219,87 @@ unit: 万
 
 内置图表适合单序列、少量分类。多序列、散点、地图、复杂标注或严谨统计图应在外部工具完成后导出 SVG，再以图片引用；SVG 同样会获得视觉控件。
 
+### 10.1 Mermaid 流程图
+
+规整流程、架构、时序与状态图优先使用 Mermaid。`@slide` / `@end` 之间是 GolajahSlide 元数据，之后才是原始 Mermaid 定义：
+
+````markdown
+```mermaid
+@slide
+src: assets/order-flow.svg
+title: 订单处理流程
+alt: 订单经过校验、支付与发货，失败时返回人工复核
+min-font-size: 28
+safe-margin: 24
+@end
+flowchart LR
+    order[收到订单] --> check{校验通过？}
+    check -->|是| pay[支付]
+    pay --> ship[发货]
+    check -.->|否| review[人工复核]
+```
+````
+
+首次生成或源码变化后运行：
+
+```bash
+python3 build_slides.py slides.md -o index.html --render-diagrams --strict
+```
+
+构建器调用锁定版本的 Mermaid CLI 生成 SVG，同时写入同名 `.diagram-build.json`。普通构建会检查 SVG 哈希、投影字号和安全边距，然后把 SVG 直接内联到 HTML；成品页面不加载 Mermaid JavaScript。
+
+### 10.2 Excalidraw 流程图
+
+需要人工拖拽、批注或自由构图时保留 `.excalidraw` 场景，并引用构建后的 SVG：
+
+````markdown
+```excalidraw
+source: assets/system-flow.excalidraw
+src: assets/system-flow.svg
+title: 系统交付流程
+alt: 两种输入经过质量门禁后交付 Slide
+min-font-size: 28
+safe-margin: 24
+```
+````
+
+`--render-diagrams` 会通过官方 `exportToSvg` 生成矢量产物。Excalidraw 编辑器不进入发布 HTML，场景文件仍可继续编辑。Mermaid 转 Excalidraw 只建议用作一次性的初稿转换，不作为双向同步链路。
+
+Mermaid 与 Excalidraw 默认都要求：
+
+- `src` 是本地 `.svg`，禁止远程运行时依赖。
+- `min-font-size` 默认 28，按实际 Slide 图表区域换算。
+- `safe-margin` 默认 24，渲染器输出使用 32px。
+- SVG 与 `.diagram-build.json` 哈希必须一致。
+- `<script>`、`foreignObject`、事件属性和外部引用不会进入内联 HTML。
+
+完整设计和安装说明见 [构建期 SVG 图表方案](DIAGRAMS.md)。
+
+### 10.3 动态流程图（Archscribe，可选）
+
+复杂流程、判断节点与失败回路可以使用 `archscribe` 围栏：
+
+````markdown
+```archscribe
+spec: assets/order-flow.spec.json
+src: assets/order-flow.gif
+poster: assets/order-flow.png
+title: 订单处理动态流程图
+alt: 从接单到发货，失败时返回人工复核的中文流程图
+caption: 动画由 Archscribe 生成
+crop: 50,160,1110,330
+mask: 895,0,215,42
+min-font-size: 28
+safe-margin: 24
+```
+````
+
+`spec` 与 `src` 必填；`poster` 强烈建议提供，系统开启“减少动态效果”时会自动显示 PNG。围栏会自动采用 `chart` 布局，并复用图表的缩放、全屏与标注控件。
+
+用于 Slide 时应让 Slide 标题承担页面结论，使用 `crop` 移除 Archscribe 自带的标题和页脚，只保留流程主体。`crop` 的格式是源画布上的 `x,y,width,height`；若签名与内容安全区重叠，可用裁切后坐标的 `mask` 遮罩品牌角。`min-font-size` 默认 28，构建器会读取 Excalidraw 的实际字号并按 Slide 展示尺寸换算；`safe-margin` 默认 24 源像素，用于确保节点、连线和回路没有贴住裁切边界。任一门禁不满足都会直接报错。
+
+普通构建只嵌入已有文件。需要根据 JSON 重新生成 GIF、PNG 与 Excalidraw 时，安装 [Archscribe](https://github.com/lazypay/Archscribe) 后使用 `--render-archscribe`；完整说明见 [Archscribe 动态流程图接入方案](ARCHSCRIBE-INTEGRATION.md)。
+
 ## 11. 中文排版规则
 
 - 不使用连续空格人工对齐；交给网格与卡片布局。

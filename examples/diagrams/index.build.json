@@ -1,0 +1,57 @@
+{
+  "source": "examples/diagrams/slides.md",
+  "output": "examples/diagrams/index.html",
+  "slides": 2,
+  "layouts": {
+    "1": "chart",
+    "2": "chart"
+  },
+  "layoutOverrides": {
+    "source": null,
+    "appliedSlides": []
+  },
+  "warnings": [],
+  "errors": [],
+  "diagrams": {
+    "detected": 2,
+    "renderRequested": true,
+    "mermaid": {
+      "detected": 1,
+      "rendered": [],
+      "cached": [
+        "assets/mermaid-build-flow.svg"
+      ]
+    },
+    "excalidraw": {
+      "detected": 1,
+      "rendered": [],
+      "cached": [
+        "assets/editable-diagram.svg"
+      ]
+    },
+    "quality": {
+      "mermaid-svg-flow": [
+        {
+          "engine": "mermaid",
+          "src": "assets/mermaid-build-flow.svg",
+          "viewBoxWidth": 1447.19,
+          "viewBoxHeight": 251.0,
+          "sourceMinFontSize": 28.0,
+          "projectedMinFontSize": 35.6,
+          "minimumSafeMargin": 32.0
+        }
+      ],
+      "excalidraw-svg-flow": [
+        {
+          "engine": "excalidraw",
+          "src": "assets/editable-diagram.svg",
+          "viewBoxWidth": 1264.0,
+          "viewBoxHeight": 434.0,
+          "sourceMinFontSize": 32.0,
+          "projectedMinFontSize": 46.58,
+          "minimumSafeMargin": 32.0
+        }
+      ]
+    }
+  }
+}

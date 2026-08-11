@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="{{LANG}}">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{DECK_TITLE}}</title>
+  <title>Archscribe 动态中文流程图示例</title>
   <style>
     /* ===========================================
        THEME TOKENS — inherited from the reference deck
@@ -1018,8 +1018,8 @@
 </head>
 <body>
   <div class="deck-viewport">
-    <main class="deck-stage" id="deckStage" aria-label="{{DECK_TITLE_ATTR}}">
-{{SLIDES}}
+    <main class="deck-stage" id="deckStage" aria-label="Archscribe 动态中文流程图示例">
+<section class="slide content-slide layout-chart density-speaking has-diagram diagram-fullstage" data-title="动态流程图必须服从 Slide 的字号与安全区" data-slide-id="archscribe-build-flow" data-source-page="P1" data-slide-kind="content" data-media-count="0" data-block-count="1" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="true" data-layout-requested="chart" data-layout-resolved="chart"><header class="slide-header reveal"><h1>动态流程图必须服从 Slide 的字号与安全区</h1><p class="subtitle">标题由 Slide 排版，Archscribe 专注呈现流程主体</p></header><div class="content"><div class="chart-layout"><div class="chart-stage"><figure class="card chart-card diagram-card" data-visual-widget="image" data-diagram-engine="archscribe" tabindex="0" aria-label="GolajahSlide 动态流程图"><div class="visual-widget-content chart-content diagram-content" data-visual-content><picture><source media="(prefers-reduced-motion: reduce)" srcset="assets/slide-build-flow.png"><img src="assets/slide-build-flow.gif" alt="演示内容分别生成内置图表与动态流程图，检查失败时返回动态流程重新生成" draggable="false"></picture></div></figure></div><div class="empty-copy" aria-hidden="true"></div></div></div></section>
     </main>
   </div>
   <div class="control-hotzone" aria-hidden="true"></div>
@@ -1029,7 +1029,7 @@
     <button id="edit" aria-label="打开页面编辑器" aria-controls="layoutEditorPanel" aria-expanded="false" title="页面编辑器（E）">✦</button>
     <button id="save" aria-label="下载 HTML" title="下载 HTML">⇩</button>
   </nav>
-  <div class="deck-status" aria-live="polite"><span id="currentPage">1</span> / {{SLIDE_COUNT}}</div>
+  <div class="deck-status" aria-live="polite"><span id="currentPage">1</span> / 1</div>
   <aside class="layout-editor-panel" id="layoutEditorPanel" role="dialog" aria-modal="false" aria-label="页面布局编辑器" aria-hidden="true" inert>
     <header class="layout-editor-header">
       <div><strong>页面编辑器</strong><small id="editorPageName">当前页</small></div>
@@ -1099,7 +1099,7 @@
           <button type="button" class="editor-button" id="editorCopyCommand">复制构建命令</button>
           <button type="button" class="editor-button" id="editorDownloadHtml">下载当前 HTML</button>
         </div>
-        <p class="editor-help">导出的 `{{OVERRIDES_FILENAME}}` 可由构建器直接读取，页面重建后仍能还原布局。</p>
+        <p class="editor-help">导出的 `slides.layout.json` 可由构建器直接读取，页面重建后仍能还原布局。</p>
       </section>
       <section class="editor-group">
         <div class="editor-button-row">
@@ -1111,7 +1111,7 @@
     </div>
   </aside>
   <div class="editor-toast" id="editorToast" role="status"></div>
-  <script id="deckEditorConfig" type="application/json">{{EDITOR_CONFIG}}</script>
+  <script id="deckEditorConfig" type="application/json">{"schemaVersion":"1.0","stage":{"width":1920,"height":1080},"deckTitle":"Archscribe 动态中文流程图示例","source":"slides.md","slides":{}}</script>
   <script>
     /* ===========================================
        STANDARD IMAGE / CHART / TABLE VIEWER
@@ -1438,10 +1438,10 @@
       constructor(embeddedConfig) {
         this.schemaVersion = "1.0";
         this.stageSize = {width: 1920, height: 1080};
-        this.source = embeddedConfig?.source || {{SOURCE_FILENAME_JSON}};
-        this.outputName = {{OVERRIDES_FILENAME_JSON}};
-        this.deckTitle = embeddedConfig?.deckTitle || {{DECK_TITLE_JSON}};
-        this.htmlOutputName = {{OUTPUT_FILENAME_JSON}};
+        this.source = embeddedConfig?.source || "slides.md";
+        this.outputName = "slides.layout.json";
+        this.deckTitle = embeddedConfig?.deckTitle || "Archscribe 动态中文流程图示例";
+        this.htmlOutputName = "index.html";
         const embeddedSlides = embeddedConfig?.slides;
         this.entries = this.clone(embeddedSlides && typeof embeddedSlides === "object" && !Array.isArray(embeddedSlides) ? embeddedSlides : {});
         this.presentation = null;
@@ -2495,7 +2495,7 @@
       }
       step(delta) { this.show(this.current + delta); }
       toggleEdit() { this.layoutEditor.toggle(); }
-      storageKey() { return `slides-template-edits:${location.pathname}:{{DECK_TITLE_ATTR}}`; }
+      storageKey() { return `slides-template-edits:${location.pathname}:Archscribe 动态中文流程图示例`; }
       restoreEdits() {
         let index = 0;
         this.stage.querySelectorAll("h1, h3, p, li, th, td, figcaption").forEach(node => {

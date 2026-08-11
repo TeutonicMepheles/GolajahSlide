@@ -1,6 +1,8 @@
 import contextlib
 import io
 import json
+import os
+import struct
 import tempfile
 import unittest
 from pathlib import Path
@@ -34,6 +36,240 @@ class SlideTemplateTests(unittest.TestCase):
             self.assertEqual(result, 0)
             self.assertTrue(output.exists())
             self.assertIn('data-layout-resolved="media"', output.read_text(encoding="utf-8"))
+
+    def test_archscribe_block_embeds_animation_and_reduced_motion_poster(self):
+        with tempfile.TemporaryDirectory(dir=build_slides.ROOT) as directory:
+            root = Path(directory)
+            assets = root / "assets"
+            assets.mkdir()
+            (assets / "flow.spec.json").write_text('{"layout":"graph"}', encoding="utf-8")
+            (assets / "flow.gif").write_bytes(b"GIF89a")
+            (assets / "flow.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"\0" * 8 + struct.pack(">II", 1110, 300))
+            (assets / "flow.excalidraw").write_text(json.dumps({"elements": [
+                {"type": "text", "text": "中文流程", "x": 80, "y": 190, "width": 80, "height": 24, "fontSize": 17}
+            ]}), encoding="utf-8")
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            markdown.write_text("""---
+title: Diagram test
+---
+<!-- slide
+id: flow
+type: content
+layout: auto
+-->
+# 中文动态流程图
+
+```archscribe
+spec: assets/flow.spec.json
+src: assets/flow.gif
+poster: assets/flow.png
+title: 中文流程
+alt: 包含失败回路的中文流程图
+crop: 50,160,1110,300
+min-font-size: 28
+```
+""", encoding="utf-8")
+            result = build_slides.build(markdown, output)
+            source = output.read_text(encoding="utf-8")
+            report = json.loads(output.with_suffix(".build.json").read_text(encoding="utf-8"))
+            self.assertEqual(result, 0)
+            self.assertIn('data-diagram-engine="archscribe"', source)
+            self.assertIn('data-layout-resolved="chart"', source)
+            self.assertIn('(prefers-reduced-motion: reduce)', source)
+            self.assertIn('srcset="assets/flow.png"', source)
+            self.assertEqual(report["archscribe"]["detected"], 1)
+            self.assertGreaterEqual(report["archscribe"]["typography"]["flow"]["projectedMinFontSize"], 28)
+            self.assertGreaterEqual(report["archscribe"]["typography"]["flow"]["minimumSafeMargin"], 24)
+            self.assertEqual(report["warnings"], [])
+
+    def test_archscribe_typography_below_minimum_fails(self):
+        with tempfile.TemporaryDirectory(dir=build_slides.ROOT) as directory:
+            root = Path(directory)
+            assets = root / "assets"
+            assets.mkdir()
+            (assets / "flow.spec.json").write_text('{"layout":"graph"}', encoding="utf-8")
+            (assets / "flow.gif").write_bytes(b"GIF89a")
+            (assets / "flow.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"\0" * 8 + struct.pack(">II", 1210, 654))
+            (assets / "flow.excalidraw").write_text(json.dumps({"elements": [
+                {"type": "text", "text": "过小文字", "x": 100, "y": 200, "width": 80, "height": 20, "fontSize": 12}
+            ]}), encoding="utf-8")
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            markdown.write_text("""# 字号失败示例
+
+```archscribe
+spec: assets/flow.spec.json
+src: assets/flow.gif
+poster: assets/flow.png
+min-font-size: 28
+```
+""", encoding="utf-8")
+            result = build_slides.build(markdown, output)
+            report = json.loads(output.with_suffix(".build.json").read_text(encoding="utf-8"))
+            self.assertEqual(result, 1)
+            self.assertTrue(any("最小字号投影后" in error for error in report["errors"]))
+
+    def test_mermaid_svg_is_inlined_namespaced_and_validated(self):
+        with tempfile.TemporaryDirectory(dir=build_slides.ROOT) as directory:
+            root = Path(directory)
+            assets = root / "assets"
+            assets.mkdir()
+            svg_path = assets / "flow.svg"
+            svg_path.write_text(
+                '<svg xmlns="http://www.w3.org/2000/svg" id="base" viewBox="0 0 1000 400">'
+                '<style>#base .edge{marker-end:url(#arrow)}</style>'
+                '<defs><marker id="arrow"><path d="M0 0L10 5L0 10Z"/></marker></defs>'
+                '<path class="edge" d="M40 200H900" marker-end="url(#arrow)"/>'
+                '<text x="80" y="180" font-size="28">中文流程</text></svg>\n',
+                encoding="utf-8",
+            )
+            svg_path.with_suffix(".diagram-build.json").write_text(json.dumps({
+                "schemaVersion": "1.0",
+                "engine": "mermaid",
+                "svgSha256": build_slides.sha256_file(svg_path),
+                "minimumSafeMargin": 32,
+                "minimumSourceFontSize": 28,
+            }), encoding="utf-8")
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            markdown.write_text("""<!-- slide
+id: flow
+type: content
+layout: chart
+footer: false
+-->
+# Mermaid SVG
+
+```mermaid
+@slide
+src: assets/flow.svg
+title: 中文流程
+alt: 中文流程说明
+@end
+flowchart LR
+  A --> B
+```
+""", encoding="utf-8")
+            result = build_slides.build(markdown, output)
+            source = output.read_text(encoding="utf-8")
+            report = json.loads(output.with_suffix(".build.json").read_text(encoding="utf-8"))
+            self.assertEqual(result, 0)
+            self.assertIn('data-diagram-engine="mermaid"', source)
+            self.assertIn('<svg', source)
+            self.assertNotIn('src="assets/flow.svg"', source)
+            self.assertNotIn('id="base"', source)
+            self.assertNotIn("url(#arrow)", source)
+            self.assertNotIn("mermaid.run", source)
+            quality = report["diagrams"]["quality"]["flow"][0]
+            self.assertGreaterEqual(quality["projectedMinFontSize"], 28)
+            self.assertGreaterEqual(quality["minimumSafeMargin"], 24)
+
+    def test_excalidraw_svg_requires_matching_quality_report(self):
+        with tempfile.TemporaryDirectory(dir=build_slides.ROOT) as directory:
+            root = Path(directory)
+            assets = root / "assets"
+            assets.mkdir()
+            (assets / "flow.excalidraw").write_text('{"type":"excalidraw","version":2,"elements":[]}', encoding="utf-8")
+            svg_path = assets / "flow.svg"
+            svg_path.write_text(
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 400">'
+                '<text x="60" y="120" font-size="32">可编辑流程</text></svg>\n',
+                encoding="utf-8",
+            )
+            svg_path.with_suffix(".diagram-build.json").write_text(json.dumps({
+                "schemaVersion": "1.0",
+                "engine": "excalidraw",
+                "svgSha256": "stale-hash",
+                "minimumSafeMargin": 32,
+                "minimumSourceFontSize": 32,
+            }), encoding="utf-8")
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            markdown.write_text("""<!-- slide
+id: editable
+type: content
+layout: chart
+footer: false
+-->
+# Excalidraw SVG
+
+```excalidraw
+source: assets/flow.excalidraw
+src: assets/flow.svg
+title: 可编辑流程
+```
+""", encoding="utf-8")
+            result = build_slides.build(markdown, output)
+            report = json.loads(output.with_suffix(".build.json").read_text(encoding="utf-8"))
+            self.assertEqual(result, 1)
+            self.assertTrue(any("质量报告不一致" in error for error in report["errors"]))
+
+    def test_mermaid_requires_explicit_slide_metadata(self):
+        with tempfile.TemporaryDirectory(dir=build_slides.ROOT) as directory:
+            root = Path(directory)
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            markdown.write_text("""# Mermaid metadata
+
+```mermaid
+flowchart LR
+  A --> B
+```
+""", encoding="utf-8")
+            result = build_slides.build(markdown, output)
+            report = json.loads(output.with_suffix(".build.json").read_text(encoding="utf-8"))
+            self.assertEqual(result, 1)
+            self.assertTrue(any("@slide" in error for error in report["errors"]))
+
+    def test_mermaid_frontmatter_does_not_split_slides(self):
+        deck, chunks = build_slides.split_deck_source("""# First
+
+```mermaid
+@slide
+src: assets/flow.svg
+@end
+---
+config:
+  theme: base
+---
+flowchart LR
+  A --> B
+```
+
+---
+
+# Second
+""")
+        self.assertEqual(deck, {})
+        self.assertEqual(len(chunks), 2)
+        self.assertIn("theme: base", chunks[0])
+        self.assertTrue(chunks[1].startswith("# Second"))
+
+    def test_svg_diagram_layout_rejects_multiple_or_mixed_blocks(self):
+        slide = build_slides.Slide(
+            number=1,
+            slide_id="diagram-density",
+            kind="content",
+            title="Diagram density",
+            subtitle="",
+            section="",
+            layout_requested="chart",
+            layout_resolved="chart",
+            config={},
+            media=[],
+            blocks=[
+                build_slides.Block("mermaid", "<svg/>", ""),
+                build_slides.Block("excalidraw", "<svg/>", ""),
+                build_slides.Block("section", "<p>copy</p>", "copy"),
+            ],
+            raw_body="",
+        )
+
+        build_slides.validate_slide(slide, "presentation", self.messages)
+
+        self.assertTrue(any("每页最多放置一个" in error for error in self.messages.errors))
+        self.assertTrue(any("不要混排正文块" in error for error in self.messages.errors))
 
     def test_editor_override_round_trip(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -207,7 +443,8 @@ Second page.
             target.chmod(0o644)
             build_slides.write_text_atomic(target, "new\n")
             self.assertEqual(target.read_text(encoding="utf-8"), "new\n")
-            self.assertEqual(target.stat().st_mode & 0o777, 0o644)
+            if os.name != "nt":
+                self.assertEqual(target.stat().st_mode & 0o777, 0o644)
             self.assertEqual(list(target.parent.glob(f".{target.name}.*.tmp")), [])
 
 

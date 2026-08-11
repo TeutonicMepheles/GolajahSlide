@@ -1,0 +1,78 @@
+{
+  "layout": "graph",
+  "style": "paper",
+  "animation": "flow",
+  "direction": "right",
+  "density": "balanced",
+  "canvas": {
+    "fps": 20,
+    "frames": 41
+  },
+  "title": {
+    "prefix": "GolajahSlide",
+    "highlight": "动态流程",
+    "subtitle": "可编辑的 Archscribe 原始画布"
+  },
+  "nodes": [
+    {
+      "id": "source",
+      "label": "演示内容",
+      "icon": "file",
+      "accent": "cyan"
+    },
+    {
+      "id": "builtin",
+      "label": "内置图表",
+      "icon": "benchmark",
+      "accent": "green"
+    },
+    {
+      "id": "dynamic",
+      "label": "动态流程",
+      "icon": "ingest",
+      "accent": "amber"
+    },
+    {
+      "id": "gate",
+      "label": "通过？",
+      "kind": "decision",
+      "icon": "review"
+    },
+    {
+      "id": "ship",
+      "label": "交付演示",
+      "kind": "terminal",
+      "icon": "success",
+      "accent": "green"
+    }
+  ],
+  "edges": [
+    {
+      "from": "source",
+      "to": "builtin"
+    },
+    {
+      "from": "source",
+      "to": "dynamic"
+    },
+    {
+      "from": "builtin",
+      "to": "gate"
+    },
+    {
+      "from": "dynamic",
+      "to": "gate"
+    },
+    {
+      "from": "gate",
+      "to": "ship"
+    },
+    {
+      "from": "gate",
+      "to": "dynamic",
+      "kind": "loop",
+      "accent": "pink"
+    }
+  ],
+  "signature": "@GolajahSlide"
+}

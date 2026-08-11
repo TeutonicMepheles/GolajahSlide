@@ -1,0 +1,18 @@
+#my-svg .node rect,
+#my-svg .node polygon,
+#my-svg .node circle,
+#my-svg .node ellipse,
+#my-svg .node path {
+  stroke-width: 2px !important;
+}
+
+#my-svg .edgePath path,
+#my-svg .flowchart-link {
+  stroke-width: 2.25px !important;
+}
+
+#my-svg .label,
+#my-svg .nodeLabel,
+#my-svg .edgeLabel {
+  font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif !important;
+}

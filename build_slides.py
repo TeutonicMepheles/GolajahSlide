@@ -1,23 +1,28 @@
 #!/usr/bin/env python3
 """Build a fixed-stage HTML slide deck from the project's Markdown dialect.
 
-The compiler intentionally uses only the Python standard library.  It keeps the
-Markdown format deterministic enough for slide layout decisions while still
-supporting the everyday primitives needed by this template: headings, lists,
-tables, callouts, code, images and lightweight charts.
+The core compiler intentionally uses only the Python standard library. Optional
+Mermaid and Excalidraw asset generation is delegated to the pinned Node build
+toolchain, while the final deck keeps deterministic, dependency-free inline SVG.
+The Markdown dialect supports headings, lists, tables, callouts, code, images,
+lightweight charts and build-time diagrams.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import html
 import json
 import math
 import os
 import re
+import shutil
 import struct
+import subprocess
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
@@ -27,8 +32,10 @@ ROOT = Path(__file__).resolve().parent
 TEMPLATE_PATH = ROOT / "templates" / "deck.html"
 STAGE_WIDTH = 1920
 STAGE_HEIGHT = 1080
+DIAGRAM_STAGE_WIDTH = 1840
+DIAGRAM_STAGE_HEIGHT = 800
+DIAGRAM_MIN_FONT_SIZE = 28.0
 EDITOR_SCHEMA_VERSION = "1.0"
-SLIDE_SEPARATOR = re.compile(r"(?m)^---\s*$")
 IMAGE_RE = re.compile(r'^!\[([^\]]*)\]\((\S+?)(?:\s+["\']([^"\']*)["\'])?\)\s*$')
 DIRECTIVE_RE = re.compile(r"<!--\s*slide\s*(.*?)-->", re.I | re.S)
 TABLE_DIVIDER_RE = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$")
@@ -36,6 +43,17 @@ LIST_RE = re.compile(r"^\s*([-*+] |\d+[.)] )(.*)$")
 INLINE_TOKEN_RE = re.compile(r"(`[^`]+`|\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))")
 HEX_COLOR_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 REVEAL_KEY_RE = re.compile(r"^[0-9A-Za-z_-]{1,64}$")
+ARCHSCRIBE_FENCE_RE = re.compile(r"(?ms)^```archscribe[ \t]*\n(.*?)^```[ \t]*$")
+MERMAID_FENCE_RE = re.compile(r"(?ms)^```mermaid[ \t]*\n(.*?)^```[ \t]*$")
+EXCALIDRAW_FENCE_RE = re.compile(r"(?ms)^```excalidraw[ \t]*\n(.*?)^```[ \t]*$")
+REMOTE_ASSET_PREFIXES = ("http://", "https://", "data:")
+DIAGRAM_BLOCK_KINDS = {"chart", "mermaid", "excalidraw", "archscribe"}
+SVG_NS = "http://www.w3.org/2000/svg"
+XLINK_NS = "http://www.w3.org/1999/xlink"
+SLIDE_FONT_STACK = '"PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif'
+
+ET.register_namespace("", SVG_NS)
+ET.register_namespace("xlink", XLINK_NS)
 
 
 @dataclass
@@ -116,6 +134,20 @@ def write_text_atomic(path: Path, source: str) -> None:
         temporary_path.unlink(missing_ok=True)
 
 
+def relative_asset_href(path: Path, output_dir: Path) -> str:
+    try:
+        return Path(os.path.relpath(path, output_dir)).as_posix()
+    except ValueError:
+        return path.as_uri()
+
+
+def format_report_path(path: Path) -> str:
+    try:
+        return Path(os.path.relpath(path, ROOT)).as_posix()
+    except ValueError:
+        return path.as_posix()
+
+
 def parse_scalar(value: str):
     value = value.strip()
     if not value:
@@ -147,6 +179,193 @@ def parse_key_values(raw: str) -> dict[str, object]:
     return values
 
 
+def parse_mermaid_fence(raw: str) -> tuple[dict[str, object], str]:
+    """Split Slide-only metadata from Mermaid syntax without stealing Mermaid frontmatter."""
+    lines = raw.splitlines()
+    first = next((index for index, line in enumerate(lines) if line.strip()), None)
+    if first is None or lines[first].strip().lower() != "@slide":
+        return {}, raw.strip()
+    end = next(
+        (index for index in range(first + 1, len(lines)) if lines[index].strip().lower() == "@end"),
+        None,
+    )
+    if end is None:
+        return {"metadata-error": "mermaid @slide 缺少 @end"}, ""
+    return parse_key_values("\n".join(lines[first + 1 : end])), "\n".join(lines[end + 1 :]).strip()
+
+
+def sha256_text(*parts: str) -> str:
+    digest = hashlib.sha256()
+    for part in parts:
+        digest.update(part.encode("utf-8"))
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def svg_local_name(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1].lower()
+
+
+def svg_view_box(root: ET.Element) -> tuple[float, float, float, float] | None:
+    raw = root.get("viewBox", "").strip()
+    parts = [part for part in re.split(r"[\s,]+", raw) if part]
+    if len(parts) != 4:
+        return None
+    try:
+        x, y, width, height = (float(part) for part in parts)
+    except ValueError:
+        return None
+    if width <= 0 or height <= 0:
+        return None
+    return x, y, width, height
+
+
+def extract_svg_font_sizes(source: str) -> list[float]:
+    sizes: list[float] = []
+    pattern = re.compile(r"font-size\s*(?:=|:)\s*[\"']?\s*([0-9]+(?:\.[0-9]+)?)", re.I)
+    style_blocks = re.findall(r"(?is)<style\b[^>]*>(.*?)</style>", source)
+    source_without_styles = re.sub(r"(?is)<style\b[^>]*>.*?</style>", "", source)
+    for match in pattern.finditer(source_without_styles):
+        value = float(match.group(1))
+        if value > 0:
+            sizes.append(value)
+    root_match = re.search(r"(?is)<svg\b[^>]*\bid=[\"']([^\"']+)[\"']", source)
+    if root_match:
+        root_selector = "#" + root_match.group(1)
+        for stylesheet in style_blocks:
+            for rule in re.finditer(r"(?s)([^{}]+)\{([^{}]*)\}", stylesheet):
+                selectors, declarations = rule.groups()
+                normalized = [selector.strip() for selector in selectors.split(",")]
+                if root_selector not in normalized and f"{root_selector} svg" not in normalized:
+                    continue
+                match = pattern.search(declarations)
+                if match and float(match.group(1)) > 0:
+                    sizes.append(float(match.group(1)))
+    return sizes
+
+
+def strip_svg_dimensions(style: str) -> str:
+    kept = []
+    for declaration in style.split(";"):
+        key = declaration.split(":", 1)[0].strip().lower()
+        if key not in {"width", "height", "max-width", "max-height"} and declaration.strip():
+            kept.append(declaration.strip())
+    return ";".join(kept)
+
+
+def sanitize_inline_svg(
+    source: str,
+    engine: str,
+    unique_prefix: str,
+    title: str,
+    description: str,
+    messages: BuildMessages,
+    slide_no: int,
+) -> str:
+    try:
+        root = ET.fromstring(source)
+    except ET.ParseError as error:
+        messages.error(slide_no, f"{engine} SVG 无法解析：{error}")
+        return '<svg class="diagram-svg" viewBox="0 0 16 9" role="img"></svg>'
+    if svg_local_name(root.tag) != "svg":
+        messages.error(slide_no, f"{engine} 产物根元素不是 SVG")
+        return '<svg class="diagram-svg" viewBox="0 0 16 9" role="img"></svg>'
+    if svg_view_box(root) is None:
+        messages.error(slide_no, f"{engine} SVG 缺少有效 viewBox")
+
+    forbidden = {"script", "foreignobject", "iframe", "object", "embed"}
+
+    def clean_children(parent: ET.Element) -> None:
+        for child in list(parent):
+            if svg_local_name(child.tag) in forbidden:
+                parent.remove(child)
+            else:
+                clean_children(child)
+
+    clean_children(root)
+    ids: dict[str, str] = {}
+    for element in root.iter():
+        old_id = element.get("id")
+        if old_id:
+            new_id = f"{unique_prefix}-{re.sub(r'[^0-9A-Za-z_-]+', '-', old_id)}"
+            ids[old_id] = new_id
+            element.set("id", new_id)
+        for attribute in list(element.attrib):
+            local = svg_local_name(attribute)
+            value = element.attrib[attribute]
+            if local.startswith("on"):
+                del element.attrib[attribute]
+            elif local in {"href", "src"} and re.match(r"(?i)\s*(?:https?:|javascript:|data:text/html)", value):
+                del element.attrib[attribute]
+                messages.warn(slide_no, f"{engine} SVG 中的外部引用已移除")
+    id_replacements = sorted(ids.items(), key=lambda item: len(item[0]), reverse=True)
+    for element in root.iter():
+        for attribute, value in list(element.attrib.items()):
+            updated = value
+            for old_id, new_id in id_replacements:
+                updated = updated.replace(f"url(#{old_id})", f"url(#{new_id})")
+                if updated == f"#{old_id}":
+                    updated = f"#{new_id}"
+            element.set(attribute, updated)
+        if svg_local_name(element.tag) == "style" and element.text:
+            updated_style = element.text
+            for old_id, new_id in id_replacements:
+                updated_style = updated_style.replace(f"#{old_id}", f"#{new_id}")
+            updated_style = re.sub(r"(?is)@import\s+[^;]+;", "", updated_style)
+            updated_style = re.sub(r"(?i)url\(\s*[\"']?https?://[^)]+\)", "none", updated_style)
+            element.text = updated_style
+
+    root.attrib.pop("width", None)
+    root.attrib.pop("height", None)
+    if "style" in root.attrib:
+        root.set("style", strip_svg_dimensions(root.attrib["style"]))
+    classes = [item for item in root.get("class", "").split() if item]
+    if "diagram-svg" not in classes:
+        classes.append("diagram-svg")
+    root.set("class", " ".join(classes))
+    if not root.get("id"):
+        root.set("id", f"{unique_prefix}-root")
+    root.set("preserveAspectRatio", "xMidYMid meet")
+    root.set("role", "img")
+    root.set("focusable", "false")
+    root.set("data-diagram-engine", engine)
+
+    title_id = f"{unique_prefix}-title"
+    description_id = f"{unique_prefix}-description"
+    root.set("aria-labelledby", f"{title_id} {description_id}")
+    for child in list(root):
+        if svg_local_name(child.tag) in {"title", "desc"}:
+            root.remove(child)
+    title_node = ET.Element(f"{{{SVG_NS}}}title", {"id": title_id})
+    title_node.text = title
+    description_node = ET.Element(f"{{{SVG_NS}}}desc", {"id": description_id})
+    description_node.text = description
+    style_node = ET.Element(f"{{{SVG_NS}}}style", {"data-slide-diagram-style": "true"})
+    root_selector = "#" + root.get("id", f"{unique_prefix}-root")
+    style_node.text = f'{root_selector} text, {root_selector} tspan {{ font-family: {SLIDE_FONT_STACK} !important; }}'
+    root.insert(0, description_node)
+    root.insert(0, title_node)
+    root.insert(2, style_node)
+    return ET.tostring(root, encoding="unicode")
+
+
+def read_diagram_sidecar(svg_path: Path) -> dict[str, object]:
+    path = svg_path.with_suffix(".diagram-build.json")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
 def split_deck_source(source: str) -> tuple[dict[str, object], list[str]]:
     normalized = source.replace("\r\n", "\n").lstrip("\ufeff")
     deck: dict[str, object] = {}
@@ -155,7 +374,31 @@ def split_deck_source(source: str) -> tuple[dict[str, object], list[str]]:
         if end != -1:
             deck = parse_key_values(normalized[4:end])
             normalized = normalized[end + 4 :].lstrip("\n")
-    chunks = [chunk.strip() for chunk in SLIDE_SEPARATOR.split(normalized) if chunk.strip()]
+    chunks: list[str] = []
+    current: list[str] = []
+    fence: str | None = None
+    for line in normalized.splitlines():
+        stripped = line.strip()
+        if fence:
+            current.append(line)
+            if stripped.startswith(fence):
+                fence = None
+            continue
+        fence_match = re.match(r"^(`{3,}|~{3,})", stripped)
+        if fence_match:
+            fence = fence_match.group(1)[0] * len(fence_match.group(1))
+            current.append(line)
+            continue
+        if stripped == "---":
+            chunk = "\n".join(current).strip()
+            if chunk:
+                chunks.append(chunk)
+            current = []
+            continue
+        current.append(line)
+    chunk = "\n".join(current).strip()
+    if chunk:
+        chunks.append(chunk)
     return deck, chunks
 
 
@@ -278,7 +521,7 @@ def extract_media(body: str, source_dir: Path, output_dir: Path, messages: Build
                 size = image_size(absolute)
                 if not size:
                     messages.warn(slide_no, f"无法读取图片尺寸，将按 16:9 处理：{raw_source}")
-            output_source = Path(os.path.relpath(absolute, output_dir)).as_posix()
+            output_source = relative_asset_href(absolute, output_dir)
         media.append(Media(raw_source, output_source, alt or "演示图片", caption or alt or "", *(size or (None, None))))
     return media, "\n".join(kept).strip()
 
@@ -351,6 +594,364 @@ def parse_chart(raw: str, messages: BuildMessages, slide_no: int) -> Block:
     return Block("chart", markup, " ".join(labels), {"type": chart_type})
 
 
+def parse_svg_diagram(
+    config: dict[str, object],
+    engine: str,
+    source_dir: Path,
+    messages: BuildMessages,
+    slide_no: int,
+    stage_size: tuple[int, int],
+) -> Block:
+    raw_source = str(config.get("src", "")).strip()
+    title = str(config.get("title", f"{engine} 流程图")).strip() or f"{engine} 流程图"
+    alt = str(config.get("alt", title)).strip() or title
+    caption = str(config.get("caption", "")).strip()
+    metrics: dict[str, object] = {"engine": engine, "src": raw_source}
+    if not raw_source:
+        messages.error(slide_no, f"{engine} 代码块缺少 src SVG 输出路径")
+        source = '<svg class="diagram-svg" viewBox="0 0 16 9"></svg>'
+        svg_path = None
+    elif raw_source.startswith(REMOTE_ASSET_PREFIXES):
+        messages.error(slide_no, f"{engine} 必须使用本地 SVG，以便内联并执行质量校验")
+        source = '<svg class="diagram-svg" viewBox="0 0 16 9"></svg>'
+        svg_path = None
+    else:
+        svg_path = (source_dir / raw_source).resolve()
+        if svg_path.suffix.lower() != ".svg":
+            messages.error(slide_no, f"{engine} src 必须是 .svg：{raw_source}")
+        try:
+            source = svg_path.read_text(encoding="utf-8")
+        except (OSError, UnicodeError) as error:
+            messages.error(slide_no, f"{engine} SVG 不存在或无法读取：{raw_source}（{error}）")
+            source = '<svg class="diagram-svg" viewBox="0 0 16 9"></svg>'
+
+    sidecar = read_diagram_sidecar(svg_path) if svg_path and svg_path.is_file() else {}
+    if svg_path and svg_path.is_file():
+        recorded_hash = str(sidecar.get("svgSha256", ""))
+        actual_hash = sha256_file(svg_path)
+        if not sidecar:
+            messages.error(slide_no, f"{engine} SVG 缺少 .diagram-build.json 质量报告；请运行 --render-diagrams")
+        elif recorded_hash != actual_hash:
+            messages.error(slide_no, f"{engine} SVG 与质量报告不一致；请重新运行 --render-diagrams")
+        if sidecar.get("engine") and sidecar.get("engine") != engine:
+            messages.error(slide_no, f"{engine} SVG 的质量报告引擎不匹配")
+
+    try:
+        root = ET.fromstring(source)
+    except ET.ParseError:
+        root = ET.Element(f"{{{SVG_NS}}}svg", {"viewBox": "0 0 16 9"})
+    view_box = svg_view_box(root)
+    font_sizes = extract_svg_font_sizes(source)
+    fallback_font = sidecar.get("minimumSourceFontSize")
+    if font_sizes:
+        source_min = min(font_sizes)
+    elif isinstance(fallback_font, (int, float)) and float(fallback_font) > 0:
+        source_min = float(fallback_font)
+    else:
+        source_min = 0.0
+        messages.error(slide_no, f"{engine} SVG 中没有可校验的字号")
+    projected = 0.0
+    if view_box:
+        _, _, view_width, view_height = view_box
+        projected = source_min * min(stage_size[0] / view_width, stage_size[1] / view_height)
+        metrics.update({
+            "viewBoxWidth": round(view_width, 2),
+            "viewBoxHeight": round(view_height, 2),
+        })
+    try:
+        required_font = float(config.get("min-font-size", DIAGRAM_MIN_FONT_SIZE))
+    except (TypeError, ValueError):
+        required_font = DIAGRAM_MIN_FONT_SIZE
+        messages.error(slide_no, f"{engine} min-font-size 必须是数字")
+    if projected + 0.05 < required_font:
+        messages.error(
+            slide_no,
+            f"{engine} 最小字号投影后约 {projected:.1f}px，低于 Slide 下限 {required_font:g}px；请减少节点、缩短标签或调整布局",
+        )
+    metrics.update({
+        "sourceMinFontSize": round(source_min, 2),
+        "projectedMinFontSize": round(projected, 2),
+    })
+
+    try:
+        required_margin = float(config.get("safe-margin", 24))
+    except (TypeError, ValueError):
+        required_margin = 24.0
+        messages.error(slide_no, f"{engine} safe-margin 必须是数字")
+    recorded_margin = sidecar.get("minimumSafeMargin")
+    if isinstance(recorded_margin, (int, float)):
+        safe_margin = float(recorded_margin)
+        metrics["minimumSafeMargin"] = round(safe_margin, 2)
+        if safe_margin + 0.05 < required_margin:
+            messages.error(slide_no, f"{engine} SVG 安全边距 {safe_margin:g}px，低于要求 {required_margin:g}px")
+    elif svg_path and svg_path.is_file():
+        messages.error(slide_no, f"{engine} SVG 质量报告缺少安全边距数据")
+
+    prefix = f"diagram-p{slide_no}-{engine}-{sha256_text(raw_source)[:8]}"
+    inline_svg = sanitize_inline_svg(source, engine, prefix, title, alt, messages, slide_no)
+    figure_caption = f"<figcaption>{html.escape(caption)}</figcaption>" if caption else ""
+    markup = (
+        '<figure class="card chart-card diagram-card" data-visual-widget="image" '
+        f'data-diagram-engine="{html.escape(engine, quote=True)}" tabindex="0" '
+        f'aria-label="{html.escape(title, quote=True)}">'
+        '<div class="visual-widget-content chart-content diagram-content" data-visual-content>'
+        f"{inline_svg}</div>{figure_caption}</figure>"
+    )
+    return Block(engine, markup, "", metrics)
+
+
+def parse_mermaid_block(
+    raw: str,
+    source_dir: Path,
+    messages: BuildMessages,
+    slide_no: int,
+    stage_size: tuple[int, int],
+) -> Block:
+    config, definition = parse_mermaid_fence(raw)
+    if config.get("metadata-error"):
+        messages.error(slide_no, str(config["metadata-error"]))
+    if not config:
+        messages.error(slide_no, "mermaid 代码块必须以 @slide 元数据开头，并以 @end 结束")
+    if not definition:
+        messages.error(slide_no, "mermaid 代码块缺少图表定义")
+    return parse_svg_diagram(config, "mermaid", source_dir, messages, slide_no, stage_size)
+
+
+def parse_excalidraw_block(
+    raw: str,
+    source_dir: Path,
+    messages: BuildMessages,
+    slide_no: int,
+    stage_size: tuple[int, int],
+) -> Block:
+    config = parse_key_values(raw)
+    raw_scene = str(config.get("source", "")).strip()
+    if not raw_scene:
+        messages.error(slide_no, "excalidraw 代码块缺少 source")
+    elif raw_scene.startswith(REMOTE_ASSET_PREFIXES):
+        messages.error(slide_no, "excalidraw source 必须是本地 .excalidraw 文件")
+    else:
+        scene_path = (source_dir / raw_scene).resolve()
+        if scene_path.suffix.lower() not in {".excalidraw", ".json"}:
+            messages.error(slide_no, f"excalidraw source 必须是 .excalidraw 或 .json：{raw_scene}")
+        elif not scene_path.is_file():
+            messages.error(slide_no, f"excalidraw source 不存在：{raw_scene}")
+    return parse_svg_diagram(config, "excalidraw", source_dir, messages, slide_no, stage_size)
+
+
+def resolve_block_asset(
+    raw_source: str,
+    source_dir: Path,
+    output_dir: Path,
+    messages: BuildMessages,
+    slide_no: int,
+    label: str,
+) -> str:
+    if raw_source.startswith(REMOTE_ASSET_PREFIXES):
+        return raw_source
+    absolute = (source_dir / raw_source).resolve()
+    if not absolute.exists():
+        messages.error(slide_no, f"Archscribe {label}不存在：{raw_source}")
+    return relative_asset_href(absolute, output_dir)
+
+
+def parse_crop_box(value: object) -> tuple[int, int, int, int] | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    parts = [part for part in re.split(r"[\s,]+", raw) if part]
+    if len(parts) != 4:
+        return None
+    try:
+        x, y, width, height = (round(float(part)) for part in parts)
+    except ValueError:
+        return None
+    if x < 0 or y < 0 or width <= 0 or height <= 0:
+        return None
+    return x, y, width, height
+
+
+def validate_archscribe_typography(
+    config: dict[str, object],
+    source_dir: Path,
+    messages: BuildMessages,
+    slide_no: int,
+) -> dict[str, float]:
+    raw_source = str(config.get("src", "")).strip()
+    raw_poster = str(config.get("poster", "")).strip()
+    if not raw_source or raw_source.startswith(REMOTE_ASSET_PREFIXES):
+        return {}
+    gif_path = (source_dir / raw_source).resolve()
+    poster_path = (source_dir / raw_poster).resolve() if raw_poster else gif_path.with_suffix(".png")
+    excalidraw_path = gif_path.with_suffix(".excalidraw")
+    if not poster_path.is_file() or not excalidraw_path.is_file():
+        messages.warn(slide_no, "缺少 PNG 或 Excalidraw，无法校验 Archscribe 在 Slide 中的实际字号")
+        return {}
+    size = image_size(poster_path)
+    if not size:
+        messages.warn(slide_no, f"无法读取 Archscribe poster 尺寸：{raw_poster or poster_path.name}")
+        return {}
+    try:
+        payload = json.loads(excalidraw_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        messages.warn(slide_no, f"无法读取 Archscribe Excalidraw 字号：{error}")
+        return {}
+
+    crop_raw = str(config.get("crop", "")).strip()
+    crop = parse_crop_box(crop_raw)
+    mask = parse_crop_box(config.get("mask", ""))
+    if crop_raw and crop is None:
+        messages.error(slide_no, "archscribe crop 必须是 x,y,width,height 四个非负数")
+        return {}
+    texts: list[dict[str, object]] = []
+    for element in payload.get("elements", []):
+        if not isinstance(element, dict) or element.get("type") != "text" or not str(element.get("text", "")).strip():
+            continue
+        if crop:
+            cx = float(element.get("x", 0)) + float(element.get("width", 0)) / 2
+            cy = float(element.get("y", 0)) + float(element.get("height", 0)) / 2
+            x, y, width, height = crop
+            if not (x <= cx <= x + width and y <= cy <= y + height):
+                continue
+        texts.append(element)
+    font_sizes = [float(element.get("fontSize", 0)) for element in texts if float(element.get("fontSize", 0)) > 0]
+    if not font_sizes:
+        messages.error(slide_no, "Archscribe 交付视口中没有可校验的文字")
+        return {}
+    source_min = min(font_sizes)
+    scale = min(DIAGRAM_STAGE_WIDTH / size[0], DIAGRAM_STAGE_HEIGHT / size[1])
+    projected = source_min * scale
+    try:
+        required = float(config.get("min-font-size", DIAGRAM_MIN_FONT_SIZE))
+    except (TypeError, ValueError):
+        required = DIAGRAM_MIN_FONT_SIZE
+        messages.error(slide_no, "archscribe min-font-size 必须是数字")
+    if projected + 0.05 < required:
+        messages.error(
+            slide_no,
+            f"Archscribe 最小字号投影后约 {projected:.1f}px，低于 Slide 下限 {required:g}px；请减少节点、缩短标签或设置 crop",
+        )
+    safe_margin_result: float | None = None
+    if crop:
+        try:
+            required_margin = float(config.get("safe-margin", 24))
+        except (TypeError, ValueError):
+            required_margin = 24.0
+            messages.error(slide_no, "archscribe safe-margin 必须是数字")
+        x, y, width, height = crop
+        distances: list[float] = []
+        for element in payload.get("elements", []):
+            if not isinstance(element, dict):
+                continue
+            try:
+                ex = float(element.get("x", 0))
+                ey = float(element.get("y", 0))
+                ew = abs(float(element.get("width", 0)))
+                eh = abs(float(element.get("height", 0)))
+            except (TypeError, ValueError):
+                continue
+            cx, cy = ex + ew / 2, ey + eh / 2
+            if not (x <= cx <= x + width and y <= cy <= y + height):
+                continue
+            relative_cx, relative_cy = cx - x, cy - y
+            if mask and mask[0] <= relative_cx <= mask[0] + mask[2] and mask[1] <= relative_cy <= mask[1] + mask[3]:
+                continue
+            if ew >= width * 0.85 or eh >= height * 0.85:
+                continue
+            left, top = ex - x, ey - y
+            right, bottom = x + width - (ex + ew), y + height - (ey + eh)
+            distances.append(min(left, top, right, bottom))
+        if distances:
+            safe_margin_result = min(distances)
+            if safe_margin_result + 0.05 < required_margin:
+                messages.error(
+                    slide_no,
+                    f"Archscribe 流程主体距裁切边界最小约 {safe_margin_result:.1f}px，低于安全边距 {required_margin:g}px",
+                )
+    result = {"sourceMinFontSize": round(source_min, 2), "projectedMinFontSize": round(projected, 2)}
+    if safe_margin_result is not None:
+        result["minimumSafeMargin"] = round(safe_margin_result, 2)
+    cache_path = gif_path.with_suffix(".archscribe-build.json")
+    try:
+        delivery_cache = json.loads(cache_path.read_text(encoding="utf-8")) if cache_path.is_file() else {}
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        delivery_cache = {}
+    if isinstance(delivery_cache.get("minimumRasterMargin"), (int, float)):
+        raster_margin = float(delivery_cache["minimumRasterMargin"])
+        result["minimumRasterMargin"] = round(raster_margin, 2)
+        try:
+            required_raster_margin = float(config.get("safe-margin", 24))
+        except (TypeError, ValueError):
+            required_raster_margin = 24.0
+        if raster_margin + 0.05 < required_raster_margin:
+            messages.error(
+                slide_no,
+                f"Archscribe 动画内容距成品边界最小约 {raster_margin:.1f}px，低于安全边距 {required_raster_margin:g}px",
+            )
+    return result
+
+
+def parse_archscribe(
+    raw: str,
+    source_dir: Path,
+    output_dir: Path,
+    messages: BuildMessages,
+    slide_no: int,
+) -> Block:
+    config = parse_key_values(raw)
+    raw_source = str(config.get("src", "")).strip()
+    raw_spec = str(config.get("spec", "")).strip()
+    raw_poster = str(config.get("poster", "")).strip()
+    title = str(config.get("title", "动态流程图")).strip() or "动态流程图"
+    alt = str(config.get("alt", title)).strip() or title
+    caption = str(config.get("caption", "")).strip()
+    raw_crop = str(config.get("crop", "")).strip()
+    raw_mask = str(config.get("mask", "")).strip()
+    if raw_mask and parse_crop_box(raw_mask) is None:
+        messages.error(slide_no, "archscribe mask 必须是 x,y,width,height 四个非负数")
+    elif raw_mask and not raw_crop:
+        messages.error(slide_no, "archscribe mask 必须与 crop 一起使用")
+    typography = validate_archscribe_typography(config, source_dir, messages, slide_no)
+
+    if not raw_source:
+        messages.error(slide_no, "archscribe 代码块缺少 src")
+        raw_source = "missing-archscribe-diagram.gif"
+    elif not raw_source.lower().endswith(".gif"):
+        messages.warn(slide_no, "archscribe src 建议使用 GIF，以保留流程动画")
+    source = resolve_block_asset(raw_source, source_dir, output_dir, messages, slide_no, "动画")
+
+    if not raw_spec:
+        messages.error(slide_no, "archscribe 代码块缺少 spec，无法复现流程图")
+    elif not raw_spec.startswith(REMOTE_ASSET_PREFIXES):
+        resolve_block_asset(raw_spec, source_dir, output_dir, messages, slide_no, "配置")
+
+    poster_source = ""
+    if raw_poster:
+        poster_source = resolve_block_asset(raw_poster, source_dir, output_dir, messages, slide_no, "静态海报")
+    else:
+        messages.warn(slide_no, "archscribe 代码块未提供 poster；减少动态效果时仍会播放 GIF")
+
+    reduced_motion = (
+        f'<source media="(prefers-reduced-motion: reduce)" srcset="{html.escape(poster_source, quote=True)}">'
+        if poster_source else ""
+    )
+    figure_caption = f"<figcaption>{html.escape(caption)}</figcaption>" if caption else ""
+    markup = (
+        '<figure class="card chart-card diagram-card" data-visual-widget="image" data-diagram-engine="archscribe" '
+        f'tabindex="0" aria-label="{html.escape(title, quote=True)}">'
+        '<div class="visual-widget-content chart-content diagram-content" data-visual-content>'
+        f'<picture>{reduced_motion}<img src="{html.escape(source, quote=True)}" '
+        f'alt="{html.escape(alt, quote=True)}" draggable="false"></picture>'
+        f'</div>{figure_caption}</figure>'
+    )
+    return Block(
+        "archscribe",
+        markup,
+        "",
+        {"src": raw_source, "poster": raw_poster, "spec": raw_spec, "crop": str(config.get("crop", "")), **typography},
+    )
+
+
 def render_chart_svg(chart_type: str, labels: list[str], values: list[float], title: str, unit: str) -> str:
     width, height = 1600, 610
     escaped_title = html.escape(title)
@@ -417,7 +1018,14 @@ def paragraph_block(parts: list[str], title: str | None = None) -> Block | None:
     return Block("section", f'<article class="card text-card section-card">{heading}{content}</article>', plain)
 
 
-def parse_blocks(body: str, messages: BuildMessages, slide_no: int) -> list[Block]:
+def parse_blocks(
+    body: str,
+    source_dir: Path,
+    output_dir: Path,
+    messages: BuildMessages,
+    slide_no: int,
+    diagram_stage_size: tuple[int, int] = (DIAGRAM_STAGE_WIDTH, DIAGRAM_STAGE_HEIGHT),
+) -> list[Block]:
     lines = body.splitlines()
     blocks: list[Block] = []
     current_title: str | None = None
@@ -454,6 +1062,12 @@ def parse_blocks(body: str, messages: BuildMessages, slide_no: int) -> list[Bloc
             i += 1
             if language == "chart":
                 blocks.append(parse_chart("\n".join(fenced), messages, slide_no))
+            elif language == "mermaid":
+                blocks.append(parse_mermaid_block("\n".join(fenced), source_dir, messages, slide_no, diagram_stage_size))
+            elif language == "excalidraw":
+                blocks.append(parse_excalidraw_block("\n".join(fenced), source_dir, messages, slide_no, diagram_stage_size))
+            elif language == "archscribe":
+                blocks.append(parse_archscribe("\n".join(fenced), source_dir, output_dir, messages, slide_no))
             else:
                 label = html.escape(language or "code")
                 code = html.escape("\n".join(fenced))
@@ -518,7 +1132,7 @@ def bool_config(config: dict[str, str], key: str, default: bool) -> bool:
 
 
 def body_text_length(blocks: Iterable[Block]) -> int:
-    return sum(len(re.sub(r"\s+", "", block.text)) for block in blocks if block.kind != "chart")
+    return sum(len(re.sub(r"\s+", "", block.text)) for block in blocks if block.kind not in DIAGRAM_BLOCK_KINDS)
 
 
 def slide_identifier(config: dict[str, str], number: int) -> str:
@@ -544,11 +1158,11 @@ def resolve_layout(kind: str, requested: str, media: list[Media], blocks: list[B
         messages.warn(slide_no, f"layout={requested} 不受支持，已改用 auto")
         requested = "auto"
     text_length = body_text_length(blocks)
-    charts = [block for block in blocks if block.kind == "chart"]
-    if requested == "chart" and not charts:
-        messages.warn(slide_no, "layout=chart 但页面没有 chart 代码块，已改用 auto")
+    visual_blocks = [block for block in blocks if block.kind in DIAGRAM_BLOCK_KINDS]
+    if requested == "chart" and not visual_blocks:
+        messages.warn(slide_no, "layout=chart 但页面没有图表代码块，已改用 auto")
         requested = "auto"
-    if requested == "chart" or (requested == "auto" and charts):
+    if requested == "chart" or (requested == "auto" and visual_blocks):
         return "chart"
     if requested == "table":
         if not any(block.kind == "table" for block in blocks):
@@ -594,7 +1208,9 @@ def parse_slide(chunk: str, number: int, deck: dict[str, object], source_dir: Pa
         messages.error(number, "页面缺少一级标题（# 标题）")
         title = f"未命名页面 {number}"
     media, body_without_media = extract_media(body, source_dir, output_dir, messages, number)
-    blocks = parse_blocks(body_without_media, messages, number)
+    fullstage = not bool_config(config, "footer", True)
+    diagram_stage_size = (DIAGRAM_STAGE_WIDTH, DIAGRAM_STAGE_HEIGHT) if fullstage else (1700, 716)
+    blocks = parse_blocks(body_without_media, source_dir, output_dir, messages, number, diagram_stage_size)
     requested = config.get("layout", "auto").lower()
     resolved = resolve_layout(kind, requested, media, blocks, messages, number)
     section = config.get("section", "") or str(deck.get("default-section", ""))
@@ -859,9 +1475,9 @@ def render_content(slide: Slide) -> str:
     if slide.layout_resolved == "table":
         return '<div class="table-layout">' + "".join(block.html for block in slide.blocks) + "</div>"
     if slide.layout_resolved == "chart":
-        charts = [block.html for block in slide.blocks if block.kind == "chart"]
-        copy = [block for block in slide.blocks if block.kind != "chart"]
-        return f'<div class="chart-layout"><div class="chart-stage">{"".join(charts)}</div>{render_copy(copy, "chart-copy")}</div>'
+        visuals = [block.html for block in slide.blocks if block.kind in DIAGRAM_BLOCK_KINDS]
+        copy = [block for block in slide.blocks if block.kind not in DIAGRAM_BLOCK_KINDS]
+        return f'<div class="chart-layout"><div class="chart-stage">{"".join(visuals)}</div>{render_copy(copy, "chart-copy")}</div>'
     if slide.layout_resolved == "gallery":
         return render_gallery(slide)
     if slide.layout_resolved == "media":
@@ -877,7 +1493,9 @@ def render_content(slide: Slide) -> str:
 
 
 def render_slide(slide: Slide, deck: dict[str, object], sections: list[str]) -> str:
-    classes = f"slide {slide.kind}-slide layout-{slide.layout_resolved} density-{slide.config.get('density', str(deck.get('density', 'reading')))}"
+    has_diagram = any(block.kind in {"mermaid", "excalidraw", "archscribe"} for block in slide.blocks)
+    diagram_class = " has-diagram diagram-fullstage" if has_diagram and not bool_config(slide.config, "footer", True) else (" has-diagram" if has_diagram else "")
+    classes = f"slide {slide.kind}-slide layout-{slide.layout_resolved} density-{slide.config.get('density', str(deck.get('density', 'reading')))}{diagram_class}"
     if slide.kind in {"cover", "section"}:
         inner = render_hero(slide, deck)
     else:
@@ -893,6 +1511,7 @@ def render_slide(slide: Slide, deck: dict[str, object], sections: list[str]) -> 
         f'data-block-count="{len(slide.blocks)}" data-text-length="{body_text_length(slide.blocks)}" '
         f'data-has-table="{str(any(block.kind == "table" for block in slide.blocks)).lower()}" '
         f'data-has-chart="{str(any(block.kind == "chart" for block in slide.blocks)).lower()}" '
+        f'data-has-diagram="{str(has_diagram).lower()}" '
         f'data-layout-requested="{html.escape(slide.layout_requested)}" '
         f'data-layout-resolved="{html.escape(slide.layout_resolved)}">{inner}</section>'
     )
@@ -907,6 +1526,11 @@ def validate_slide(slide: Slide, density: str, messages: BuildMessages) -> None:
         messages.warn(slide.number, "标题偏长，建议控制在 28 个中英文字符以内")
     if len(slide.subtitle) > 38:
         messages.warn(slide.number, "副标题偏长，建议控制在一行（约 38 字）")
+    svg_diagrams = [block for block in slide.blocks if block.kind in {"mermaid", "excalidraw"}]
+    if len(svg_diagrams) > 1:
+        messages.error(slide.number, "为保证投影字号和安全区准确，每页最多放置一个 Mermaid 或 Excalidraw 图表")
+    if svg_diagrams and len(slide.blocks) > 1:
+        messages.error(slide.number, "Mermaid/Excalidraw 页面不要混排正文块；说明应放入副标题或图注")
     if len(slide.blocks) > 6:
         messages.warn(slide.number, f"页面包含 {len(slide.blocks)} 个内容块，建议拆为两页")
     for block in slide.blocks:
@@ -929,7 +1553,488 @@ def collect_sections(deck: dict[str, object], slides: list[Slide], messages: Bui
     return sections
 
 
-def build(source_path: Path, output_path: Path, strict: bool = False, overrides_path: Path | None = None) -> int:
+def find_archscribe_configs(source: str) -> list[dict[str, object]]:
+    return [parse_key_values(match.group(1)) for match in ARCHSCRIBE_FENCE_RE.finditer(source)]
+
+
+def find_mermaid_specs(source: str) -> list[dict[str, object]]:
+    specs: list[dict[str, object]] = []
+    for match in MERMAID_FENCE_RE.finditer(source):
+        config, definition = parse_mermaid_fence(match.group(1))
+        specs.append({**config, "definition": definition})
+    return specs
+
+
+def find_excalidraw_configs(source: str) -> list[dict[str, object]]:
+    return [parse_key_values(match.group(1)) for match in EXCALIDRAW_FENCE_RE.finditer(source)]
+
+
+def find_chrome_executable(configured: Path | None = None) -> Path | None:
+    candidates: list[Path] = []
+    if configured:
+        candidates.append(configured)
+    for variable in ("DIAGRAM_CHROME", "PUPPETEER_EXECUTABLE_PATH"):
+        if os.environ.get(variable):
+            candidates.append(Path(os.environ[variable]))
+    if os.name == "nt":
+        candidates.extend([
+            Path(r"C:\Program Files\Google\Chrome\Application\chrome.exe"),
+            Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"),
+            Path(r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"),
+        ])
+    elif sys.platform == "darwin":
+        candidates.append(Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"))
+    else:
+        candidates.extend([Path("/usr/bin/google-chrome"), Path("/usr/bin/chromium"), Path("/usr/bin/chromium-browser")])
+    return next((candidate.resolve() for candidate in candidates if candidate.is_file()), None)
+
+
+def svg_artifact_metrics(source: str, fallback_font_size: float | None = None) -> dict[str, float]:
+    try:
+        root = ET.fromstring(source)
+    except ET.ParseError as error:
+        raise ValueError(f"SVG 无法解析：{error}") from error
+    view_box = svg_view_box(root)
+    if not view_box:
+        raise ValueError("SVG 缺少有效 viewBox")
+    font_sizes = extract_svg_font_sizes(source)
+    source_min = min(font_sizes) if font_sizes else float(fallback_font_size or 0)
+    if source_min <= 0:
+        raise ValueError("SVG 中没有可校验的字号")
+    return {
+        "viewBoxWidth": round(view_box[2], 2),
+        "viewBoxHeight": round(view_box[3], 2),
+        "minimumSourceFontSize": round(source_min, 2),
+    }
+
+
+def diagram_cache_matches(output_path: Path, sidecar_path: Path, build_hash: str) -> bool:
+    if not output_path.is_file() or not sidecar_path.is_file():
+        return False
+    try:
+        payload = json.loads(sidecar_path.read_text(encoding="utf-8"))
+        return payload.get("buildHash") == build_hash and payload.get("svgSha256") == sha256_file(output_path)
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return False
+
+
+def run_diagram_process(command: list[str], label: str, messages: BuildMessages) -> subprocess.CompletedProcess[str] | None:
+    try:
+        completed = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    except OSError as error:
+        messages.error(None, f"无法启动 {label}：{error}")
+        return None
+    if completed.stdout.strip():
+        print(completed.stdout.strip())
+    if completed.stderr.strip():
+        print(completed.stderr.strip(), file=sys.stderr)
+    if completed.returncode != 0:
+        detail = completed.stderr.strip() or f"exit code {completed.returncode}"
+        messages.error(None, f"{label} 失败：{detail}")
+        return None
+    return completed
+
+
+def measure_svg_safe_margin(
+    runtime: Path,
+    measure_script: Path,
+    svg_path: Path,
+    chrome: Path,
+    messages: BuildMessages,
+    label: str,
+) -> float | None:
+    command = [str(runtime), str(measure_script), "--input", str(svg_path), "--chrome", str(chrome)]
+    try:
+        completed = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace")
+    except OSError as error:
+        messages.error(None, f"无法启动 {label} SVG 安全区检测：{error}")
+        return None
+    if completed.returncode != 0:
+        messages.error(None, f"{label} SVG 安全区检测失败：{completed.stderr.strip() or completed.returncode}")
+        return None
+    try:
+        payload = json.loads(completed.stdout.strip().splitlines()[-1])
+        return round(float(payload["minimumSafeMargin"]), 2)
+    except (ValueError, KeyError, IndexError, json.JSONDecodeError) as error:
+        messages.error(None, f"{label} SVG 安全区结果无效：{error}")
+        return None
+
+
+def render_diagram_assets(
+    mermaid_specs: list[dict[str, object]],
+    excalidraw_configs: list[dict[str, object]],
+    source_dir: Path,
+    node_executable: Path | None,
+    chrome_executable: Path | None,
+    force: bool,
+    messages: BuildMessages,
+) -> dict[str, object]:
+    report: dict[str, object] = {
+        "detected": len(mermaid_specs) + len(excalidraw_configs),
+        "mermaid": {"detected": len(mermaid_specs), "rendered": [], "cached": []},
+        "excalidraw": {"detected": len(excalidraw_configs), "rendered": [], "cached": []},
+    }
+    if not mermaid_specs and not excalidraw_configs:
+        return report
+    runtime_raw = str(node_executable) if node_executable else shutil.which("node")
+    runtime = Path(runtime_raw).resolve() if runtime_raw else None
+    if not runtime or not runtime.is_file():
+        messages.error(None, "已请求渲染图表，但没有找到 Node.js；可用 --diagram-node 指定")
+        return report
+    chrome = find_chrome_executable(chrome_executable)
+    if not chrome:
+        messages.error(None, "已请求渲染图表，但没有找到 Chrome/Chromium；可用 --diagram-chrome 指定")
+        return report
+
+    mermaid_cli = ROOT / "node_modules" / "@mermaid-js" / "mermaid-cli" / "src" / "cli.js"
+    mermaid_config = ROOT / "tools" / "mermaid.config.json"
+    mermaid_css = ROOT / "tools" / "mermaid-slide.css"
+    excalidraw_renderer = ROOT / "tools" / "render_excalidraw.mjs"
+    excalidraw_entry = ROOT / "tools" / "excalidraw_export_entry.mjs"
+    measure_script = ROOT / "tools" / "measure_svg.mjs"
+    package_lock = ROOT / "package-lock.json"
+    required = [mermaid_cli, mermaid_config, mermaid_css, excalidraw_renderer, excalidraw_entry, measure_script, package_lock]
+    missing = [path for path in required if not path.is_file()]
+    if missing:
+        messages.error(None, "图表构建依赖不完整；请先运行 npm install：" + ", ".join(path.name for path in missing))
+        return report
+    toolchain_hash = sha256_text(*(path.read_text(encoding="utf-8", errors="replace") for path in required[1:]))
+
+    for index, spec in enumerate(mermaid_specs, 1):
+        raw_output = str(spec.get("src", "")).strip()
+        definition = str(spec.get("definition", "")).strip()
+        if spec.get("metadata-error"):
+            messages.error(None, f"第 {index} 个 mermaid：{spec['metadata-error']}")
+            continue
+        if not raw_output or not definition:
+            messages.error(None, f"第 {index} 个 mermaid 必须提供 src 和图表定义")
+            continue
+        if raw_output.startswith(REMOTE_ASSET_PREFIXES):
+            messages.error(None, f"第 {index} 个 mermaid src 必须是本地路径")
+            continue
+        output_path = (source_dir / raw_output).resolve()
+        if output_path.suffix.lower() != ".svg":
+            messages.error(None, f"第 {index} 个 mermaid src 必须是 .svg：{raw_output}")
+            continue
+        build_hash = sha256_text("mermaid", definition, toolchain_hash)
+        sidecar_path = output_path.with_suffix(".diagram-build.json")
+        if not force and diagram_cache_matches(output_path, sidecar_path, build_hash):
+            report["mermaid"]["cached"].append(raw_output)
+            continue
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="golajah-mermaid-") as directory:
+            temporary = Path(directory)
+            input_path = temporary / "diagram.mmd"
+            rendered_path = temporary / "diagram.svg"
+            browser_config = temporary / "puppeteer.json"
+            write_text_atomic(input_path, definition + "\n")
+            write_text_atomic(browser_config, json.dumps({"executablePath": str(chrome), "headless": True}) + "\n")
+            command = [
+                str(runtime), str(mermaid_cli),
+                "--input", str(input_path),
+                "--output", str(rendered_path),
+                "--configFile", str(mermaid_config),
+                "--cssFile", str(mermaid_css),
+                "--puppeteerConfigFile", str(browser_config),
+                "--backgroundColor", "transparent",
+                "--width", str(DIAGRAM_STAGE_WIDTH),
+                "--height", str(DIAGRAM_STAGE_HEIGHT),
+            ]
+            if run_diagram_process(command, f"Mermaid 渲染（{raw_output}）", messages) is None:
+                continue
+            try:
+                rendered_source = rendered_path.read_text(encoding="utf-8")
+                metrics = svg_artifact_metrics(rendered_source, DIAGRAM_MIN_FONT_SIZE)
+            except (OSError, UnicodeError, ValueError) as error:
+                messages.error(None, f"Mermaid 产物校验失败（{raw_output}）：{error}")
+                continue
+            safe_margin = measure_svg_safe_margin(runtime, measure_script, rendered_path, chrome, messages, "Mermaid")
+            if safe_margin is None:
+                continue
+        write_text_atomic(output_path, rendered_source.rstrip() + "\n")
+        sidecar = {
+            "schemaVersion": "1.0",
+            "engine": "mermaid",
+            "buildHash": build_hash,
+            "svgSha256": sha256_file(output_path),
+            "minimumSafeMargin": safe_margin,
+            **metrics,
+        }
+        write_text_atomic(sidecar_path, json.dumps(sidecar, ensure_ascii=False, indent=2) + "\n")
+        report["mermaid"]["rendered"].append(raw_output)
+
+    for index, config in enumerate(excalidraw_configs, 1):
+        raw_scene = str(config.get("source", "")).strip()
+        raw_output = str(config.get("src", "")).strip()
+        if not raw_scene or not raw_output:
+            messages.error(None, f"第 {index} 个 excalidraw 必须同时提供 source 与 src")
+            continue
+        if raw_scene.startswith(REMOTE_ASSET_PREFIXES) or raw_output.startswith(REMOTE_ASSET_PREFIXES):
+            messages.error(None, f"第 {index} 个 excalidraw 只支持本地路径")
+            continue
+        scene_path = (source_dir / raw_scene).resolve()
+        output_path = (source_dir / raw_output).resolve()
+        if not scene_path.is_file():
+            messages.error(None, f"Excalidraw source 不存在：{raw_scene}")
+            continue
+        if output_path.suffix.lower() != ".svg":
+            messages.error(None, f"第 {index} 个 excalidraw src 必须是 .svg：{raw_output}")
+            continue
+        scene_source = scene_path.read_text(encoding="utf-8", errors="replace")
+        build_hash = sha256_text("excalidraw", scene_source, toolchain_hash)
+        sidecar_path = output_path.with_suffix(".diagram-build.json")
+        if not force and diagram_cache_matches(output_path, sidecar_path, build_hash):
+            report["excalidraw"]["cached"].append(raw_output)
+            continue
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="golajah-excalidraw-") as directory:
+            rendered_path = Path(directory) / "diagram.svg"
+            command = [
+                str(runtime), str(excalidraw_renderer),
+                "--input", str(scene_path),
+                "--output", str(rendered_path),
+                "--padding", "32",
+            ]
+            environment = os.environ.copy()
+            environment["DIAGRAM_CHROME"] = str(chrome)
+            try:
+                completed = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace", env=environment)
+            except OSError as error:
+                messages.error(None, f"无法启动 Excalidraw 渲染：{error}")
+                continue
+            if completed.stderr.strip():
+                print(completed.stderr.strip(), file=sys.stderr)
+            if completed.returncode != 0:
+                messages.error(None, f"Excalidraw 渲染失败（{raw_output}）：{completed.stderr.strip() or completed.returncode}")
+                continue
+            try:
+                renderer_metrics = json.loads(completed.stdout.strip().splitlines()[-1])
+                rendered_source = rendered_path.read_text(encoding="utf-8")
+                fallback = renderer_metrics.get("minimumFontSize") if isinstance(renderer_metrics, dict) else None
+                metrics = svg_artifact_metrics(rendered_source, float(fallback) if fallback else None)
+            except (OSError, UnicodeError, ValueError, json.JSONDecodeError, IndexError) as error:
+                messages.error(None, f"Excalidraw 产物校验失败（{raw_output}）：{error}")
+                continue
+            safe_margin = measure_svg_safe_margin(runtime, measure_script, rendered_path, chrome, messages, "Excalidraw")
+            if safe_margin is None:
+                continue
+        write_text_atomic(output_path, rendered_source.rstrip() + "\n")
+        sidecar = {
+            "schemaVersion": "1.0",
+            "engine": "excalidraw",
+            "buildHash": build_hash,
+            "svgSha256": sha256_file(output_path),
+            "minimumSafeMargin": safe_margin,
+            **metrics,
+        }
+        write_text_atomic(sidecar_path, json.dumps(sidecar, ensure_ascii=False, indent=2) + "\n")
+        report["excalidraw"]["rendered"].append(raw_output)
+    return report
+
+
+def render_archscribe_assets(
+    configs: list[dict[str, object]],
+    source_dir: Path,
+    archscribe_home: Path | None,
+    python_executable: Path | None,
+    renderer: str,
+    force: bool,
+    messages: BuildMessages,
+) -> dict[str, object]:
+    report: dict[str, object] = {"detected": len(configs), "rendered": [], "cached": []}
+    if not configs:
+        return report
+
+    configured_home = archscribe_home or (Path(os.environ["ARCHSCRIBE_HOME"]) if os.environ.get("ARCHSCRIBE_HOME") else None)
+    if configured_home is None:
+        messages.error(None, "已请求渲染 Archscribe，但未设置 --archscribe-home 或 ARCHSCRIBE_HOME")
+        return report
+    render_script = configured_home.resolve() / "scripts" / "render_animated_diagram.py"
+    if not render_script.is_file():
+        messages.error(None, f"Archscribe 渲染脚本不存在：{render_script}")
+        return report
+
+    runtime = (python_executable or Path(sys.executable)).resolve()
+    if not runtime.is_file():
+        messages.error(None, f"Archscribe Python 解释器不存在：{runtime}")
+        return report
+
+    for index, config in enumerate(configs, 1):
+        raw_spec = str(config.get("spec", "")).strip()
+        raw_source = str(config.get("src", "")).strip()
+        raw_poster = str(config.get("poster", "")).strip()
+        raw_crop = str(config.get("crop", "")).strip()
+        raw_mask = str(config.get("mask", "")).strip()
+        raw_safe_margin = str(config.get("safe-margin", "24")).strip()
+        if not raw_spec or not raw_source:
+            messages.error(None, f"第 {index} 个 archscribe 代码块必须同时提供 spec 与 src")
+            continue
+        if raw_spec.startswith(REMOTE_ASSET_PREFIXES) or raw_source.startswith(REMOTE_ASSET_PREFIXES):
+            messages.error(None, f"第 {index} 个 archscribe 代码块的构建期渲染只支持本地路径")
+            continue
+
+        spec_path = (source_dir / raw_spec).resolve()
+        gif_path = (source_dir / raw_source).resolve()
+        poster_path = (source_dir / raw_poster).resolve() if raw_poster else gif_path.with_suffix(".png")
+        if not spec_path.is_file():
+            messages.error(None, f"Archscribe 配置不存在：{raw_spec}")
+            continue
+        if gif_path.suffix.lower() != ".gif":
+            messages.error(None, f"Archscribe 动画输出必须为 .gif：{raw_source}")
+            continue
+        if poster_path.suffix.lower() != ".png":
+            messages.error(None, f"Archscribe poster 必须为 .png：{raw_poster}")
+            continue
+        if poster_path.parent != gif_path.parent or poster_path.stem != gif_path.stem:
+            messages.error(None, "Archscribe src 与 poster 必须位于同一目录并使用相同文件名")
+            continue
+        crop = parse_crop_box(raw_crop)
+        if raw_crop and crop is None:
+            messages.error(None, f"第 {index} 个 archscribe 代码块的 crop 必须是 x,y,width,height")
+            continue
+        mask = parse_crop_box(raw_mask)
+        if raw_mask and mask is None:
+            messages.error(None, f"第 {index} 个 archscribe 代码块的 mask 必须是 x,y,width,height")
+            continue
+        if raw_mask and not crop:
+            messages.error(None, f"第 {index} 个 archscribe 代码块的 mask 必须与 crop 一起使用")
+            continue
+        try:
+            safe_margin = float(raw_safe_margin)
+        except ValueError:
+            messages.error(None, f"第 {index} 个 archscribe 代码块的 safe-margin 必须是数字")
+            continue
+        if safe_margin < 0:
+            messages.error(None, f"第 {index} 个 archscribe 代码块的 safe-margin 不能为负数")
+            continue
+
+        expected = [gif_path, poster_path, gif_path.with_suffix(".excalidraw")]
+        cache_path = gif_path.with_suffix(".archscribe-build.json")
+        cache_payload = {
+            "schemaVersion": "1.0",
+            "spec": raw_spec,
+            "crop": raw_crop,
+            "mask": raw_mask,
+            "safeMargin": safe_margin,
+            "renderer": renderer,
+        }
+        try:
+            cached_payload = json.loads(cache_path.read_text(encoding="utf-8")) if cache_path.is_file() else None
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            cached_payload = None
+        newest_input = spec_path.stat().st_mtime
+        if (
+            not force
+            and isinstance(cached_payload, dict)
+            and all(cached_payload.get(key) == value for key, value in cache_payload.items())
+            and all(path.is_file() and path.stat().st_mtime >= newest_input for path in expected)
+        ):
+            report["cached"].append(raw_source)
+            continue
+
+        gif_path.parent.mkdir(parents=True, exist_ok=True)
+        command = [
+            str(runtime),
+            "-X",
+            "utf8",
+            str(render_script),
+            "--spec",
+            str(spec_path),
+            "--outdir",
+            str(gif_path.parent),
+            "--basename",
+            gif_path.stem,
+            "--renderer",
+            renderer,
+            "--formats",
+            "gif,png,excalidraw",
+            "--strict-formats",
+            "--verify",
+            "--check",
+        ]
+        try:
+            completed = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        except OSError as error:
+            messages.error(None, f"无法启动 Archscribe：{error}")
+            continue
+        if completed.stdout.strip():
+            print(completed.stdout.strip())
+        if completed.stderr.strip():
+            print(completed.stderr.strip(), file=sys.stderr)
+        if completed.returncode != 0:
+            detail = completed.stderr.strip() or f"exit code {completed.returncode}"
+            messages.error(None, f"Archscribe 渲染失败（{raw_spec}）：{detail}")
+            continue
+        if not all(path.is_file() for path in expected):
+            missing = ", ".join(path.name for path in expected if not path.is_file())
+            messages.error(None, f"Archscribe 未生成完整产物：{missing}")
+            continue
+        if crop:
+            crop_script = ROOT / "tools" / "crop_archscribe_media.py"
+            crop_command = [
+                str(runtime),
+                "-X",
+                "utf8",
+                str(crop_script),
+                "--gif",
+                str(gif_path),
+                "--png",
+                str(poster_path),
+                "--box",
+                ",".join(str(value) for value in crop),
+            ]
+            if mask:
+                crop_command.extend(["--mask", ",".join(str(value) for value in mask)])
+            crop_command.extend(["--safe-margin", f"{safe_margin:g}"])
+            try:
+                cropped = subprocess.run(
+                    crop_command,
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="replace",
+                )
+            except OSError as error:
+                messages.error(None, f"无法启动 Archscribe Slide 视口裁切：{error}")
+                continue
+            if cropped.stdout.strip():
+                print(cropped.stdout.strip())
+            if cropped.stderr.strip():
+                print(cropped.stderr.strip(), file=sys.stderr)
+            if cropped.returncode != 0:
+                detail = cropped.stderr.strip() or f"exit code {cropped.returncode}"
+                messages.error(None, f"Archscribe Slide 视口裁切失败（{raw_spec}）：{detail}")
+                continue
+            try:
+                crop_result = json.loads(cropped.stdout.strip().splitlines()[-1]) if cropped.stdout.strip() else {}
+            except json.JSONDecodeError:
+                crop_result = {}
+            if isinstance(crop_result.get("minimumRasterMargin"), (int, float)):
+                cache_payload["minimumRasterMargin"] = crop_result["minimumRasterMargin"]
+        try:
+            write_text_atomic(cache_path, json.dumps(cache_payload, ensure_ascii=False, indent=2) + "\n")
+        except OSError as error:
+            messages.error(None, f"无法写入 Archscribe 构建缓存：{error}")
+            continue
+        report["rendered"].append(raw_source)
+    return report
+
+
+def build(
+    source_path: Path,
+    output_path: Path,
+    strict: bool = False,
+    overrides_path: Path | None = None,
+    render_archscribe: bool = False,
+    archscribe_home: Path | None = None,
+    archscribe_python: Path | None = None,
+    archscribe_renderer: str = "auto",
+    force_archscribe: bool = False,
+    render_diagrams: bool = False,
+    diagram_node: Path | None = None,
+    diagram_chrome: Path | None = None,
+    force_diagrams: bool = False,
+) -> int:
     messages = BuildMessages()
     if not TEMPLATE_PATH.exists():
         print(f"ERROR: template missing: {TEMPLATE_PATH}", file=sys.stderr)
@@ -939,6 +2044,41 @@ def build(source_path: Path, output_path: Path, strict: bool = False, overrides_
     except (OSError, UnicodeError) as error:
         print(f"ERROR: cannot read Markdown source {source_path}: {error}", file=sys.stderr)
         return 2
+    mermaid_specs = find_mermaid_specs(source)
+    excalidraw_configs = find_excalidraw_configs(source)
+    diagram_report: dict[str, object] = {
+        "detected": len(mermaid_specs) + len(excalidraw_configs),
+        "renderRequested": render_diagrams,
+        "mermaid": {"detected": len(mermaid_specs), "rendered": [], "cached": []},
+        "excalidraw": {"detected": len(excalidraw_configs), "rendered": [], "cached": []},
+    }
+    if render_diagrams:
+        diagram_report.update(render_diagram_assets(
+            mermaid_specs,
+            excalidraw_configs,
+            source_path.parent,
+            diagram_node,
+            diagram_chrome,
+            force_diagrams,
+            messages,
+        ))
+    archscribe_configs = find_archscribe_configs(source)
+    archscribe_report: dict[str, object] = {
+        "detected": len(archscribe_configs),
+        "renderRequested": render_archscribe,
+        "rendered": [],
+        "cached": [],
+    }
+    if render_archscribe:
+        archscribe_report.update(render_archscribe_assets(
+            archscribe_configs,
+            source_path.parent,
+            archscribe_home,
+            archscribe_python,
+            archscribe_renderer,
+            force_archscribe,
+            messages,
+        ))
     try:
         template = TEMPLATE_PATH.read_text(encoding="utf-8")
     except (OSError, UnicodeError) as error:
@@ -949,6 +2089,24 @@ def build(source_path: Path, output_path: Path, strict: bool = False, overrides_
         print("ERROR: no slides found", file=sys.stderr)
         return 2
     slides = [parse_slide(chunk, index, deck, source_path.parent, output_path.parent, messages) for index, chunk in enumerate(chunks, 1)]
+    if mermaid_specs or excalidraw_configs:
+        diagram_report["quality"] = {
+            slide.slide_id: [block.meta for block in slide.blocks if block.kind in {"mermaid", "excalidraw"}]
+            for slide in slides
+            if any(block.kind in {"mermaid", "excalidraw"} for block in slide.blocks)
+        }
+    if archscribe_configs:
+        archscribe_report["typography"] = {
+            slide.slide_id: {
+                key: block.meta[key]
+                for block in slide.blocks
+                if block.kind == "archscribe"
+                for key in ("sourceMinFontSize", "projectedMinFontSize", "minimumSafeMargin", "minimumRasterMargin")
+                if key in block.meta
+            }
+            for slide in slides
+            if any(block.kind == "archscribe" for block in slide.blocks)
+        }
     seen_ids: set[str] = set()
     for slide in slides:
         if slide.slide_id in seen_ids:
@@ -997,17 +2155,21 @@ def build(source_path: Path, output_path: Path, strict: bool = False, overrides_
     for key, value in replacements.items():
         template = template.replace(key, value)
     report = {
-        "source": os.path.relpath(source_path, ROOT),
-        "output": os.path.relpath(output_path, ROOT),
+        "source": format_report_path(source_path),
+        "output": format_report_path(output_path),
         "slides": len(slides),
         "layouts": {str(slide.number): slide.layout_resolved for slide in slides},
         "layoutOverrides": {
-            "source": os.path.relpath(resolved_overrides_path, ROOT) if resolved_overrides_path else None,
+            "source": format_report_path(resolved_overrides_path) if resolved_overrides_path else None,
             "appliedSlides": applied_overrides,
         },
         "warnings": messages.warnings,
         "errors": messages.errors,
     }
+    if archscribe_configs:
+        report["archscribe"] = archscribe_report
+    if mermaid_specs or excalidraw_configs:
+        report["diagrams"] = diagram_report
     report_path = output_path.with_suffix(".build.json")
     try:
         write_text_atomic(output_path, template)
@@ -1044,9 +2206,37 @@ def main() -> int:
     )
     parser.add_argument("--overrides", type=Path, help="layout JSON exported by editor mode; defaults to <source>.layout.json when present")
     parser.add_argument("--strict", action="store_true", help="treat design warnings as build failures")
+    parser.add_argument("--render-archscribe", action="store_true", help="render archscribe fences before building the slides")
+    parser.add_argument("--force-archscribe", action="store_true", help="render Archscribe assets even when outputs are newer than the spec")
+    parser.add_argument("--archscribe-home", type=Path, help="Archscribe checkout; defaults to ARCHSCRIBE_HOME")
+    parser.add_argument("--archscribe-python", type=Path, help="Python executable with Archscribe dependencies; defaults to this Python")
+    parser.add_argument(
+        "--archscribe-renderer",
+        choices=["auto", "browser", "pillow"],
+        default="auto",
+        help="Archscribe renderer (default: auto)",
+    )
+    parser.add_argument("--render-diagrams", action="store_true", help="render Mermaid and Excalidraw SVG assets before building")
+    parser.add_argument("--force-diagrams", action="store_true", help="render diagram SVG assets even when the content cache matches")
+    parser.add_argument("--diagram-node", type=Path, help="Node.js executable used by diagram renderers")
+    parser.add_argument("--diagram-chrome", type=Path, help="Chrome/Chromium executable used by diagram renderers")
     args = parser.parse_args()
     overrides = args.overrides.resolve() if args.overrides else None
-    return build(args.source.resolve(), args.output.resolve(), args.strict, overrides)
+    return build(
+        args.source.resolve(),
+        args.output.resolve(),
+        args.strict,
+        overrides,
+        args.render_archscribe,
+        args.archscribe_home,
+        args.archscribe_python,
+        args.archscribe_renderer,
+        args.force_archscribe,
+        args.render_diagrams,
+        args.diagram_node,
+        args.diagram_chrome,
+        args.force_diagrams,
+    )
 
 
 if __name__ == "__main__":
