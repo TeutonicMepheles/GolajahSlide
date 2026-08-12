@@ -40,7 +40,7 @@ IMAGE_RE = re.compile(r'^!\[([^\]]*)\]\((\S+?)(?:\s+["\']([^"\']*)["\'])?\)\s*$'
 DIRECTIVE_RE = re.compile(r"<!--\s*slide\s*(.*?)-->", re.I | re.S)
 TABLE_DIVIDER_RE = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$")
 LIST_RE = re.compile(r"^\s*([-*+] |\d+[.)] )(.*)$")
-INLINE_TOKEN_RE = re.compile(r"(`[^`]+`|\*\*[^*]+\*\*|\[[^\]]+\]\([^)]+\))")
+INLINE_TOKEN_RE = re.compile(r"(`[^`]+`|\*\*[^*]+\*\*|==[^=\n]+==|\[[^\]]+\]\([^)]+\))")
 HEX_COLOR_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 REVEAL_KEY_RE = re.compile(r"^[0-9A-Za-z_-]{1,64}$")
 ARCHSCRIBE_FENCE_RE = re.compile(r"(?ms)^```archscribe[ \t]*\n(.*?)^```[ \t]*$")
@@ -537,6 +537,8 @@ def render_inline(text: str) -> str:
             pieces.append(f"<code>{code}</code>")
         elif token.startswith("**"):
             pieces.append(f"<strong>{render_inline(token[2:-2])}</strong>")
+        elif token.startswith("=="):
+            pieces.append(f'<mark data-presenter-text="inline">{render_inline(token[2:-2])}</mark>')
         else:
             link = re.match(r"\[([^\]]+)\]\(([^)]+)\)", token)
             if link:
@@ -561,7 +563,7 @@ def render_table(lines: list[str]) -> Block:
     thead = "".join(f"<th>{render_inline(cell)}</th>" for cell in headers)
     tbody = "".join("<tr>" + "".join(f"<td>{render_inline(cell)}</td>" for cell in row) + "</tr>" for row in normalized_rows)
     markup = (
-        '<article class="card table-card" data-visual-widget="table" tabindex="0">'
+        '<article class="card table-card" data-presenter-focus data-visual-widget="table" tabindex="0">'
         '<div class="visual-widget-content" data-visual-content>'
         f'<table class="data-table" data-columns="{cols}" data-rows="{len(rows)}"><thead><tr>{thead}</tr></thead><tbody>{tbody}</tbody></table>'
         "</div></article>"
@@ -1015,7 +1017,7 @@ def paragraph_block(parts: list[str], title: str | None = None) -> Block | None:
     content = "".join(parts)
     heading = f"<h3>{render_inline(title)}</h3>" if title else ""
     plain = re.sub(r"<[^>]+>", " ", content)
-    return Block("section", f'<article class="card text-card section-card">{heading}{content}</article>', plain)
+    return Block("section", f'<article class="card text-card section-card" data-presenter-focus>{heading}{content}</article>', plain)
 
 
 def parse_blocks(
@@ -1071,7 +1073,7 @@ def parse_blocks(
             else:
                 label = html.escape(language or "code")
                 code = html.escape("\n".join(fenced))
-                blocks.append(Block("code", f'<article class="card code-card"><span class="code-label">{label}</span><pre><code>{code}</code></pre></article>', "\n".join(fenced)))
+                blocks.append(Block("code", f'<article class="card code-card" data-presenter-focus><span class="code-label">{label}</span><pre><code>{code}</code></pre></article>', "\n".join(fenced)))
             continue
         if i + 1 < len(lines) and "|" in stripped and TABLE_DIVIDER_RE.match(lines[i + 1]):
             flush()
@@ -1094,7 +1096,7 @@ def parse_blocks(
                 callout_kind = quoted.pop(0)[2:-1].lower()
                 label = {"tip": "方法提示", "note": "补充说明", "warning": "风险提示", "quote": "关键结论", "question": "思考问题"}.get(callout_kind, "关键结论")
             quote_text = " ".join(quoted)
-            blocks.append(Block("callout", f'<article class="card soft text-card callout-card callout-{html.escape(callout_kind)}"><strong>{label}</strong><p>{render_inline(quote_text)}</p></article>', quote_text))
+            blocks.append(Block("callout", f'<article class="card soft text-card callout-card callout-{html.escape(callout_kind)}" data-presenter-focus><strong>{label}</strong><p>{render_inline(quote_text)}</p></article>', quote_text))
             continue
         list_match = LIST_RE.match(line)
         if list_match:
@@ -1447,7 +1449,7 @@ def render_hero(slide: Slide, deck: dict[str, object]) -> str:
     else:
         visual = render_placeholder("封面图占位" if slide.kind == "cover" else "章节图占位")
     return (
-        f'<div class="hero-shell hero-{slide.kind} hero-layout-{slide.layout_resolved}"><div class="hero-copy reveal">'
+        f'<div class="hero-shell hero-{slide.kind} hero-layout-{slide.layout_resolved}"><div class="hero-copy reveal" data-presenter-focus>'
         f'<p class="hero-kicker">{html.escape(kicker)}</p><h1>{render_inline(slide.title)}</h1>'
         f'<p class="hero-subtitle">{render_inline(slide.subtitle)}</p>'
         f'<p class="hero-meta">{html.escape(meta)}</p></div><div class="hero-visual reveal">{visual}</div></div>'
@@ -1501,7 +1503,7 @@ def render_slide(slide: Slide, deck: dict[str, object], sections: list[str]) -> 
     else:
         subtitle = f'<p class="subtitle">{render_inline(slide.subtitle)}</p>' if slide.subtitle else ""
         inner = (
-            f'<header class="slide-header reveal"><h1>{render_inline(slide.title)}</h1>{subtitle}</header>'
+            f'<header class="slide-header reveal" data-presenter-focus><h1>{render_inline(slide.title)}</h1>{subtitle}</header>'
             f'<div class="content">{render_content(slide)}</div>{render_footer(slide, sections)}'
         )
     return (

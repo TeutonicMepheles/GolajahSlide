@@ -709,6 +709,100 @@
     }
     .slide.visible .reveal { opacity: 1; transform: translateY(0); }
     .slide.diagnostic-layout .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+    /* ===========================================
+       PRESENTER HOVER FOCUS
+       Semantic container focus without a pointer-tracking render loop.
+       =========================================== */
+    .hero-copy[data-presenter-focus] { position: relative; }
+    [data-presenter-focus] {
+      isolation: isolate;
+      outline: 4px solid transparent;
+      outline-offset: 8px;
+    }
+    [data-presenter-focus].reveal {
+      transition:
+        opacity .42s var(--ease),
+        transform .42s var(--ease),
+        scale .18s var(--ease),
+        filter .18s ease,
+        box-shadow .18s ease,
+        outline-color .18s ease,
+        background-color .18s ease;
+      transition-delay: var(--reveal-delay, 0ms), var(--reveal-delay, 0ms), 0ms, 0ms, 0ms, 0ms, 0ms;
+    }
+    [data-presenter-text] {
+      position: relative;
+      border-radius: 7px;
+      transition: color .14s ease, background-color .14s ease, box-shadow .14s ease, filter .14s ease;
+    }
+    mark[data-presenter-text="inline"] {
+      margin: 0 -.08em;
+      padding: .02em .08em;
+      color: inherit;
+      background: linear-gradient(transparent 58%, rgba(111,96,229,.2) 58%);
+      box-decoration-break: clone;
+      -webkit-box-decoration-break: clone;
+    }
+    .slide::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      pointer-events: none;
+      background: rgba(17,17,17,.24);
+      opacity: 0;
+      transition: opacity .18s ease;
+    }
+    @media (hover: hover) and (pointer: fine) {
+      body.presenter-focus-enabled:not(.editor-open)
+      .slide.active :is(
+        .content,
+        .text-grid,
+        .table-layout,
+        .split-layout,
+        .split-copy,
+        .wide-media-layout,
+        .wide-copy,
+        .gallery-layout,
+        .gallery-copy,
+        .chart-layout,
+        .chart-copy
+      ):has([data-presenter-focus]:not(.is-fullscreen):hover) {
+        overflow: visible !important;
+      }
+      body.presenter-focus-enabled:not(.editor-open)
+      .slide.active :is(.slide-header, [data-presenter-focus]):hover {
+        overflow: visible !important;
+      }
+      body.presenter-focus-enabled:not(.editor-open)
+      .slide.active:has([data-presenter-focus]:not(.is-fullscreen):hover)::after {
+        opacity: 1;
+      }
+      body.presenter-focus-enabled:not(.editor-open)
+      .slide.active [data-presenter-focus]:not(.is-fullscreen):hover {
+        z-index: 21;
+        scale: 1.018;
+        filter: saturate(1.06) contrast(1.02);
+        outline-color: color-mix(in srgb, var(--accent) 72%, white);
+        box-shadow: 0 24px 64px rgba(17,17,17,.24), 0 0 0 12px rgba(255,255,255,.92);
+      }
+      body.presenter-focus-enabled:not(.editor-open)
+      .slide.active :is(.slide-header, .hero-copy)[data-presenter-focus]:hover {
+        background: rgba(255,255,255,.94);
+      }
+      body.presenter-focus-enabled:not(.editor-open)
+      .slide.active [data-presenter-focus]:hover
+      [data-presenter-text]:hover:not(:has([data-presenter-text]:hover)) {
+        z-index: 22;
+        color: var(--ink);
+        background: color-mix(in srgb, var(--accent-soft) 82%, white);
+        box-shadow:
+          0 0 0 7px rgba(255,255,255,.96),
+          0 0 0 11px color-mix(in srgb, var(--accent) 58%, white),
+          0 10px 24px rgba(17,17,17,.16);
+        filter: saturate(1.08) contrast(1.04);
+      }
+    }
     .slide[data-editor-typography="true"] :is(.text-card p, .text-card li, .code-card code, .data-table td) {
       line-height: var(--editor-body-line-height) !important;
       color: var(--editor-body-color) !important;
@@ -1013,26 +1107,32 @@
       .visual-widget-tools, .visual-widget-close, .visual-annotation-layer, .visual-widget-overlay,
       .deck-status, .layout-editor-panel, .layout-editor-overlay, .animation-editor-overlay, .editor-toast { display: none !important; }
       [data-visual-content] { transform: none !important; }
+      .slide::after { display: none !important; }
+      [data-presenter-focus] { scale: 1 !important; filter: none !important; outline-color: transparent !important; box-shadow: none !important; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      [data-presenter-focus] { scale: 1 !important; }
     }
   </style>
 </head>
 <body>
   <div class="deck-viewport">
     <main class="deck-stage" id="deckStage" aria-label="通用 Markdown Slides 工程模板">
-<section class="slide cover-slide layout-hero-split density-reading" data-title="通用 Markdown Slides 工程模板" data-slide-id="cover" data-source-page="P1" data-slide-kind="cover" data-media-count="0" data-block-count="0" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="hero-split"><div class="hero-shell hero-cover hero-layout-hero-split"><div class="hero-copy reveal"><p class="hero-kicker">PRESENTATION TEMPLATE</p><h1>通用 Markdown Slides 工程模板</h1><p class="hero-subtitle">固定 16:9、智能图片布局、中文排版与可复用图表控件</p><p class="hero-meta">Your Name · 2026-08</p></div><div class="hero-visual reveal"><figure class="visual-placeholder" aria-label="空白图片占位"><span class="placeholder-mark" aria-hidden="true"></span><figcaption>封面图占位<small>替换为项目自己的视觉素材</small></figcaption></figure></div></div></section>
-<section class="slide section-slide layout-hero-split density-reading" data-title="让内容决定版式" data-slide-id="layout-section" data-source-page="P2" data-slide-kind="section" data-media-count="0" data-block-count="0" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="hero-split"><div class="hero-shell hero-section hero-layout-hero-split"><div class="hero-copy reveal"><p class="hero-kicker">自动布局</p><h1>让内容决定版式</h1><p class="hero-subtitle">图片比例、文本密度与语义结构共同参与布局选择</p><p class="hero-meta">Your Name · 2026-08</p></div><div class="hero-visual reveal"><figure class="visual-placeholder" aria-label="空白图片占位"><span class="placeholder-mark" aria-hidden="true"></span><figcaption>章节图占位<small>替换为项目自己的视觉素材</small></figcaption></figure></div></div></section>
-<section class="slide content-slide layout-split density-reading" data-title="接近 1:1 的图片自动进入左右布局" data-slide-id="square-image" data-source-page="P3" data-slide-kind="content" data-media-count="1" data-block-count="2" data-text-length="84" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="split" data-layout-resolved="split"><header class="slide-header reveal"><h1>接近 1:1 的图片自动进入左右布局</h1><p class="subtitle">视觉与解释并列，避免图片缩成难以阅读的小图</p></header><div class="content"><div class="split-layout square"><div class="split-media"><figure class="card media-figure visual-widget active" data-visual-widget="image" tabindex="0"><div class="visual-widget-content" data-visual-content><img src="assets/demo-square.svg" alt="正方形布局示意" style="object-fit:contain" draggable="false"></div><figcaption>正方形视觉素材</figcaption></figure></div><div class="split-copy count-2"><article class="card text-card section-card"><h3>自动判断</h3><ul><li>图片宽高比在 <code>0.72–1.35</code> 之间时，优先使用图文左右布局</li><li>竖图使用更窄的图片栏，横图使用更宽的图片栏</li></ul></article><article class="card text-card section-card"><h3>手动控制</h3><p>需要改变阅读顺序时，可设置 <code>image-position: right</code>。</p></article></div></div></div><footer class="section-footer" style="--section-count:4"><span class="">开始</span><span class="active">自动布局</span><span class="">内容组件</span><span class="">交付检查</span></footer></section>
-<section class="slide content-slide layout-media density-reading" data-title="接近 16:9 的图片优先占满展示区域" data-slide-id="wide-image" data-source-page="P4" data-slide-kind="content" data-media-count="1" data-block-count="1" data-text-length="46" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="media"><header class="slide-header reveal"><h1>接近 16:9 的图片优先占满展示区域</h1><p class="subtitle">图片下方只保留简短说明，建议不超过两行</p></header><div class="content"><div class="wide-media-layout"><div class="wide-media-stage"><figure class="card media-figure visual-widget active" data-visual-widget="image" tabindex="0"><div class="visual-widget-content" data-visual-content><img src="assets/demo-wide.svg" alt="十六比九布局示意" style="object-fit:contain" draggable="false"></div><figcaption>接近屏幕比例的图片自动采用通栏展示</figcaption></figure></div><div class="wide-copy count-1 focus-grid"><article class="card text-card section-card"><p>这类页面让视觉成为主角；如果说明文字超过两行容量，构建器会自动回退为图文左右布局并给出提示。</p></article></div></div></div><footer class="section-footer" style="--section-count:4"><span class="">开始</span><span class="active">自动布局</span><span class="">内容组件</span><span class="">交付检查</span></footer></section>
-<section class="slide content-slide layout-text density-reading" data-title="中文内容页强调层级与呼吸感" data-slide-id="chinese-layout" data-source-page="P5" data-slide-kind="content" data-media-count="0" data-block-count="4" data-text-length="159" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="text"><header class="slide-header reveal"><h1>中文内容页强调层级与呼吸感</h1><p class="subtitle">标题、副标题保持同一高度，统一左对齐</p></header><div class="content"><div class="text-grid count-4"><article class="card text-card section-card"><h3>一页一个核心结论</h3><p>正文先写结论，再补充证据。演讲型页面尽量控制在 1–3 个要点；阅读型页面可以使用更完整的结构，但仍应优先拆页。</p></article><article class="card text-card section-card"><h3>使用稳定的字号台阶</h3><p>页面标题、卡片标题、正文、标签和图注各自保持清晰层级，避免所有文字挤在同一字号。</p></article><article class="card text-card section-card"><h3>避免中文孤字</h3><p>模板使用更适合中文的断行策略；表格不再允许任意位置切断英文标识符。</p></article><article class="card soft text-card callout-card callout-tip"><strong>方法提示</strong><p>内容不足时会扩大单卡片的视觉权重；内容过多时构建报告会建议拆页。</p></article></div></div><footer class="section-footer" style="--section-count:4"><span class="">开始</span><span class="">自动布局</span><span class="active">内容组件</span><span class="">交付检查</span></footer></section>
-<section class="slide content-slide layout-table density-reading" data-title="表格沿用现有视觉控件" data-slide-id="table-controls" data-source-page="P6" data-slide-kind="content" data-media-count="0" data-block-count="1" data-text-length="136" data-has-table="true" data-has-chart="false" data-has-diagram="false" data-layout-requested="table" data-layout-resolved="table"><header class="slide-header reveal"><h1>表格沿用现有视觉控件</h1><p class="subtitle">悬停后可缩放、全屏与临时标注</p></header><div class="content"><div class="table-layout"><article class="card table-card" data-visual-widget="table" tabindex="0"><div class="visual-widget-content" data-visual-content><table class="data-table" data-columns="3" data-rows="5"><thead><tr><th>页面元素</th><th>Markdown 写法</th><th>默认行为</th></tr></thead><tbody><tr><td>标题 / 副标题</td><td><code>#</code> / <code>##</code></td><td>内容页左对齐</td></tr><tr><td>内容卡片</td><td><code>###</code> + 正文</td><td>依据数量自动排成 1–3 列</td></tr><tr><td>表格</td><td>GFM Table</td><td>自动列宽、避免任意断词</td></tr><tr><td>图片</td><td><code>![alt](path &quot;caption&quot;)</code></td><td>读取宽高比后选择布局</td></tr><tr><td>提示</td><td><code>&gt; [!TIP]</code></td><td>转换为强调卡片</td></tr></tbody></table></div></article></div></div><footer class="section-footer" style="--section-count:4"><span class="">开始</span><span class="">自动布局</span><span class="active">内容组件</span><span class="">交付检查</span></footer></section>
-<section class="slide content-slide layout-chart density-reading" data-title="轻量图表直接写在 Markdown 中" data-slide-id="chart-controls" data-source-page="P7" data-slide-kind="content" data-media-count="0" data-block-count="2" data-text-length="46" data-has-table="false" data-has-chart="true" data-has-diagram="false" data-layout-requested="chart" data-layout-resolved="chart"><header class="slide-header reveal"><h1>轻量图表直接写在 Markdown 中</h1><p class="subtitle">图表也复用缩放、全屏和标注控件</p></header><div class="content"><div class="chart-layout"><div class="chart-stage"><figure class="card chart-card" data-visual-widget="image" tabindex="0"><div class="visual-widget-content chart-content" data-visual-content><svg class="chart-svg" viewBox="0 0 1600 610" role="img" aria-label="各阶段投入占比"><text x="80" y="70" font-size="34" font-weight="700" fill="#111">各阶段投入占比</text><line x1="120" y1="480.0" x2="1480" y2="480.0" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="489.0" text-anchor="end" font-size="22" fill="#777">0</text><line x1="120" y1="392.5" x2="1480" y2="392.5" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="401.5" text-anchor="end" font-size="22" fill="#777">7.75</text><line x1="120" y1="305.0" x2="1480" y2="305.0" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="314.0" text-anchor="end" font-size="22" fill="#777">15.5</text><line x1="120" y1="217.5" x2="1480" y2="217.5" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="226.5" text-anchor="end" font-size="22" fill="#777">23.25</text><line x1="120" y1="130.0" x2="1480" y2="130.0" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="139.0" text-anchor="end" font-size="22" fill="#777">31</text><text x="290.0" y="528" text-anchor="middle" font-size="24" fill="#555">调研</text><rect x="224.0" y="231.6" width="132.0" height="248.4" rx="14" fill="#6F60E5"/><text x="290.0" y="215.6" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">22%</text><text x="630.0" y="528" text-anchor="middle" font-size="24" fill="#555">设计</text><rect x="564.0" y="130.0" width="132.0" height="350.0" rx="14" fill="#6F60E5"/><text x="630.0" y="114.0" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">31%</text><text x="970.0" y="528" text-anchor="middle" font-size="24" fill="#555">开发</text><rect x="904.0" y="163.9" width="132.0" height="316.1" rx="14" fill="#6F60E5"/><text x="970.0" y="147.9" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">28%</text><text x="1310.0" y="528" text-anchor="middle" font-size="24" fill="#555">验证</text><rect x="1244.0" y="265.5" width="132.0" height="214.5" rx="14" fill="#6F60E5"/><text x="1310.0" y="249.5" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">19%</text></svg></div><figcaption>各阶段投入占比</figcaption></figure></div><div class="chart-copy count-1 focus-grid"><article class="card soft text-card callout-card callout-note"><strong>补充说明</strong><p>内置 <code>bar</code>、<code>line</code>、<code>donut</code> 三种图表；复杂图表建议导出为 SVG 后按图片引用。</p></article></div></div></div><footer class="section-footer" style="--section-count:4"><span class="">开始</span><span class="">自动布局</span><span class="active">内容组件</span><span class="">交付检查</span></footer></section>
-<section class="slide content-slide layout-text density-reading" data-title="构建报告让问题在交付前暴露" data-slide-id="delivery-check" data-source-page="P8" data-slide-kind="content" data-media-count="0" data-block-count="2" data-text-length="151" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="text"><header class="slide-header reveal"><h1>构建报告让问题在交付前暴露</h1><p class="subtitle">版式选择可追踪，风险不会静默被裁掉</p></header><div class="content"><div class="text-grid count-2"><article class="card text-card section-card"><h3>构建期检查</h3><ul><li>缺失图片、图表字段错误直接报错</li><li>标题过长、内容过密、表格行数过多给出警告</li><li><code>index.build.json</code> 记录每页最终采用的布局</li></ul></article><article class="card text-card section-card"><h3>浏览器检查</h3><ul><li><code>window._<wbr>_<wbr>SLIDE_<wbr>DIAGNOSTICS_<wbr>_<wbr></code> 暴露运行时溢出结果</li><li>加 <code>?debug=1</code> 会在页面上标出发生溢出的容器</li><li>固定 1920×1080 舞台在宽屏、投影和手机上只做等比缩放</li></ul></article></div></div><footer class="section-footer" style="--section-count:4"><span class="">开始</span><span class="">自动布局</span><span class="">内容组件</span><span class="active">交付检查</span></footer></section>
+<section class="slide cover-slide layout-hero-split density-reading" data-title="通用 Markdown Slides 工程模板" data-slide-id="cover" data-source-page="P1" data-slide-kind="cover" data-media-count="0" data-block-count="0" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="hero-split"><div class="hero-shell hero-cover hero-layout-hero-split"><div class="hero-copy reveal" data-presenter-focus><p class="hero-kicker">PRESENTATION TEMPLATE</p><h1>通用 Markdown Slides 工程模板</h1><p class="hero-subtitle">固定 16:9、智能图片布局、中文排版与可复用图表控件</p><p class="hero-meta">Your Name · 2026-08</p></div><div class="hero-visual reveal"><figure class="visual-placeholder" aria-label="空白图片占位"><span class="placeholder-mark" aria-hidden="true"></span><figcaption>封面图占位<small>替换为项目自己的视觉素材</small></figcaption></figure></div></div></section>
+<section class="slide section-slide layout-hero-split density-reading" data-title="让内容决定版式" data-slide-id="layout-section" data-source-page="P2" data-slide-kind="section" data-media-count="0" data-block-count="0" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="hero-split"><div class="hero-shell hero-section hero-layout-hero-split"><div class="hero-copy reveal" data-presenter-focus><p class="hero-kicker">自动布局</p><h1>让内容决定版式</h1><p class="hero-subtitle">图片比例、文本密度与语义结构共同参与布局选择</p><p class="hero-meta">Your Name · 2026-08</p></div><div class="hero-visual reveal"><figure class="visual-placeholder" aria-label="空白图片占位"><span class="placeholder-mark" aria-hidden="true"></span><figcaption>章节图占位<small>替换为项目自己的视觉素材</small></figcaption></figure></div></div></section>
+<section class="slide content-slide layout-split density-reading" data-title="接近 1:1 的图片自动进入左右布局" data-slide-id="square-image" data-source-page="P3" data-slide-kind="content" data-media-count="1" data-block-count="2" data-text-length="84" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="split" data-layout-resolved="split"><header class="slide-header reveal" data-presenter-focus><h1>接近 1:1 的图片自动进入左右布局</h1><p class="subtitle">视觉与解释并列，避免图片缩成难以阅读的小图</p></header><div class="content"><div class="split-layout square"><div class="split-media"><figure class="card media-figure visual-widget active" data-visual-widget="image" tabindex="0"><div class="visual-widget-content" data-visual-content><img src="assets/demo-square.svg" alt="正方形布局示意" style="object-fit:contain" draggable="false"></div><figcaption>正方形视觉素材</figcaption></figure></div><div class="split-copy count-2"><article class="card text-card section-card" data-presenter-focus><h3>自动判断</h3><ul><li>图片宽高比在 <code>0.72–1.35</code> 之间时，<mark data-presenter-text="inline">优先使用图文左右布局</mark></li><li>竖图使用更窄的图片栏，横图使用更宽的图片栏</li></ul></article><article class="card text-card section-card" data-presenter-focus><h3>手动控制</h3><p>需要改变阅读顺序时，可设置 <code>image-position: right</code>。</p></article></div></div></div><footer class="section-footer" style="--section-count:4"><span class="">开始</span><span class="active">自动布局</span><span class="">内容组件</span><span class="">交付检查</span></footer></section>
+<section class="slide content-slide layout-media density-reading" data-title="接近 16:9 的图片优先占满展示区域" data-slide-id="wide-image" data-source-page="P4" data-slide-kind="content" data-media-count="1" data-block-count="1" data-text-length="46" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="media"><header class="slide-header reveal" data-presenter-focus><h1>接近 16:9 的图片优先占满展示区域</h1><p class="subtitle">图片下方只保留简短说明，建议不超过两行</p></header><div class="content"><div class="wide-media-layout"><div class="wide-media-stage"><figure class="card media-figure visual-widget active" data-visual-widget="image" tabindex="0"><div class="visual-widget-content" data-visual-content><img src="assets/demo-wide.svg" alt="十六比九布局示意" style="object-fit:contain" draggable="false"></div><figcaption>接近屏幕比例的图片自动采用通栏展示</figcaption></figure></div><div class="wide-copy count-1 focus-grid"><article class="card text-card section-card" data-presenter-focus><p>这类页面让视觉成为主角；如果说明文字超过两行容量，构建器会自动回退为图文左右布局并给出提示。</p></article></div></div></div><footer class="section-footer" style="--section-count:4"><span class="">开始</span><span class="active">自动布局</span><span class="">内容组件</span><span class="">交付检查</span></footer></section>
+<section class="slide content-slide layout-text density-reading" data-title="中文内容页强调层级与呼吸感" data-slide-id="chinese-layout" data-source-page="P5" data-slide-kind="content" data-media-count="0" data-block-count="4" data-text-length="159" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="text"><header class="slide-header reveal" data-presenter-focus><h1>中文内容页强调层级与呼吸感</h1><p class="subtitle">标题、副标题保持同一高度，统一左对齐</p></header><div class="content"><div class="text-grid count-4"><article class="card text-card section-card" data-presenter-focus><h3>一页一个核心结论</h3><p>正文先写结论，再补充证据。演讲型页面尽量控制在 1–3 个要点；阅读型页面可以使用更完整的结构，但仍应优先拆页。</p></article><article class="card text-card section-card" data-presenter-focus><h3>使用稳定的字号台阶</h3><p>页面标题、卡片标题、正文、标签和图注各自保持清晰层级，避免所有文字挤在同一字号。</p></article><article class="card text-card section-card" data-presenter-focus><h3>避免中文孤字</h3><p>模板使用更适合中文的断行策略；表格不再允许任意位置切断英文标识符。</p></article><article class="card soft text-card callout-card callout-tip" data-presenter-focus><strong>方法提示</strong><p>内容不足时会扩大单卡片的视觉权重；内容过多时构建报告会建议拆页。</p></article></div></div><footer class="section-footer" style="--section-count:4"><span class="">开始</span><span class="">自动布局</span><span class="active">内容组件</span><span class="">交付检查</span></footer></section>
+<section class="slide content-slide layout-table density-reading" data-title="表格沿用现有视觉控件" data-slide-id="table-controls" data-source-page="P6" data-slide-kind="content" data-media-count="0" data-block-count="1" data-text-length="136" data-has-table="true" data-has-chart="false" data-has-diagram="false" data-layout-requested="table" data-layout-resolved="table"><header class="slide-header reveal" data-presenter-focus><h1>表格沿用现有视觉控件</h1><p class="subtitle">悬停后可缩放、全屏与临时标注</p></header><div class="content"><div class="table-layout"><article class="card table-card" data-presenter-focus data-visual-widget="table" tabindex="0"><div class="visual-widget-content" data-visual-content><table class="data-table" data-columns="3" data-rows="5"><thead><tr><th>页面元素</th><th>Markdown 写法</th><th>默认行为</th></tr></thead><tbody><tr><td>标题 / 副标题</td><td><code>#</code> / <code>##</code></td><td>内容页左对齐</td></tr><tr><td>内容卡片</td><td><code>###</code> + 正文</td><td>依据数量自动排成 1–3 列</td></tr><tr><td>表格</td><td>GFM Table</td><td>自动列宽、避免任意断词</td></tr><tr><td>图片</td><td><code>![alt](path &quot;caption&quot;)</code></td><td>读取宽高比后选择布局</td></tr><tr><td>提示</td><td><code>&gt; [!TIP]</code></td><td>转换为强调卡片</td></tr></tbody></table></div></article></div></div><footer class="section-footer" style="--section-count:4"><span class="">开始</span><span class="">自动布局</span><span class="active">内容组件</span><span class="">交付检查</span></footer></section>
+<section class="slide content-slide layout-chart density-reading" data-title="轻量图表直接写在 Markdown 中" data-slide-id="chart-controls" data-source-page="P7" data-slide-kind="content" data-media-count="0" data-block-count="2" data-text-length="46" data-has-table="false" data-has-chart="true" data-has-diagram="false" data-layout-requested="chart" data-layout-resolved="chart"><header class="slide-header reveal" data-presenter-focus><h1>轻量图表直接写在 Markdown 中</h1><p class="subtitle">图表也复用缩放、全屏和标注控件</p></header><div class="content"><div class="chart-layout"><div class="chart-stage"><figure class="card chart-card" data-visual-widget="image" tabindex="0"><div class="visual-widget-content chart-content" data-visual-content><svg class="chart-svg" viewBox="0 0 1600 610" role="img" aria-label="各阶段投入占比"><text x="80" y="70" font-size="34" font-weight="700" fill="#111">各阶段投入占比</text><line x1="120" y1="480.0" x2="1480" y2="480.0" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="489.0" text-anchor="end" font-size="22" fill="#777">0</text><line x1="120" y1="392.5" x2="1480" y2="392.5" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="401.5" text-anchor="end" font-size="22" fill="#777">7.75</text><line x1="120" y1="305.0" x2="1480" y2="305.0" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="314.0" text-anchor="end" font-size="22" fill="#777">15.5</text><line x1="120" y1="217.5" x2="1480" y2="217.5" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="226.5" text-anchor="end" font-size="22" fill="#777">23.25</text><line x1="120" y1="130.0" x2="1480" y2="130.0" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="139.0" text-anchor="end" font-size="22" fill="#777">31</text><text x="290.0" y="528" text-anchor="middle" font-size="24" fill="#555">调研</text><rect x="224.0" y="231.6" width="132.0" height="248.4" rx="14" fill="#6F60E5"/><text x="290.0" y="215.6" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">22%</text><text x="630.0" y="528" text-anchor="middle" font-size="24" fill="#555">设计</text><rect x="564.0" y="130.0" width="132.0" height="350.0" rx="14" fill="#6F60E5"/><text x="630.0" y="114.0" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">31%</text><text x="970.0" y="528" text-anchor="middle" font-size="24" fill="#555">开发</text><rect x="904.0" y="163.9" width="132.0" height="316.1" rx="14" fill="#6F60E5"/><text x="970.0" y="147.9" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">28%</text><text x="1310.0" y="528" text-anchor="middle" font-size="24" fill="#555">验证</text><rect x="1244.0" y="265.5" width="132.0" height="214.5" rx="14" fill="#6F60E5"/><text x="1310.0" y="249.5" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">19%</text></svg></div><figcaption>各阶段投入占比</figcaption></figure></div><div class="chart-copy count-1 focus-grid"><article class="card soft text-card callout-card callout-note" data-presenter-focus><strong>补充说明</strong><p>内置 <code>bar</code>、<code>line</code>、<code>donut</code> 三种图表；复杂图表建议导出为 SVG 后按图片引用。</p></article></div></div></div><footer class="section-footer" style="--section-count:4"><span class="">开始</span><span class="">自动布局</span><span class="active">内容组件</span><span class="">交付检查</span></footer></section>
+<section class="slide content-slide layout-text density-reading" data-title="构建报告让问题在交付前暴露" data-slide-id="delivery-check" data-source-page="P8" data-slide-kind="content" data-media-count="0" data-block-count="2" data-text-length="151" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="text"><header class="slide-header reveal" data-presenter-focus><h1>构建报告让问题在交付前暴露</h1><p class="subtitle">版式选择可追踪，风险不会静默被裁掉</p></header><div class="content"><div class="text-grid count-2"><article class="card text-card section-card" data-presenter-focus><h3>构建期检查</h3><ul><li>缺失图片、图表字段错误直接报错</li><li>标题过长、内容过密、表格行数过多给出警告</li><li><code>index.build.json</code> 记录每页最终采用的布局</li></ul></article><article class="card text-card section-card" data-presenter-focus><h3>浏览器检查</h3><ul><li><code>window._<wbr>_<wbr>SLIDE_<wbr>DIAGNOSTICS_<wbr>_<wbr></code> 暴露运行时溢出结果</li><li>加 <code>?debug=1</code> 会在页面上标出发生溢出的容器</li><li>固定 1920×1080 舞台在宽屏、投影和手机上只做等比缩放</li></ul></article></div></div><footer class="section-footer" style="--section-count:4"><span class="">开始</span><span class="">自动布局</span><span class="">内容组件</span><span class="active">交付检查</span></footer></section>
     </main>
   </div>
   <div class="control-hotzone" aria-hidden="true"></div>
   <nav class="deck-controls" aria-label="演示控制">
     <button id="prev" aria-label="上一页" title="上一页">‹</button>
     <button id="next" aria-label="下一页" title="下一页">›</button>
+    <button id="focus" class="active" aria-label="关闭悬浮聚焦" aria-pressed="true" title="关闭悬浮聚焦（H）">◎</button>
     <button id="edit" aria-label="打开页面编辑器" aria-controls="layoutEditorPanel" aria-expanded="false" title="页面编辑器（E）">✦</button>
     <button id="save" aria-label="下载 HTML" title="下载 HTML">⇩</button>
   </nav>
@@ -2461,12 +2561,55 @@
     }
 
     /* ===========================================
+       PRESENTER HOVER FOCUS
+       =========================================== */
+    class PresenterFocus {
+      constructor() {
+        this.button = document.getElementById("focus");
+        this.enabled = true;
+        this.registerTextTargets();
+        this.button.addEventListener("click", () => this.toggle());
+        this.setEnabled(true);
+      }
+      registerTextTargets(root = document) {
+        const selectors = [
+          ":scope > h1",
+          ":scope > h3",
+          ":scope > p",
+          ":scope > strong",
+          ":scope > ul > li",
+          ":scope > ol > li",
+          ":scope > pre",
+          ":scope table th",
+          ":scope table td"
+        ].join(",");
+        root.querySelectorAll("[data-presenter-focus]").forEach(container => {
+          container.querySelectorAll(selectors).forEach(node => {
+            if (node.textContent.trim() && !node.hasAttribute("data-presenter-text")) {
+              node.dataset.presenterText = "block";
+            }
+          });
+        });
+      }
+      setEnabled(enabled) {
+        this.enabled = Boolean(enabled);
+        document.body.classList.toggle("presenter-focus-enabled", this.enabled);
+        this.button.classList.toggle("active", this.enabled);
+        this.button.setAttribute("aria-pressed", String(this.enabled));
+        this.button.setAttribute("aria-label", this.enabled ? "关闭悬浮聚焦" : "开启悬浮聚焦");
+        this.button.title = `${this.enabled ? "关闭" : "开启"}悬浮聚焦（H）`;
+      }
+      toggle() { this.setEnabled(!this.enabled); }
+    }
+
+    /* ===========================================
        PRESENTATION CONTROLLER
        =========================================== */
     class SlidePresentation {
-      constructor(widgetManager, layoutEditor) {
+      constructor(widgetManager, layoutEditor, presenterFocus) {
         this.widgetManager = widgetManager;
         this.layoutEditor = layoutEditor;
+        this.presenterFocus = presenterFocus;
         this.slides = [...document.querySelectorAll(".slide")];
         this.stage = document.getElementById("deckStage");
         this.current = Math.max(0, Math.min(this.slides.length - 1, (parseInt(location.hash.slice(1), 10) || 1) - 1));
@@ -2554,6 +2697,7 @@
           else if (["ArrowLeft","ArrowUp","PageUp"].includes(event.key)) { event.preventDefault(); this.step(-1); }
           else if (event.key === "Home") this.show(0);
           else if (event.key === "End") this.show(this.slides.length - 1);
+          else if (event.key === "h" || event.key === "H") this.presenterFocus.toggle();
           else if (event.key === "e" || event.key === "E") this.toggleEdit();
         });
         addEventListener("wheel", event => {
@@ -2626,8 +2770,10 @@
     try { embeddedEditorConfig = JSON.parse(document.getElementById("deckEditorConfig")?.textContent || "{}"); } catch (_) { /* invalid embedded data falls back to empty */ }
     const visualWidgetManager = new SlideVisualWidgetManager();
     const layoutEditor = new SlideLayoutEditor(embeddedEditorConfig);
-    const presentation = new SlidePresentation(visualWidgetManager, layoutEditor);
+    const presenterFocus = new PresenterFocus();
+    const presentation = new SlidePresentation(visualWidgetManager, layoutEditor, presenterFocus);
     window.__SLIDE_LAYOUT_EDITOR__ = layoutEditor;
+    window.__SLIDE_PRESENTER_FOCUS__ = presenterFocus;
     window.__SLIDE_PRESENTATION__ = presentation;
     document.querySelectorAll("[data-media-tabs]").forEach(shell => new MediaTabs(shell));
     addEventListener("load", () => requestAnimationFrame(() => {

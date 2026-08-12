@@ -709,6 +709,100 @@
     }
     .slide.visible .reveal { opacity: 1; transform: translateY(0); }
     .slide.diagnostic-layout .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+    /* ===========================================
+       PRESENTER HOVER FOCUS
+       Semantic container focus without a pointer-tracking render loop.
+       =========================================== */
+    .hero-copy[data-presenter-focus] { position: relative; }
+    [data-presenter-focus] {
+      isolation: isolate;
+      outline: 4px solid transparent;
+      outline-offset: 8px;
+    }
+    [data-presenter-focus].reveal {
+      transition:
+        opacity .42s var(--ease),
+        transform .42s var(--ease),
+        scale .18s var(--ease),
+        filter .18s ease,
+        box-shadow .18s ease,
+        outline-color .18s ease,
+        background-color .18s ease;
+      transition-delay: var(--reveal-delay, 0ms), var(--reveal-delay, 0ms), 0ms, 0ms, 0ms, 0ms, 0ms;
+    }
+    [data-presenter-text] {
+      position: relative;
+      border-radius: 7px;
+      transition: color .14s ease, background-color .14s ease, box-shadow .14s ease, filter .14s ease;
+    }
+    mark[data-presenter-text="inline"] {
+      margin: 0 -.08em;
+      padding: .02em .08em;
+      color: inherit;
+      background: linear-gradient(transparent 58%, rgba(111,96,229,.2) 58%);
+      box-decoration-break: clone;
+      -webkit-box-decoration-break: clone;
+    }
+    .slide::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 20;
+      pointer-events: none;
+      background: rgba(17,17,17,.24);
+      opacity: 0;
+      transition: opacity .18s ease;
+    }
+    @media (hover: hover) and (pointer: fine) {
+      body.presenter-focus-enabled:not(.editor-open)
+      .slide.active :is(
+        .content,
+        .text-grid,
+        .table-layout,
+        .split-layout,
+        .split-copy,
+        .wide-media-layout,
+        .wide-copy,
+        .gallery-layout,
+        .gallery-copy,
+        .chart-layout,
+        .chart-copy
+      ):has([data-presenter-focus]:not(.is-fullscreen):hover) {
+        overflow: visible !important;
+      }
+      body.presenter-focus-enabled:not(.editor-open)
+      .slide.active :is(.slide-header, [data-presenter-focus]):hover {
+        overflow: visible !important;
+      }
+      body.presenter-focus-enabled:not(.editor-open)
+      .slide.active:has([data-presenter-focus]:not(.is-fullscreen):hover)::after {
+        opacity: 1;
+      }
+      body.presenter-focus-enabled:not(.editor-open)
+      .slide.active [data-presenter-focus]:not(.is-fullscreen):hover {
+        z-index: 21;
+        scale: 1.018;
+        filter: saturate(1.06) contrast(1.02);
+        outline-color: color-mix(in srgb, var(--accent) 72%, white);
+        box-shadow: 0 24px 64px rgba(17,17,17,.24), 0 0 0 12px rgba(255,255,255,.92);
+      }
+      body.presenter-focus-enabled:not(.editor-open)
+      .slide.active :is(.slide-header, .hero-copy)[data-presenter-focus]:hover {
+        background: rgba(255,255,255,.94);
+      }
+      body.presenter-focus-enabled:not(.editor-open)
+      .slide.active [data-presenter-focus]:hover
+      [data-presenter-text]:hover:not(:has([data-presenter-text]:hover)) {
+        z-index: 22;
+        color: var(--ink);
+        background: color-mix(in srgb, var(--accent-soft) 82%, white);
+        box-shadow:
+          0 0 0 7px rgba(255,255,255,.96),
+          0 0 0 11px color-mix(in srgb, var(--accent) 58%, white),
+          0 10px 24px rgba(17,17,17,.16);
+        filter: saturate(1.08) contrast(1.04);
+      }
+    }
     .slide[data-editor-typography="true"] :is(.text-card p, .text-card li, .code-card code, .data-table td) {
       line-height: var(--editor-body-line-height) !important;
       color: var(--editor-body-color) !important;
@@ -1013,19 +1107,25 @@
       .visual-widget-tools, .visual-widget-close, .visual-annotation-layer, .visual-widget-overlay,
       .deck-status, .layout-editor-panel, .layout-editor-overlay, .animation-editor-overlay, .editor-toast { display: none !important; }
       [data-visual-content] { transform: none !important; }
+      .slide::after { display: none !important; }
+      [data-presenter-focus] { scale: 1 !important; filter: none !important; outline-color: transparent !important; box-shadow: none !important; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      [data-presenter-focus] { scale: 1 !important; }
     }
   </style>
 </head>
 <body>
   <div class="deck-viewport">
     <main class="deck-stage" id="deckStage" aria-label="Archscribe 动态中文流程图示例">
-<section class="slide content-slide layout-chart density-speaking has-diagram diagram-fullstage" data-title="动态流程图必须服从 Slide 的字号与安全区" data-slide-id="archscribe-build-flow" data-source-page="P1" data-slide-kind="content" data-media-count="0" data-block-count="1" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="true" data-layout-requested="chart" data-layout-resolved="chart"><header class="slide-header reveal"><h1>动态流程图必须服从 Slide 的字号与安全区</h1><p class="subtitle">标题由 Slide 排版，Archscribe 专注呈现流程主体</p></header><div class="content"><div class="chart-layout"><div class="chart-stage"><figure class="card chart-card diagram-card" data-visual-widget="image" data-diagram-engine="archscribe" tabindex="0" aria-label="GolajahSlide 动态流程图"><div class="visual-widget-content chart-content diagram-content" data-visual-content><picture><source media="(prefers-reduced-motion: reduce)" srcset="assets/slide-build-flow.png"><img src="assets/slide-build-flow.gif" alt="演示内容分别生成内置图表与动态流程图，检查失败时返回动态流程重新生成" draggable="false"></picture></div></figure></div><div class="empty-copy" aria-hidden="true"></div></div></div></section>
+<section class="slide content-slide layout-chart density-speaking has-diagram diagram-fullstage" data-title="动态流程图必须服从 Slide 的字号与安全区" data-slide-id="archscribe-build-flow" data-source-page="P1" data-slide-kind="content" data-media-count="0" data-block-count="1" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="true" data-layout-requested="chart" data-layout-resolved="chart"><header class="slide-header reveal" data-presenter-focus><h1>动态流程图必须服从 Slide 的字号与安全区</h1><p class="subtitle">标题由 Slide 排版，Archscribe 专注呈现流程主体</p></header><div class="content"><div class="chart-layout"><div class="chart-stage"><figure class="card chart-card diagram-card" data-visual-widget="image" data-diagram-engine="archscribe" tabindex="0" aria-label="GolajahSlide 动态流程图"><div class="visual-widget-content chart-content diagram-content" data-visual-content><picture><source media="(prefers-reduced-motion: reduce)" srcset="assets/slide-build-flow.png"><img src="assets/slide-build-flow.gif" alt="演示内容分别生成内置图表与动态流程图，检查失败时返回动态流程重新生成" draggable="false"></picture></div></figure></div><div class="empty-copy" aria-hidden="true"></div></div></div></section>
     </main>
   </div>
   <div class="control-hotzone" aria-hidden="true"></div>
   <nav class="deck-controls" aria-label="演示控制">
     <button id="prev" aria-label="上一页" title="上一页">‹</button>
     <button id="next" aria-label="下一页" title="下一页">›</button>
+    <button id="focus" class="active" aria-label="关闭悬浮聚焦" aria-pressed="true" title="关闭悬浮聚焦（H）">◎</button>
     <button id="edit" aria-label="打开页面编辑器" aria-controls="layoutEditorPanel" aria-expanded="false" title="页面编辑器（E）">✦</button>
     <button id="save" aria-label="下载 HTML" title="下载 HTML">⇩</button>
   </nav>
@@ -2454,12 +2554,55 @@
     }
 
     /* ===========================================
+       PRESENTER HOVER FOCUS
+       =========================================== */
+    class PresenterFocus {
+      constructor() {
+        this.button = document.getElementById("focus");
+        this.enabled = true;
+        this.registerTextTargets();
+        this.button.addEventListener("click", () => this.toggle());
+        this.setEnabled(true);
+      }
+      registerTextTargets(root = document) {
+        const selectors = [
+          ":scope > h1",
+          ":scope > h3",
+          ":scope > p",
+          ":scope > strong",
+          ":scope > ul > li",
+          ":scope > ol > li",
+          ":scope > pre",
+          ":scope table th",
+          ":scope table td"
+        ].join(",");
+        root.querySelectorAll("[data-presenter-focus]").forEach(container => {
+          container.querySelectorAll(selectors).forEach(node => {
+            if (node.textContent.trim() && !node.hasAttribute("data-presenter-text")) {
+              node.dataset.presenterText = "block";
+            }
+          });
+        });
+      }
+      setEnabled(enabled) {
+        this.enabled = Boolean(enabled);
+        document.body.classList.toggle("presenter-focus-enabled", this.enabled);
+        this.button.classList.toggle("active", this.enabled);
+        this.button.setAttribute("aria-pressed", String(this.enabled));
+        this.button.setAttribute("aria-label", this.enabled ? "关闭悬浮聚焦" : "开启悬浮聚焦");
+        this.button.title = `${this.enabled ? "关闭" : "开启"}悬浮聚焦（H）`;
+      }
+      toggle() { this.setEnabled(!this.enabled); }
+    }
+
+    /* ===========================================
        PRESENTATION CONTROLLER
        =========================================== */
     class SlidePresentation {
-      constructor(widgetManager, layoutEditor) {
+      constructor(widgetManager, layoutEditor, presenterFocus) {
         this.widgetManager = widgetManager;
         this.layoutEditor = layoutEditor;
+        this.presenterFocus = presenterFocus;
         this.slides = [...document.querySelectorAll(".slide")];
         this.stage = document.getElementById("deckStage");
         this.current = Math.max(0, Math.min(this.slides.length - 1, (parseInt(location.hash.slice(1), 10) || 1) - 1));
@@ -2547,6 +2690,7 @@
           else if (["ArrowLeft","ArrowUp","PageUp"].includes(event.key)) { event.preventDefault(); this.step(-1); }
           else if (event.key === "Home") this.show(0);
           else if (event.key === "End") this.show(this.slides.length - 1);
+          else if (event.key === "h" || event.key === "H") this.presenterFocus.toggle();
           else if (event.key === "e" || event.key === "E") this.toggleEdit();
         });
         addEventListener("wheel", event => {
@@ -2619,8 +2763,10 @@
     try { embeddedEditorConfig = JSON.parse(document.getElementById("deckEditorConfig")?.textContent || "{}"); } catch (_) { /* invalid embedded data falls back to empty */ }
     const visualWidgetManager = new SlideVisualWidgetManager();
     const layoutEditor = new SlideLayoutEditor(embeddedEditorConfig);
-    const presentation = new SlidePresentation(visualWidgetManager, layoutEditor);
+    const presenterFocus = new PresenterFocus();
+    const presentation = new SlidePresentation(visualWidgetManager, layoutEditor, presenterFocus);
     window.__SLIDE_LAYOUT_EDITOR__ = layoutEditor;
+    window.__SLIDE_PRESENTER_FOCUS__ = presenterFocus;
     window.__SLIDE_PRESENTATION__ = presentation;
     document.querySelectorAll("[data-media-tabs]").forEach(shell => new MediaTabs(shell));
     addEventListener("load", () => requestAnimationFrame(() => {

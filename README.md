@@ -80,8 +80,11 @@ python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 - 页面编辑器：`E`
 - 当前视觉全屏：`F`
 - 当前视觉标注：`A`
+- 悬浮聚焦开关：`H`（默认开启；悬停标题、正文卡片、代码或表格时聚焦，再悬停段落或列表项可进一步强调）
 
 访问 `index.html?debug=1` 可以标记运行时检测到的溢出区域；诊断结果也可通过 `window.__SLIDE_DIAGNOSTICS__` 读取。
+
+悬浮聚焦的技术选型、交互边界与浏览器降级策略见 [演示者悬浮聚焦方案](docs/PRESENTER-FOCUS.md)。
 
 ## 测试
 
