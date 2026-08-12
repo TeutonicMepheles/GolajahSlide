@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Pinned build-time diagram renderers for GolajahSlide",
   "scripts": {
-    "render:excalidraw": "node tools/render_excalidraw.mjs"
+    "render:excalidraw": "node tools/render_excalidraw.mjs",
+    "test:presenter-focus": "node tests/test_presenter_focus.mjs"
   },
   "devDependencies": {
     "@excalidraw/excalidraw": "0.18.1",

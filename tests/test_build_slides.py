@@ -436,6 +436,48 @@ Second page.
         self.assertIn("file.size > 2 * 1024 * 1024", template)
         self.assertIn('["ArrowLeft", "ArrowRight", "Home", "End"]', template)
 
+    def test_presenter_focus_marks_semantic_text_containers(self):
+        paragraph = build_slides.paragraph_block(["<p>正文</p>"], "标题")
+        table = build_slides.render_table(["| A |", "| --- |", "| B |"])
+        self.assertIn("data-presenter-focus", paragraph.html)
+        self.assertIn("data-presenter-focus", table.html)
+
+        slide = build_slides.Slide(
+            number=1,
+            slide_id="focus-test",
+            kind="content",
+            title="聚焦测试",
+            subtitle="",
+            section="测试",
+            layout_requested="text",
+            layout_resolved="text",
+            config={},
+            blocks=[paragraph],
+            media=[],
+            raw_body="",
+        )
+        source = build_slides.render_slide(slide, {}, ["测试"])
+        self.assertIn('class="slide-header reveal" data-presenter-focus', source)
+        self.assertIn('class="card text-card section-card" data-presenter-focus', source)
+
+    def test_presenter_focus_supports_explicit_inline_fragments(self):
+        source = build_slides.render_inline("普通文本 ==重点 **结论**== 与 `code`")
+        self.assertIn('<mark data-presenter-text="inline">重点 <strong>结论</strong></mark>', source)
+        self.assertIn("<code>code</code>", source)
+
+    def test_presenter_focus_runtime_is_toggleable_and_input_aware(self):
+        template = build_slides.TEMPLATE_PATH.read_text(encoding="utf-8")
+        self.assertIn('id="focus"', template)
+        self.assertIn("class PresenterFocus", template)
+        self.assertIn('event.key === "h" || event.key === "H"', template)
+        self.assertIn("body.presenter-focus-enabled:not(.editor-open)", template)
+        self.assertIn("@media (hover: hover) and (pointer: fine)", template)
+        self.assertIn(":has([data-presenter-focus]:not(.is-fullscreen):hover)", template)
+        self.assertIn(":has([data-presenter-text]:hover)", template)
+        self.assertIn("registerTextTargets", template)
+        self.assertIn("overflow: visible", template)
+        self.assertIn("@media (prefers-reduced-motion: reduce)", template)
+
     def test_atomic_writer_replaces_content_without_temp_files(self):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "artifact.txt"
