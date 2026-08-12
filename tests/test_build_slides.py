@@ -35,7 +35,11 @@ class SlideTemplateTests(unittest.TestCase):
             result = build_slides.build(SAMPLE_SOURCE, output)
             self.assertEqual(result, 0)
             self.assertTrue(output.exists())
-            self.assertIn('data-layout-resolved="media"', output.read_text(encoding="utf-8"))
+            source = output.read_text(encoding="utf-8")
+            self.assertIn('data-layout-resolved="media"', source)
+            self.assertIn("class PresenterFocus", source)
+            for placeholder in build_slides.TEMPLATE_FRAGMENT_PATHS:
+                self.assertNotIn(placeholder, source)
 
     def test_archscribe_block_embeds_animation_and_reduced_motion_poster(self):
         with tempfile.TemporaryDirectory(dir=build_slides.ROOT) as directory:
@@ -465,17 +469,28 @@ Second page.
         self.assertIn('<mark data-presenter-text="inline">重点 <strong>结论</strong></mark>', source)
         self.assertIn("<code>code</code>", source)
 
-    def test_presenter_focus_runtime_is_toggleable_and_input_aware(self):
+    def test_presenter_focus_feature_sources_are_composed_and_input_aware(self):
         template = build_slides.TEMPLATE_PATH.read_text(encoding="utf-8")
+        style = build_slides.TEMPLATE_FRAGMENT_PATHS["{{PRESENTER_FOCUS_CSS}}"].read_text(encoding="utf-8")
+        runtime = build_slides.TEMPLATE_FRAGMENT_PATHS["{{PRESENTER_FOCUS_RUNTIME}}"].read_text(encoding="utf-8")
+        self.assertIn("{{PRESENTER_FOCUS_CSS}}", template)
+        self.assertIn("{{PRESENTER_FOCUS_RUNTIME}}", template)
         self.assertIn('id="focus"', template)
-        self.assertIn("class PresenterFocus", template)
+        self.assertIn("class PresenterFocus", runtime)
         self.assertIn('event.key === "h" || event.key === "H"', template)
-        self.assertIn("body.presenter-focus-enabled:not(.editor-open)", template)
-        self.assertIn("@media (hover: hover) and (pointer: fine)", template)
-        self.assertIn(":has([data-presenter-focus]:not(.is-fullscreen):hover)", template)
-        self.assertIn(":has([data-presenter-text]:hover)", template)
-        self.assertIn("registerTextTargets", template)
-        self.assertIn("overflow: visible", template)
+        self.assertIn("body.presenter-focus-enabled:not(.editor-open)", style)
+        self.assertIn("@media (hover: hover) and (pointer: fine)", style)
+        self.assertIn(":has([data-presenter-focus]:not(.is-fullscreen):hover)", style)
+        self.assertIn(":has([data-presenter-text]:hover)", style)
+        self.assertIn("registerTextTargets", runtime)
+        self.assertIn("presenter-pointer-cue", style)
+        self.assertIn("createPointerCue", runtime)
+        self.assertIn("requestAnimationFrame", runtime)
+        self.assertIn("--presenter-focus-container-ring", style)
+        self.assertIn("--presenter-focus-text-ring", style)
+        self.assertIn("--presenter-pointer-ring", style)
+        self.assertIn("color-mix(in srgb, var(--accent)", style)
+        self.assertIn("overflow: visible", style)
         self.assertIn("@media (prefers-reduced-motion: reduce)", template)
 
     def test_atomic_writer_replaces_content_without_temp_files(self):

@@ -30,6 +30,11 @@ from typing import Iterable
 
 ROOT = Path(__file__).resolve().parent
 TEMPLATE_PATH = ROOT / "templates" / "deck.html"
+WEB_FEATURE_ROOT = ROOT / "src" / "web" / "features"
+TEMPLATE_FRAGMENT_PATHS = {
+    "{{PRESENTER_FOCUS_CSS}}": WEB_FEATURE_ROOT / "presenter-focus" / "style.css",
+    "{{PRESENTER_FOCUS_RUNTIME}}": WEB_FEATURE_ROOT / "presenter-focus" / "runtime.js",
+}
 STAGE_WIDTH = 1920
 STAGE_HEIGHT = 1080
 DIAGRAM_STAGE_WIDTH = 1840
@@ -2083,8 +2088,12 @@ def build(
         ))
     try:
         template = TEMPLATE_PATH.read_text(encoding="utf-8")
+        template_fragments = {
+            placeholder: path.read_text(encoding="utf-8").rstrip("\r\n")
+            for placeholder, path in TEMPLATE_FRAGMENT_PATHS.items()
+        }
     except (OSError, UnicodeError) as error:
-        print(f"ERROR: cannot read template {TEMPLATE_PATH}: {error}", file=sys.stderr)
+        print(f"ERROR: cannot read template source: {error}", file=sys.stderr)
         return 2
     deck, chunks = split_deck_source(source)
     if not chunks:
@@ -2140,6 +2149,7 @@ def build(
     }
     editor_json = json.dumps(embedded_editor_config, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
     replacements = {
+        **template_fragments,
         "{{DECK_TITLE}}": html.escape(title),
         "{{DECK_TITLE_ATTR}}": html.escape(title, quote=True),
         "{{DECK_TITLE_JSON}}": json.dumps(title, ensure_ascii=False).replace("<", "\\u003c"),

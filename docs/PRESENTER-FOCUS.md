@@ -17,8 +17,10 @@
 ## 交互设计
 
 - 默认开启；工具栏的 `◎` 或键盘 `H` 可随时关闭/开启。
+- 当前 Slide 内会显示一个不拦截交互的圆形鼠标示意；系统鼠标仍然保留。关闭聚焦、进入编辑器、离开 Slide 或窗口失焦时圆圈隐藏。
 - 第一层可聚焦对象：封面/章节文字、页面标题、正文卡片、callout、代码块和表格。
 - 第二层文本片段：容器内的标题、段落、列表项、代码正文和表格单元格会自动响应悬浮；Markdown 中可用 `==重点短语==` 精确标记行内片段。
+- 颜色遵循语义深度：容器使用较浅的主题色混合，鼠标圆圈使用中等强度，文本片段使用更重的主题色；三者全部由 `--accent`、`--accent-soft` 和 `--ink` 派生，会随 Slide 主题自动变化。
 - 悬浮时目标提升到暗幕之上，并添加主题色轮廓、白色光晕和轻微缩放。
 - 聚焦期间只放开目标祖先链上的裁切，确保轮廓和阴影完整，同时保留页面平时的溢出诊断与保护。
 - 页面编辑器打开时自动暂停，避免干扰区域拖拽、文字编辑和动画顺序编排。
@@ -28,6 +30,8 @@
 
 ## 实现结构
 
-构建器为语义文字容器输出 `data-presenter-focus`。模板用 `:hover` 提亮目标，并用当前 Slide 上受限范围的 `:has()` 打开暗幕；`PresenterFocus` 只负责工具栏和 `H` 键开关，不监听 `pointermove`，因此不会增加逐帧工作或改变既有指针事件顺序。
+构建器为语义文字容器输出 `data-presenter-focus`。[Presenter Focus Feature](../src/web/features/presenter-focus/README.md) 的样式用 `:hover` 提亮目标，并用当前 Slide 上受限范围的 `:has()` 打开暗幕；`PresenterFocus` 负责工具栏与 `H` 键开关、文本目标注册和指针圆圈状态。圆圈的位置更新以 `requestAnimationFrame` 合并，只写入一个不接收指针事件的展示节点，不改变既有指针事件顺序。构建时 Feature CSS/JavaScript 会被内联进模板，最终产物仍是单文件 HTML。
 
 不支持 `:has()` 的旧浏览器会自然降级：目标仍有轮廓和光晕，但不会显示整页暗幕；内容、导航和编辑能力不受影响。
+
+专项可运行场景位于 [`harnesses/presenter-focus`](../harnesses/presenter-focus/slides.md)，浏览器验证运行 `npm run test:presenter-focus`。

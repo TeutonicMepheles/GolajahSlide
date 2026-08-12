@@ -711,8 +711,16 @@
     .slide.diagnostic-layout .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
     /* ===========================================
        PRESENTER HOVER FOCUS
-       Semantic container focus without a pointer-tracking render loop.
+       Theme-derived semantic depth plus a lightweight pointer cue.
        =========================================== */
+    :root {
+      --presenter-focus-container-ring: color-mix(in srgb, var(--accent) 32%, white);
+      --presenter-focus-container-fill: color-mix(in srgb, var(--accent-soft) 28%, white);
+      --presenter-focus-text-ring: color-mix(in srgb, var(--accent) 72%, white);
+      --presenter-focus-text-fill: color-mix(in srgb, var(--accent-soft) 76%, white);
+      --presenter-pointer-ring: color-mix(in srgb, var(--accent) 58%, white);
+      --presenter-pointer-fill: color-mix(in srgb, var(--accent-soft) 64%, transparent);
+    }
     .hero-copy[data-presenter-focus] { position: relative; }
     [data-presenter-focus] {
       isolation: isolate;
@@ -733,15 +741,45 @@
     [data-presenter-text] {
       position: relative;
       border-radius: 7px;
-      transition: color .14s ease, background-color .14s ease, box-shadow .14s ease, filter .14s ease;
+      outline: 4px solid transparent;
+      outline-offset: 6px;
+      transition: color .14s ease, background-color .14s ease, box-shadow .14s ease, outline-color .14s ease, filter .14s ease;
     }
     mark[data-presenter-text="inline"] {
       margin: 0 -.08em;
       padding: .02em .08em;
       color: inherit;
-      background: linear-gradient(transparent 58%, rgba(111,96,229,.2) 58%);
+      background: linear-gradient(transparent 58%, color-mix(in srgb, var(--accent) 20%, transparent) 58%);
       box-decoration-break: clone;
       -webkit-box-decoration-break: clone;
+    }
+    .presenter-pointer-cue {
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 9000;
+      width: 44px;
+      height: 44px;
+      border: 4px solid var(--presenter-pointer-ring);
+      border-radius: 50%;
+      pointer-events: none;
+      background: var(--presenter-pointer-fill);
+      box-shadow:
+        0 0 0 5px rgba(255,255,255,.72),
+        0 5px 20px color-mix(in srgb, var(--ink) 22%, transparent);
+      opacity: 0;
+      translate: -50% -50%;
+      scale: .78;
+      transition: opacity .12s ease, scale .16s var(--ease), border-color .16s ease, background-color .16s ease;
+      will-change: left, top;
+    }
+    body.presenter-focus-enabled:not(.editor-open):has(.slide.active:hover)
+    .presenter-pointer-cue[data-visible="true"] {
+      opacity: .92;
+      scale: 1;
+    }
+    @media (hover: none), print {
+      .presenter-pointer-cue { display: none !important; }
     }
     .slide::after {
       content: "";
@@ -782,25 +820,25 @@
       .slide.active [data-presenter-focus]:not(.is-fullscreen):hover {
         z-index: 21;
         scale: 1.018;
-        filter: saturate(1.06) contrast(1.02);
-        outline-color: color-mix(in srgb, var(--accent) 72%, white);
-        box-shadow: 0 24px 64px rgba(17,17,17,.24), 0 0 0 12px rgba(255,255,255,.92);
+        filter: saturate(1.03) contrast(1.01);
+        outline-color: var(--presenter-focus-container-ring);
+        box-shadow: 0 24px 64px rgba(17,17,17,.2), 0 0 0 12px rgba(255,255,255,.9);
       }
       body.presenter-focus-enabled:not(.editor-open)
       .slide.active :is(.slide-header, .hero-copy)[data-presenter-focus]:hover {
-        background: rgba(255,255,255,.94);
+        background: var(--presenter-focus-container-fill);
       }
       body.presenter-focus-enabled:not(.editor-open)
       .slide.active [data-presenter-focus]:hover
       [data-presenter-text]:hover:not(:has([data-presenter-text]:hover)) {
         z-index: 22;
         color: var(--ink);
-        background: color-mix(in srgb, var(--accent-soft) 82%, white);
+        background: var(--presenter-focus-text-fill);
+        outline-color: var(--presenter-focus-text-ring);
         box-shadow:
-          0 0 0 7px rgba(255,255,255,.96),
-          0 0 0 11px color-mix(in srgb, var(--accent) 58%, white),
+          0 0 0 7px rgba(255,255,255,.94),
           0 10px 24px rgba(17,17,17,.16);
-        filter: saturate(1.08) contrast(1.04);
+        filter: saturate(1.12) contrast(1.05);
       }
     }
     .slide[data-editor-typography="true"] :is(.text-card p, .text-card li, .code-card code, .data-table td) {
@@ -2580,9 +2618,51 @@
       constructor() {
         this.button = document.getElementById("focus");
         this.enabled = true;
+        this.pointerFrame = null;
+        this.pendingPointer = null;
+        this.pointerCue = this.createPointerCue();
         this.registerTextTargets();
         this.button.addEventListener("click", () => this.toggle());
+        document.addEventListener("pointermove", event => this.trackPointer(event), {passive:true});
+        document.addEventListener("pointerout", event => {
+          if (!event.relatedTarget) this.hidePointer();
+        }, {passive:true});
+        addEventListener("blur", () => this.hidePointer());
+        document.addEventListener("visibilitychange", () => {
+          if (document.hidden) this.hidePointer();
+        });
         this.setEnabled(true);
+      }
+      createPointerCue() {
+        const cue = document.querySelector("body > .presenter-pointer-cue") || document.createElement("span");
+        cue.className = "presenter-pointer-cue";
+        cue.removeAttribute("style");
+        cue.dataset.visible = "false";
+        cue.setAttribute("aria-hidden", "true");
+        if (!cue.isConnected) document.body.appendChild(cue);
+        return cue;
+      }
+      trackPointer(event) {
+        if (!this.enabled || document.body.classList.contains("editor-open") ||
+            (event.pointerType && !["mouse", "pen"].includes(event.pointerType)) ||
+            !event.target.closest?.(".slide.active")) {
+          this.hidePointer();
+          return;
+        }
+        this.pendingPointer = {x:event.clientX, y:event.clientY};
+        if (this.pointerFrame !== null) return;
+        this.pointerFrame = requestAnimationFrame(() => {
+          this.pointerFrame = null;
+          if (!this.pendingPointer) return;
+          this.pointerCue.style.left = `${this.pendingPointer.x}px`;
+          this.pointerCue.style.top = `${this.pendingPointer.y}px`;
+          this.pointerCue.dataset.visible = "true";
+          this.pendingPointer = null;
+        });
+      }
+      hidePointer() {
+        this.pendingPointer = null;
+        this.pointerCue.dataset.visible = "false";
       }
       registerTextTargets(root = document) {
         const selectors = [
@@ -2611,6 +2691,7 @@
         this.button.setAttribute("aria-pressed", String(this.enabled));
         this.button.setAttribute("aria-label", this.enabled ? "关闭悬浮聚焦" : "开启悬浮聚焦");
         this.button.title = `${this.enabled ? "关闭" : "开启"}悬浮聚焦（H）`;
+        if (!this.enabled) this.hidePointer();
       }
       toggle() { this.setEnabled(!this.enabled); }
     }

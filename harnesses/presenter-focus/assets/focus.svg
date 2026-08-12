@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800" role="img" aria-labelledby="title desc">
+  <title id="title">Presenter Focus 层级示意</title>
+  <desc id="desc">一个外层容器包围三个文本条，其中第二条被强调。</desc>
+  <rect width="800" height="800" rx="72" fill="#f1f0ff"/>
+  <rect x="110" y="130" width="580" height="540" rx="42" fill="#fff" stroke="#6f60e5" stroke-width="12"/>
+  <rect x="180" y="225" width="440" height="58" rx="18" fill="#d8d3ff"/>
+  <rect x="160" y="350" width="480" height="100" rx="24" fill="#6f60e5"/>
+  <rect x="180" y="520" width="440" height="58" rx="18" fill="#d8d3ff"/>
+</svg>

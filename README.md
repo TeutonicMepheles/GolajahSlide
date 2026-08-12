@@ -32,11 +32,17 @@ python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 ```text
 .
 ├── build_slides.py
+├── src/
+│   └── web/
+│       └── features/       # 浏览器 Feature 的行为、样式和契约
 ├── templates/
-│   └── deck.html
+│   └── deck.html           # 最终 HTML 的组合壳
 ├── docs/
+│   ├── ARCHITECTURE.md
+│   ├── plans/
 │   ├── MARKDOWN-SPEC.md
 │   └── LAYOUT-SPEC.md
+├── harnesses/              # 每个交互 Feature 的最小可运行场景
 ├── examples/
 │   └── basic/
 │       ├── slides.md
@@ -44,9 +50,10 @@ python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 │       ├── index.html
 │       ├── index.build.json
 │       └── assets/
-└── tests/
-    └── test_build_slides.py
+└── tests/                   # Python 契约/集成测试与真实浏览器测试
 ```
+
+工程边界、依赖方向和 Feature 完成条件见[架构说明](docs/ARCHITECTURE.md)；实施中的功能及状态见 [Plan 索引](docs/plans/README.md)。
 
 ## 工作方式
 
@@ -80,7 +87,7 @@ python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 - 页面编辑器：`E`
 - 当前视觉全屏：`F`
 - 当前视觉标注：`A`
-- 悬浮聚焦开关：`H`（默认开启；悬停标题、正文卡片、代码或表格时聚焦，再悬停段落或列表项可进一步强调）
+- 悬浮聚焦开关：`H`（默认开启；Slide 内显示主题色鼠标圆圈，容器使用浅色聚焦，再悬停段落或列表项时使用更深的主题色强调）
 
 访问 `index.html?debug=1` 可以标记运行时检测到的溢出区域；诊断结果也可通过 `window.__SLIDE_DIAGNOSTICS__` 读取。
 
@@ -88,8 +95,17 @@ python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 
 ## 测试
 
+完整开发验证（Python + 浏览器 Harness）：
+
+```bash
+npm test
+```
+
+也可以分别运行：
+
 ```bash
 python3 -m unittest discover -s tests -v
+npm run test:presenter-focus
 ```
 
 ## 清晰规整的流程图
