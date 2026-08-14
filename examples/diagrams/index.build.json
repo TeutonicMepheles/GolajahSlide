@@ -16,29 +16,34 @@
     "detected": 2,
     "renderRequested": true,
     "mermaid": {
-      "detected": 1,
+      "detected": 0,
       "rendered": [],
-      "cached": [
+      "cached": []
+    },
+    "diagramDesign": {
+      "detected": 1,
+      "rendered": [
         "assets/mermaid-build-flow.svg"
-      ]
+      ],
+      "cached": []
     },
     "excalidraw": {
       "detected": 1,
-      "rendered": [],
-      "cached": [
+      "rendered": [
         "assets/editable-diagram.svg"
-      ]
+      ],
+      "cached": []
     },
     "quality": {
       "mermaid-svg-flow": [
         {
-          "engine": "mermaid",
+          "engine": "diagram-design",
           "src": "assets/mermaid-build-flow.svg",
-          "viewBoxWidth": 1447.19,
-          "viewBoxHeight": 251.0,
+          "viewBoxWidth": 1840.0,
+          "viewBoxHeight": 800.0,
           "sourceMinFontSize": 28.0,
-          "projectedMinFontSize": 35.6,
-          "minimumSafeMargin": 32.0
+          "projectedMinFontSize": 28.0,
+          "minimumSafeMargin": 70.0
         }
       ],
       "excalidraw-svg-flow": [

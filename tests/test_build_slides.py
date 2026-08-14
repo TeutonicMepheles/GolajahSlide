@@ -3,6 +3,8 @@ import io
 import json
 import os
 import struct
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -249,6 +251,123 @@ flowchart LR
         self.assertEqual(len(chunks), 2)
         self.assertIn("theme: base", chunks[0])
         self.assertTrue(chunks[1].startswith("# Second"))
+
+    def test_diagram_design_mermaid_tracks_semantic_and_html_sources(self):
+        with tempfile.TemporaryDirectory(dir=build_slides.ROOT) as directory:
+            root = Path(directory)
+            assets = root / "assets"
+            assets.mkdir()
+            authored = assets / "flow.diagram.html"
+            authored.write_text(
+                '<!doctype html><html><body><svg xmlns="http://www.w3.org/2000/svg" '
+                'viewBox="0 0 1840 800" role="img" aria-labelledby="flow-title flow-desc">'
+                '<title id="flow-title">Editorial flow</title><desc id="flow-desc">A to B.</desc>'
+                '<rect width="1840" height="800" fill="#fff"/>'
+                '<text x="80" y="120" font-size="28">A to B</text></svg></body></html>',
+                encoding="utf-8",
+            )
+            svg_path = assets / "flow.svg"
+            svg_path.write_text(
+                '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1840 800">'
+                '<text x="80" y="120" font-size="28">A to B</text></svg>\n',
+                encoding="utf-8",
+            )
+            definition = "flowchart LR\n  A --> B"
+            svg_path.with_suffix(".diagram-build.json").write_text(json.dumps({
+                "schemaVersion": "1.0",
+                "engine": "diagram-design",
+                "renderer": "diagram-design",
+                "source": "assets/flow.diagram.html",
+                "sourceHtmlSha256": build_slides.sha256_file(authored),
+                "mermaidSourceHash": build_slides.mermaid_semantic_hash(definition),
+                "svgSha256": build_slides.sha256_file(svg_path),
+                "minimumSafeMargin": 48,
+                "minimumSourceFontSize": 28,
+            }), encoding="utf-8")
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            markdown.write_text(f"""<!-- slide
+id: editorial
+type: content
+layout: chart
+footer: false
+-->
+# Editorial Mermaid
+
+```mermaid
+@slide
+renderer: diagram-design
+source: assets/flow.diagram.html
+src: assets/flow.svg
+title: Editorial flow
+safe-margin: 40
+@end
+{definition}
+```
+""", encoding="utf-8")
+
+            result = build_slides.build(markdown, output)
+            source = output.read_text(encoding="utf-8")
+            report = json.loads(output.with_suffix(".build.json").read_text(encoding="utf-8"))
+            self.assertEqual(result, 0)
+            self.assertIn('data-diagram-engine="diagram-design"', source)
+            self.assertEqual(report["diagrams"]["diagramDesign"]["detected"], 1)
+            self.assertEqual(report["diagrams"]["mermaid"]["detected"], 0)
+
+            markdown.write_text(markdown.read_text(encoding="utf-8").replace("A --> B", "A --> C"), encoding="utf-8")
+            stale_result = build_slides.build(markdown, output)
+            stale_report = json.loads(output.with_suffix(".build.json").read_text(encoding="utf-8"))
+            self.assertEqual(stale_result, 1)
+            self.assertTrue(any("Mermaid 定义已变化" in error for error in stale_report["errors"]))
+
+    def test_diagram_design_html_rejects_active_or_remote_content(self):
+        with self.assertRaisesRegex(ValueError, "script"):
+            build_slides.validate_diagram_design_source("<html><script>alert(1)</script></html>")
+        with self.assertRaisesRegex(ValueError, "网络资源"):
+            build_slides.validate_diagram_design_source('<svg xmlns="http://www.w3.org/2000/svg"><style>@import "https://example.com/x.css"</style></svg>')
+        with self.assertRaisesRegex(ValueError, "外部资源"):
+            build_slides.validate_diagram_design_source('<svg xmlns="http://www.w3.org/2000/svg"><use href="icons.svg#cloud"/></svg>')
+        build_slides.validate_diagram_design_source(
+            '<svg xmlns="http://www.w3.org/2000/svg"><text>https://example.com is a label</text><use href="#cloud"/></svg>'
+        )
+
+    def test_extract_first_svg_from_editorial_html(self):
+        extracted = build_slides.extract_first_svg_from_html(
+            '<html><body><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 9">'
+            '<text font-size="28">safe</text></svg><svg viewBox="0 0 1 1"></svg></body></html>'
+        )
+        self.assertIn('viewBox="0 0 16 9"', extracted)
+        self.assertNotIn('viewBox="0 0 1 1"', extracted)
+
+    def test_repo_diagram_skill_extracts_golajah_mermaid_metadata_safely(self):
+        with tempfile.TemporaryDirectory() as directory:
+            markdown = Path(directory) / "slides.md"
+            marker = Path(directory) / "must-not-exist"
+            markdown.write_text(f"""```mermaid
+@slide
+renderer: diagram-design
+source: assets/flow.diagram.html
+src: assets/flow.svg
+@end
+flowchart LR
+  A[输入] --> B[输出]
+  click A \"file:///{marker.as_posix()}\"
+```
+""", encoding="utf-8")
+            script = build_slides.ROOT / ".agents" / "skills" / "golajah-diagram-design" / "scripts" / "mermaid_extract.py"
+            completed = subprocess.run(
+                [sys.executable, "-X", "utf8", str(script), str(markdown), "--json"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                check=True,
+            )
+            payload = json.loads(completed.stdout)
+            diagram = payload["diagrams"][0]
+            self.assertEqual(diagram["kind"], "flowchart")
+            self.assertEqual([node["label"] for node in diagram["nodes"]], ["输入", "输出"])
+            self.assertEqual(diagram["discarded"]["click_handlers"], 1)
+            self.assertFalse(marker.exists())
 
     def test_svg_diagram_layout_rejects_multiple_or_mixed_blocks(self):
         slide = build_slides.Slide(

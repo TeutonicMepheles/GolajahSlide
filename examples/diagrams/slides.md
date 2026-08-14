@@ -1,6 +1,6 @@
 ---
 title: 构建期 SVG 图表示例
-subtitle: Mermaid 负责自动布局，Excalidraw 负责自由精修
+subtitle: Mermaid 保留结构语义，Diagram Design 与 Excalidraw 负责精修
 author: GolajahSlide
 date: 2026-08
 lang: zh-CN
@@ -15,16 +15,20 @@ layout: chart
 section: 流程图
 footer: false
 -->
-# Mermaid 保持流程结构清晰规整
-## 构建期生成 SVG，发布页面不加载 Mermaid 运行时
+# Mermaid 保留语义，重绘提升层级
+## Agent 编辑 HTML/SVG 构图，构建器绑定语义来源并执行质量门禁
 
 ```mermaid
 @slide
+renderer: diagram-design
+source: assets/mermaid-build-flow.diagram.html
 src: assets/mermaid-build-flow.svg
 title: GolajahSlide 图表构建流程
-alt: Markdown 中的 Mermaid 定义经过主题约束、SVG 质量门禁后内联到 Slide
+alt: Mermaid 语义依次进入编辑式重绘、质量门禁和 SVG 内联，失败时返回语义源继续修改
+detail: faithful
+audience: mixed
 min-font-size: 28
-safe-margin: 24
+safe-margin: 40
 @end
 flowchart LR
     source[Markdown 图表定义] --> renderer[锁定版本渲染]

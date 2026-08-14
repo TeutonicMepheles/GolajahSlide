@@ -1,0 +1,8 @@
+{
+  "name": "diagram-design",
+  "repository": "https://github.com/cathrynlavery/diagram-design",
+  "commit": "4da4dfb80b1f3d2f11678726b0db58c33c1d7e9d",
+  "license": "MIT",
+  "copyright": "Copyright (c) 2025 Cathryn Lavery",
+  "adaptation": "Selected Mermaid extraction, diagram grammar references, and examples customized for GolajahSlide."
+}

@@ -215,6 +215,58 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def mermaid_renderer(spec: dict[str, object]) -> str:
+    """Normalize the opt-in Mermaid rendering strategy."""
+    renderer = str(spec.get("renderer", "mermaid")).strip().casefold()
+    return renderer or "mermaid"
+
+
+def mermaid_semantic_hash(definition: str) -> str:
+    """Hash Mermaid meaning independently from either rendering toolchain."""
+    return sha256_text("mermaid-source-v1", definition.strip())
+
+
+def extract_first_svg_from_html(source: str) -> str:
+    """Extract the first complete inline SVG from a self-contained HTML source."""
+    opening = re.search(r"(?is)<svg\b", source)
+    if not opening:
+        raise ValueError("HTML 中没有内联 SVG")
+    closing = re.search(r"(?is)</svg\s*>", source[opening.start() :])
+    if not closing:
+        raise ValueError("HTML 中的 SVG 没有闭合")
+    end = opening.start() + closing.end()
+    svg_source = source[opening.start() : end]
+    try:
+        root = ET.fromstring(svg_source)
+    except ET.ParseError as error:
+        raise ValueError(f"HTML 中的 SVG 无法解析：{error}") from error
+    if svg_local_name(root.tag) != "svg":
+        raise ValueError("HTML 中的首个矢量元素不是 SVG")
+    if svg_view_box(root) is None:
+        raise ValueError("HTML 中的 SVG 缺少有效 viewBox")
+    return svg_source
+
+
+def validate_diagram_design_source(source: str) -> None:
+    """Enforce the offline authoring boundary before extracting editorial SVG."""
+    if re.search(r"(?is)<script\b", source):
+        raise ValueError("diagram-design HTML 不能包含 script")
+    if re.search(r"(?is)<(?:link|iframe|object|embed|foreignobject)\b", source):
+        raise ValueError("diagram-design HTML 不能引用外部或活动内容")
+    if re.search(r"(?is)<(?:img|image)\b", source):
+        raise ValueError("diagram-design HTML 不能引用外部图片")
+    if re.search(r"(?is)@import\b", source):
+        raise ValueError("diagram-design HTML 不能引用网络资源")
+    for match in re.finditer(
+        r"(?is)\b(?:href|xlink:href|src)\s*=\s*([\"'])(.*?)\1", source
+    ):
+        if match.group(2).strip() and not match.group(2).strip().startswith("#"):
+            raise ValueError("diagram-design HTML 不能引用外部资源")
+    for match in re.finditer(r"(?is)url\(\s*([\"']?)(.*?)\1\s*\)", source):
+        if match.group(2).strip() and not match.group(2).strip().startswith("#"):
+            raise ValueError("diagram-design HTML 不能引用外部资源")
+
+
 def svg_local_name(tag: str) -> str:
     return tag.rsplit("}", 1)[-1].lower()
 
@@ -359,7 +411,8 @@ def sanitize_inline_svg(
     root.insert(0, description_node)
     root.insert(0, title_node)
     root.insert(2, style_node)
-    return ET.tostring(root, encoding="unicode")
+    serialized = ET.tostring(root, encoding="unicode")
+    return "\n".join(line.rstrip() for line in serialized.splitlines())
 
 
 def read_diagram_sidecar(svg_path: Path) -> dict[str, object]:
@@ -608,6 +661,7 @@ def parse_svg_diagram(
     messages: BuildMessages,
     slide_no: int,
     stage_size: tuple[int, int],
+    block_kind: str | None = None,
 ) -> Block:
     raw_source = str(config.get("src", "")).strip()
     title = str(config.get("title", f"{engine} 流程图")).strip() or f"{engine} 流程图"
@@ -642,6 +696,26 @@ def parse_svg_diagram(
             messages.error(slide_no, f"{engine} SVG 与质量报告不一致；请重新运行 --render-diagrams")
         if sidecar.get("engine") and sidecar.get("engine") != engine:
             messages.error(slide_no, f"{engine} SVG 的质量报告引擎不匹配")
+        if engine == "diagram-design":
+            definition = str(config.get("definition", "")).strip()
+            source_raw = str(config.get("source", "")).strip()
+            if not source_raw:
+                messages.error(slide_no, "diagram-design Mermaid 缺少 source HTML")
+            elif source_raw.startswith(REMOTE_ASSET_PREFIXES):
+                messages.error(slide_no, "diagram-design source 必须是本地 .html 文件")
+            else:
+                authored_path = (source_dir / source_raw).resolve()
+                if authored_path.suffix.lower() != ".html":
+                    messages.error(slide_no, f"diagram-design source 必须是 .html：{source_raw}")
+                elif not authored_path.is_file():
+                    messages.error(slide_no, f"diagram-design source 不存在：{source_raw}")
+                else:
+                    recorded_source_hash = str(sidecar.get("sourceHtmlSha256", ""))
+                    if recorded_source_hash != sha256_file(authored_path):
+                        messages.error(slide_no, "diagram-design HTML 与 SVG 质量报告不一致；请重新运行 --render-diagrams")
+            expected_semantic_hash = mermaid_semantic_hash(definition)
+            if str(sidecar.get("mermaidSourceHash", "")) != expected_semantic_hash:
+                messages.error(slide_no, "diagram-design SVG 对应的 Mermaid 定义已变化；请重新绘制 HTML 并运行 --render-diagrams")
 
     try:
         root = ET.fromstring(source)
@@ -704,7 +778,7 @@ def parse_svg_diagram(
         '<div class="visual-widget-content chart-content diagram-content" data-visual-content>'
         f"{inline_svg}</div>{figure_caption}</figure>"
     )
-    return Block(engine, markup, "", metrics)
+    return Block(block_kind or engine, markup, "", metrics)
 
 
 def parse_mermaid_block(
@@ -721,7 +795,14 @@ def parse_mermaid_block(
         messages.error(slide_no, "mermaid 代码块必须以 @slide 元数据开头，并以 @end 结束")
     if not definition:
         messages.error(slide_no, "mermaid 代码块缺少图表定义")
-    return parse_svg_diagram(config, "mermaid", source_dir, messages, slide_no, stage_size)
+    renderer = mermaid_renderer(config)
+    if renderer not in {"mermaid", "diagram-design"}:
+        messages.error(slide_no, f"mermaid renderer={renderer} 不受支持；可用 mermaid 或 diagram-design")
+        renderer = "mermaid"
+    if renderer == "diagram-design" and not str(config.get("source", "")).strip():
+        messages.error(slide_no, "renderer: diagram-design 必须提供 source HTML")
+    enriched = {**config, "definition": definition}
+    return parse_svg_diagram(enriched, renderer, source_dir, messages, slide_no, stage_size, "mermaid")
 
 
 def parse_excalidraw_block(
@@ -1676,9 +1757,12 @@ def render_diagram_assets(
     force: bool,
     messages: BuildMessages,
 ) -> dict[str, object]:
+    mermaid_cli_specs = [spec for spec in mermaid_specs if mermaid_renderer(spec) == "mermaid"]
+    diagram_design_specs = [spec for spec in mermaid_specs if mermaid_renderer(spec) == "diagram-design"]
     report: dict[str, object] = {
         "detected": len(mermaid_specs) + len(excalidraw_configs),
-        "mermaid": {"detected": len(mermaid_specs), "rendered": [], "cached": []},
+        "mermaid": {"detected": len(mermaid_cli_specs), "rendered": [], "cached": []},
+        "diagramDesign": {"detected": len(diagram_design_specs), "rendered": [], "cached": []},
         "excalidraw": {"detected": len(excalidraw_configs), "rendered": [], "cached": []},
     }
     if not mermaid_specs and not excalidraw_configs:
@@ -1710,8 +1794,12 @@ def render_diagram_assets(
     for index, spec in enumerate(mermaid_specs, 1):
         raw_output = str(spec.get("src", "")).strip()
         definition = str(spec.get("definition", "")).strip()
+        renderer = mermaid_renderer(spec)
         if spec.get("metadata-error"):
             messages.error(None, f"第 {index} 个 mermaid：{spec['metadata-error']}")
+            continue
+        if renderer not in {"mermaid", "diagram-design"}:
+            messages.error(None, f"第 {index} 个 mermaid renderer={renderer} 不受支持")
             continue
         if not raw_output or not definition:
             messages.error(None, f"第 {index} 个 mermaid 必须提供 src 和图表定义")
@@ -1722,6 +1810,58 @@ def render_diagram_assets(
         output_path = (source_dir / raw_output).resolve()
         if output_path.suffix.lower() != ".svg":
             messages.error(None, f"第 {index} 个 mermaid src 必须是 .svg：{raw_output}")
+            continue
+        if renderer == "diagram-design":
+            raw_authored = str(spec.get("source", "")).strip()
+            if not raw_authored or raw_authored.startswith(REMOTE_ASSET_PREFIXES):
+                messages.error(None, f"第 {index} 个 diagram-design Mermaid 必须提供本地 source HTML")
+                continue
+            authored_path = (source_dir / raw_authored).resolve()
+            if authored_path.suffix.lower() != ".html":
+                messages.error(None, f"第 {index} 个 diagram-design source 必须是 .html：{raw_authored}")
+                continue
+            try:
+                authored_source = authored_path.read_text(encoding="utf-8")
+                validate_diagram_design_source(authored_source)
+                rendered_source = extract_first_svg_from_html(authored_source)
+                metrics = svg_artifact_metrics(rendered_source)
+            except (OSError, UnicodeError, ValueError) as error:
+                messages.error(None, f"diagram-design HTML 校验失败（{raw_authored}）：{error}")
+                continue
+            semantic_hash = mermaid_semantic_hash(definition)
+            source_html_hash = sha256_file(authored_path)
+            build_hash = sha256_text(
+                "diagram-design-v1", semantic_hash, source_html_hash,
+                measure_script.read_text(encoding="utf-8", errors="replace"),
+            )
+            sidecar_path = output_path.with_suffix(".diagram-build.json")
+            if not force and diagram_cache_matches(output_path, sidecar_path, build_hash):
+                report["diagramDesign"]["cached"].append(raw_output)
+                continue
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.TemporaryDirectory(prefix="golajah-diagram-design-") as directory:
+                rendered_path = Path(directory) / "diagram.svg"
+                write_text_atomic(rendered_path, rendered_source.rstrip() + "\n")
+                safe_margin = measure_svg_safe_margin(
+                    runtime, measure_script, rendered_path, chrome, messages, "diagram-design"
+                )
+                if safe_margin is None:
+                    continue
+            write_text_atomic(output_path, rendered_source.rstrip() + "\n")
+            sidecar = {
+                "schemaVersion": "1.0",
+                "engine": "diagram-design",
+                "renderer": "diagram-design",
+                "source": raw_authored,
+                "sourceHtmlSha256": source_html_hash,
+                "mermaidSourceHash": semantic_hash,
+                "buildHash": build_hash,
+                "svgSha256": sha256_file(output_path),
+                "minimumSafeMargin": safe_margin,
+                **metrics,
+            }
+            write_text_atomic(sidecar_path, json.dumps(sidecar, ensure_ascii=False, indent=2) + "\n")
+            report["diagramDesign"]["rendered"].append(raw_output)
             continue
         build_hash = sha256_text("mermaid", definition, toolchain_hash)
         sidecar_path = output_path.with_suffix(".diagram-build.json")
@@ -2053,10 +2193,13 @@ def build(
         return 2
     mermaid_specs = find_mermaid_specs(source)
     excalidraw_configs = find_excalidraw_configs(source)
+    mermaid_cli_count = sum(mermaid_renderer(spec) == "mermaid" for spec in mermaid_specs)
+    diagram_design_count = sum(mermaid_renderer(spec) == "diagram-design" for spec in mermaid_specs)
     diagram_report: dict[str, object] = {
         "detected": len(mermaid_specs) + len(excalidraw_configs),
         "renderRequested": render_diagrams,
-        "mermaid": {"detected": len(mermaid_specs), "rendered": [], "cached": []},
+        "mermaid": {"detected": mermaid_cli_count, "rendered": [], "cached": []},
+        "diagramDesign": {"detected": diagram_design_count, "rendered": [], "cached": []},
         "excalidraw": {"detected": len(excalidraw_configs), "rendered": [], "cached": []},
     }
     if render_diagrams:

@@ -1,10 +1,14 @@
 {
   "schemaVersion": "1.0",
-  "engine": "mermaid",
-  "buildHash": "0ff0cb8ba4febb0ac91bea0dd700186b7f44c0904d2f46c8337f6c2438e7736e",
-  "svgSha256": "e3b802e022cf413253d881a9b8cfdc38dd7c6df1278338538a6b910bbe11864f",
-  "minimumSafeMargin": 32.0,
-  "viewBoxWidth": 1447.19,
-  "viewBoxHeight": 251.0,
+  "engine": "diagram-design",
+  "renderer": "diagram-design",
+  "source": "assets/mermaid-build-flow.diagram.html",
+  "sourceHtmlSha256": "2f8ed29711e2358b8773cc7b73f69dcefe565e1bf763c3cd4305259649fa4e7e",
+  "mermaidSourceHash": "6d6955b70e25f448dc3ecd1dca992478d9c410df7fcee88e8896f6b2cbb90ab3",
+  "buildHash": "a9a734e521e70a40a90811d91a8d02716a2147cf42de0c0690bea56e8f639f1e",
+  "svgSha256": "e03c40eb84998e688a47ea26603ca97fc06aaa3274cf6b9290726ff74b37cda9",
+  "minimumSafeMargin": 70.0,
+  "viewBoxWidth": 1840.0,
+  "viewBoxHeight": 800.0,
   "minimumSourceFontSize": 28.0
 }

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mermaid 编辑式重绘链路</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 100%; min-height: 100%; margin: 0; background: #111111; }
+    body { display: grid; place-items: center; padding: 24px; }
+    svg { display: block; width: min(100%, 1840px); height: auto; background: #FFFFFF; }
+  </style>
+</head>
+<body>
+  <svg id="editorial-flow" viewBox="0 0 1840 800" role="img"
+       aria-labelledby="editorial-flow-title editorial-flow-desc"
+       xmlns="http://www.w3.org/2000/svg">
+    <title id="editorial-flow-title">Mermaid 编辑式重绘链路</title>
+    <desc id="editorial-flow-desc">Mermaid 语义源进入编辑式构图，再由构建器输出内联 SVG Slide。</desc>
+    <defs>
+      <marker id="editorial-arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+        <path d="M0 0 L12 6 L0 12 Z" fill="#5B5965"/>
+      </marker>
+      <marker id="editorial-arrow-accent" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+        <path d="M0 0 L12 6 L0 12 Z" fill="#6F60E5"/>
+      </marker>
+    </defs>
+    <rect width="1840" height="800" fill="#FFFFFF"/>
+
+    <text x="112" y="112" fill="#5B5965" font-size="28" font-weight="700"
+          font-family="PingFang SC, Noto Sans CJK SC, Microsoft YaHei, sans-serif">ONE SOURCE · TWO PURPOSES</text>
+    <line x1="112" y1="136" x2="1728" y2="136" stroke="#D7D6DD" stroke-width="2"/>
+
+    <path d="M576 376 H688" fill="none" stroke="#6F60E5" stroke-width="3"
+          marker-end="url(#editorial-arrow-accent)"/>
+    <path d="M1152 376 H1264" fill="none" stroke="#5B5965" stroke-width="3"
+          marker-end="url(#editorial-arrow)"/>
+
+    <rect x="112" y="280" width="464" height="192" rx="8" fill="#FFFFFF" stroke="#111111" stroke-width="2"/>
+    <text x="344" y="362" text-anchor="middle" fill="#111111" font-size="36" font-weight="700"
+          font-family="PingFang SC, Noto Sans CJK SC, Microsoft YaHei, sans-serif">Mermaid 语义源</text>
+    <text x="344" y="414" text-anchor="middle" fill="#5B5965" font-size="28" font-weight="500"
+          font-family="PingFang SC, Noto Sans CJK SC, Microsoft YaHei, sans-serif">节点与关系可 diff</text>
+
+    <rect x="688" y="280" width="464" height="192" rx="8" fill="#F0EEFF" stroke="#6F60E5" stroke-width="3"/>
+    <text x="920" y="362" text-anchor="middle" fill="#4C3BC6" font-size="36" font-weight="700"
+          font-family="PingFang SC, Noto Sans CJK SC, Microsoft YaHei, sans-serif">编辑式构图</text>
+    <text x="920" y="414" text-anchor="middle" fill="#5B5965" font-size="28" font-weight="500"
+          font-family="PingFang SC, Noto Sans CJK SC, Microsoft YaHei, sans-serif">层级与路径有意设计</text>
+
+    <rect x="1264" y="280" width="464" height="192" rx="8" fill="#FFFFFF" stroke="#111111" stroke-width="2"/>
+    <text x="1496" y="362" text-anchor="middle" fill="#111111" font-size="36" font-weight="700"
+          font-family="PingFang SC, Noto Sans CJK SC, Microsoft YaHei, sans-serif">内联 SVG Slide</text>
+    <text x="1496" y="414" text-anchor="middle" fill="#5B5965" font-size="28" font-weight="500"
+          font-family="PingFang SC, Noto Sans CJK SC, Microsoft YaHei, sans-serif">单文件 · 离线 · 可访问</text>
+
+    <text x="920" y="640" text-anchor="middle" fill="#85828E" font-size="30" font-style="italic" font-weight="500"
+          font-family="PingFang SC, Noto Sans CJK SC, Microsoft YaHei, sans-serif">Mermaid 管意义，HTML/SVG 管表达</text>
+  </svg>
+</body>
+</html>
