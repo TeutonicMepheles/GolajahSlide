@@ -62,6 +62,7 @@ section: 背景
 type: content
 layout: auto
 section: 方案
+chapter: 方案概览
 density: speaking
 image-position: right
 image-fit: contain
@@ -75,12 +76,15 @@ footer: true
 | `type` | `content` | `cover` / `section` / `content` | 页面语义类型 |
 | `layout` | `auto` | `auto` / `text` / `split` / `media` / `gallery` / `table` / `chart` | 布局策略 |
 | `section` | 空 | 章节名 | 决定页脚高亮项 |
+| `chapter` | 页面标题 | 子章节名 | 页脚悬浮面板中的子章节；同一 Section 下同名值合并并跳转到首次出现的页面 |
 | `density` | 文档默认值 | `reading` / `speaking` | 本页内容密度 |
 | `image-position` | `left` | `left` / `right` | 左右图文页的图片位置 |
 | `image-fit` | `contain` | `contain` / `cover` | 图片完整显示或裁切填充 |
 | `footer` | 内容页为 `true` | `true` / `false` | 是否显示章节页脚 |
 
 `layout: auto` 是推荐用法；手动指定布局只用于表达特殊叙事意图。构建报告会同时记录 requested 和 resolved layout，方便排查自动回退。
+
+页脚 Section 支持向上展开的子章节列表。需要让多页内容共享一个导航入口时，为这些页面填写相同的 `chapter`；菜单只显示一次，并指向第一次出现的页面。未填写 `chapter` 时使用页面标题作为回退项，因此已有文稿无需迁移。
 
 `id` 是 Markdown 页面与编辑器覆盖配置之间的主键。增加或删除前面的页面时，显式 `id` 不会变化；若省略而使用默认页码 ID，页面顺序变化可能让旧覆盖应用到错误页面。
 

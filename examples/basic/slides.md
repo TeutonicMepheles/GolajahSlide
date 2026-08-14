@@ -23,6 +23,7 @@ layout: auto
 id: layout-section
 type: section
 section: 自动布局
+chapter: 布局原则
 -->
 # 让内容决定版式
 ## 图片比例、文本密度与语义结构共同参与布局选择
@@ -34,6 +35,7 @@ id: square-image
 type: content
 layout: auto
 section: 自动布局
+chapter: 图片布局
 image-position: left
 image-fit: contain
 -->
@@ -58,6 +60,7 @@ id: wide-image
 type: content
 layout: auto
 section: 自动布局
+chapter: 图片布局
 image-fit: contain
 -->
 # 接近 16:9 的图片优先占满展示区域
@@ -74,6 +77,7 @@ id: chinese-layout
 type: content
 layout: auto
 section: 内容组件
+chapter: 文本内容
 -->
 # 中文内容页强调层级与呼吸感
 ## 标题、副标题保持同一高度，统一左对齐
@@ -100,6 +104,7 @@ id: table-controls
 type: content
 layout: table
 section: 内容组件
+chapter: 数据内容
 -->
 # 表格沿用现有视觉控件
 ## 悬停后可缩放、全屏与临时标注
@@ -119,6 +124,7 @@ id: chart-controls
 type: content
 layout: chart
 section: 内容组件
+chapter: 数据内容
 -->
 # 轻量图表直接写在 Markdown 中
 ## 图表也复用缩放、全屏和标注控件
@@ -141,6 +147,7 @@ id: delivery-check
 type: content
 layout: auto
 section: 交付检查
+chapter: 交付检查
 -->
 # 构建报告让问题在交付前暴露
 ## 版式选择可追踪，风险不会静默被裁掉

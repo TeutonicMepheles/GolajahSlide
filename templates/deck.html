@@ -219,40 +219,7 @@
       height: 800px;
       max-height: 800px;
     }
-    .section-footer {
-      position: absolute;
-      left: 110px;
-      right: 110px;
-      bottom: 34px;
-      height: 54px;
-      display: grid;
-      grid-template-columns: repeat(var(--section-count), minmax(0, 1fr));
-      border-top: 2px solid #C9C8CF;
-      z-index: 4;
-    }
-    .section-footer span {
-      position: relative;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      padding: 0 10px 2px;
-      color: #9998A1;
-      font-size: 22px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .section-footer span.active { color: var(--accent); font-weight: 700; }
-    .section-footer span.active::before {
-      content: "";
-      position: absolute;
-      top: -3px;
-      left: 0;
-      right: 0;
-      height: 5px;
-      border-radius: 999px;
-      background: var(--accent);
-    }
+{{FOOTER_CHAPTER_NAVIGATION_CSS}}
 
     /* ===========================================
        COVER AND SECTION PLACEHOLDERS
@@ -2461,6 +2428,7 @@
     }
 
 {{PRESENTER_FOCUS_RUNTIME}}
+{{FOOTER_CHAPTER_NAVIGATION_RUNTIME}}
 
     /* ===========================================
        PRESENTATION CONTROLLER
@@ -2632,9 +2600,11 @@
     const layoutEditor = new SlideLayoutEditor(embeddedEditorConfig);
     const presenterFocus = new PresenterFocus();
     const presentation = new SlidePresentation(visualWidgetManager, layoutEditor, presenterFocus);
+    const footerChapterNavigation = new FooterChapterNavigation(presentation);
     window.__SLIDE_LAYOUT_EDITOR__ = layoutEditor;
     window.__SLIDE_PRESENTER_FOCUS__ = presenterFocus;
     window.__SLIDE_PRESENTATION__ = presentation;
+    window.__SLIDE_FOOTER_CHAPTER_NAVIGATION__ = footerChapterNavigation;
     document.querySelectorAll("[data-media-tabs]").forEach(shell => new MediaTabs(shell));
     addEventListener("load", () => requestAnimationFrame(() => {
       if (new URLSearchParams(location.search).get("debug") === "1") document.documentElement.dataset.debug = "true";

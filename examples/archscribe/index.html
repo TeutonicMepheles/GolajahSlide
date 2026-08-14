@@ -219,31 +219,59 @@
       height: 800px;
       max-height: 800px;
     }
+    /* ===========================================
+       FOOTER CHAPTER NAVIGATION
+       Section progress bar plus an upward chapter menu.
+       =========================================== */
     .section-footer {
       position: absolute;
       left: 110px;
       right: 110px;
       bottom: 34px;
-      height: 54px;
+      z-index: 24;
       display: grid;
       grid-template-columns: repeat(var(--section-count), minmax(0, 1fr));
+      height: 54px;
       border-top: 2px solid #C9C8CF;
-      z-index: 4;
+      overflow: visible;
     }
-    .section-footer span {
+    .section-footer-item {
+      position: relative;
+      min-width: 0;
+      height: 54px;
+    }
+    .section-footer-trigger {
       position: relative;
       display: flex;
       align-items: flex-end;
       justify-content: center;
+      width: 100%;
+      height: 54px;
       padding: 0 10px 2px;
-      color: #9998A1;
-      font-size: 22px;
-      white-space: nowrap;
       overflow: hidden;
+      border: 0;
+      border-radius: 0;
+      color: #9998A1;
+      background: transparent;
+      font: inherit;
+      font-size: 22px;
+      font-weight: 400;
+      line-height: 1.2;
       text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
     }
-    .section-footer span.active { color: var(--accent); font-weight: 700; }
-    .section-footer span.active::before {
+    .section-footer-trigger:disabled {
+      cursor: default;
+      opacity: 1;
+    }
+    .section-footer-item.active > .section-footer-trigger,
+    .section-footer-item.is-open > .section-footer-trigger {
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .section-footer-item.active > .section-footer-trigger::before,
+    .section-footer-item.is-open > .section-footer-trigger::before {
       content: "";
       position: absolute;
       top: -3px;
@@ -252,6 +280,133 @@
       height: 5px;
       border-radius: 999px;
       background: var(--accent);
+    }
+    .section-footer-trigger:focus-visible,
+    .section-footer-chapter:focus-visible {
+      outline: 3px solid color-mix(in srgb, var(--accent) 62%, white);
+      outline-offset: 2px;
+    }
+    .section-footer-menu {
+      position: absolute;
+      left: 50%;
+      bottom: 54px;
+      z-index: 32;
+      width: 380px;
+      max-height: 540px;
+      padding: 12px;
+      overflow: visible;
+      border: 1px solid rgba(17,17,17,.1);
+      border-radius: 16px;
+      color: var(--ink);
+      background: rgba(255,255,255,.98);
+      box-shadow: 0 24px 64px rgba(35,27,74,.2);
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+      transform: translate(-50%, 12px) scale(.985);
+      transform-origin: 50% 100%;
+      transition: opacity .16s ease, transform .18s var(--ease), visibility 0s linear .18s;
+    }
+    .section-footer-menu::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -8px;
+      width: 15px;
+      height: 15px;
+      border-right: 1px solid rgba(17,17,17,.1);
+      border-bottom: 1px solid rgba(17,17,17,.1);
+      background: rgba(255,255,255,.98);
+      transform: translateX(-50%) rotate(45deg);
+    }
+    .section-footer-item.is-open > .section-footer-menu {
+      opacity: 1;
+      pointer-events: auto;
+      visibility: visible;
+      transform: translate(-50%, 0) scale(1);
+      transition-delay: 0s;
+    }
+    .section-footer-menu-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 7px 10px 11px;
+      color: #8E8B96;
+      font-size: 16px;
+      line-height: 1.2;
+    }
+    .section-footer-menu-header strong {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--ink);
+      font-weight: 700;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .section-footer-menu-header span { white-space: nowrap; }
+    .section-footer-menu-list {
+      display: grid;
+      gap: 4px;
+      max-height: 462px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+    .section-footer-chapter {
+      display: grid;
+      grid-template-columns: 8px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      min-height: 50px;
+      padding: 9px 11px;
+      border: 0;
+      border-radius: 10px;
+      color: var(--ink);
+      background: transparent;
+      font: inherit;
+      line-height: 1.25;
+      text-align: left;
+      cursor: pointer;
+    }
+    .section-footer-chapter:hover,
+    .section-footer-chapter:focus-visible {
+      background: color-mix(in srgb, var(--accent-soft) 52%, white);
+    }
+    .section-footer-chapter.is-current {
+      color: var(--accent);
+      background: color-mix(in srgb, var(--accent-soft) 78%, white);
+      font-weight: 700;
+    }
+    .section-footer-chapter-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #C9C8CF;
+    }
+    .section-footer-chapter.is-current .section-footer-chapter-dot {
+      background: var(--accent);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
+    }
+    .section-footer-chapter-label {
+      min-width: 0;
+      overflow: hidden;
+      font-size: 19px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .section-footer-chapter-page {
+      color: #8E8B96;
+      font-size: 15px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    body.editor-open .section-footer-menu { display: none !important; }
+    @media print {
+      .section-footer-menu { display: none !important; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .section-footer-menu { transition: none; }
     }
 
     /* ===========================================
@@ -1156,7 +1311,7 @@
 <body>
   <div class="deck-viewport">
     <main class="deck-stage" id="deckStage" aria-label="Archscribe 动态中文流程图示例">
-<section class="slide content-slide layout-chart density-speaking has-diagram diagram-fullstage" data-title="动态流程图必须服从 Slide 的字号与安全区" data-slide-id="archscribe-build-flow" data-source-page="P1" data-slide-kind="content" data-media-count="0" data-block-count="1" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="true" data-layout-requested="chart" data-layout-resolved="chart"><header class="slide-header reveal" data-presenter-focus><h1>动态流程图必须服从 Slide 的字号与安全区</h1><p class="subtitle">标题由 Slide 排版，Archscribe 专注呈现流程主体</p></header><div class="content"><div class="chart-layout"><div class="chart-stage"><figure class="card chart-card diagram-card" data-visual-widget="image" data-diagram-engine="archscribe" tabindex="0" aria-label="GolajahSlide 动态流程图"><div class="visual-widget-content chart-content diagram-content" data-visual-content><picture><source media="(prefers-reduced-motion: reduce)" srcset="assets/slide-build-flow.png"><img src="assets/slide-build-flow.gif" alt="演示内容分别生成内置图表与动态流程图，检查失败时返回动态流程重新生成" draggable="false"></picture></div></figure></div><div class="empty-copy" aria-hidden="true"></div></div></div></section>
+<section class="slide content-slide layout-chart density-speaking has-diagram diagram-fullstage" data-title="动态流程图必须服从 Slide 的字号与安全区" data-slide-id="archscribe-build-flow" data-source-page="P1" data-slide-kind="content" data-media-count="0" data-block-count="1" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="true" data-layout-requested="chart" data-layout-resolved="chart" data-section="流程图" data-chapter=""><header class="slide-header reveal" data-presenter-focus><h1>动态流程图必须服从 Slide 的字号与安全区</h1><p class="subtitle">标题由 Slide 排版，Archscribe 专注呈现流程主体</p></header><div class="content"><div class="chart-layout"><div class="chart-stage"><figure class="card chart-card diagram-card" data-visual-widget="image" data-diagram-engine="archscribe" tabindex="0" aria-label="GolajahSlide 动态流程图"><div class="visual-widget-content chart-content diagram-content" data-visual-content><picture><source media="(prefers-reduced-motion: reduce)" srcset="assets/slide-build-flow.png"><img src="assets/slide-build-flow.gif" alt="演示内容分别生成内置图表与动态流程图，检查失败时返回动态流程重新生成" draggable="false"></picture></div></figure></div><div class="empty-copy" aria-hidden="true"></div></div></div></section>
     </main>
   </div>
   <div class="control-hotzone" aria-hidden="true"></div>
@@ -2675,6 +2830,93 @@
       }
       toggle() { this.setEnabled(!this.enabled); }
     }
+    /* ===========================================
+       FOOTER CHAPTER NAVIGATION
+       =========================================== */
+    class FooterChapterNavigation {
+      constructor(presentation) {
+        this.presentation = presentation;
+        this.items = [...document.querySelectorAll("[data-section-nav-item]")];
+        this.openItem = null;
+        this.items.forEach(item => this.bindItem(item));
+        document.addEventListener("pointerdown", event => {
+          if (!event.target.closest?.("[data-section-nav-item]")) this.closeAll();
+        }, {passive:true});
+        this.slideObserver = new MutationObserver(mutations => {
+          if (mutations.some(mutation => mutation.attributeName === "class")) this.closeAll();
+        });
+        this.presentation.slides.forEach(slide => {
+          this.slideObserver.observe(slide, {attributes:true, attributeFilter:["class"]});
+        });
+      }
+      menuFor(item) { return item.querySelector(".section-footer-menu"); }
+      buttonsFor(item) { return [...item.querySelectorAll(".section-footer-chapter")]; }
+      setOpen(item, open) {
+        if (!item || !this.menuFor(item)) return;
+        if (open && this.openItem && this.openItem !== item) this.setOpen(this.openItem, false);
+        const trigger = item.querySelector("[data-section-nav-trigger]");
+        const menu = this.menuFor(item);
+        item.classList.toggle("is-open", open);
+        trigger.setAttribute("aria-expanded", String(open));
+        menu.setAttribute("aria-hidden", String(!open));
+        menu.toggleAttribute("inert", !open);
+        this.openItem = open ? item : (this.openItem === item ? null : this.openItem);
+      }
+      closeAll() {
+        if (this.openItem) this.setOpen(this.openItem, false);
+      }
+      focusChapter(item, index) {
+        const buttons = this.buttonsFor(item);
+        if (!buttons.length) return;
+        buttons[(index + buttons.length) % buttons.length].focus();
+      }
+      bindItem(item) {
+        const trigger = item.querySelector("[data-section-nav-trigger]");
+        const menu = this.menuFor(item);
+        if (!trigger || !menu) return;
+        item.addEventListener("pointerenter", () => this.setOpen(item, true));
+        item.addEventListener("pointerleave", () => {
+          if (!item.contains(document.activeElement)) this.setOpen(item, false);
+        });
+        item.addEventListener("focusin", () => this.setOpen(item, true));
+        item.addEventListener("focusout", () => queueMicrotask(() => {
+          if (!item.contains(document.activeElement) && !item.matches(":hover")) this.setOpen(item, false);
+        }));
+        trigger.addEventListener("click", () => this.setOpen(item, true));
+        trigger.addEventListener("keydown", event => {
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            this.setOpen(item, true);
+            this.focusChapter(item, event.key === "ArrowDown" ? 0 : -1);
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            this.setOpen(item, false);
+          }
+        });
+        menu.addEventListener("keydown", event => {
+          const buttons = this.buttonsFor(item);
+          const index = buttons.indexOf(document.activeElement);
+          if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+            event.preventDefault();
+            const next = event.key === "Home" ? 0 : event.key === "End" ? -1 : index + (event.key === "ArrowDown" ? 1 : -1);
+            this.focusChapter(item, next);
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            trigger.focus();
+            this.setOpen(item, false);
+          }
+        });
+        menu.addEventListener("click", event => {
+          const button = event.target.closest?.("[data-slide-target]");
+          if (!button) return;
+          const target = Number.parseInt(button.dataset.slideTarget, 10);
+          if (!Number.isFinite(target)) return;
+          this.presentation.show(target);
+          this.closeAll();
+          button.blur();
+        });
+      }
+    }
 
     /* ===========================================
        PRESENTATION CONTROLLER
@@ -2846,9 +3088,11 @@
     const layoutEditor = new SlideLayoutEditor(embeddedEditorConfig);
     const presenterFocus = new PresenterFocus();
     const presentation = new SlidePresentation(visualWidgetManager, layoutEditor, presenterFocus);
+    const footerChapterNavigation = new FooterChapterNavigation(presentation);
     window.__SLIDE_LAYOUT_EDITOR__ = layoutEditor;
     window.__SLIDE_PRESENTER_FOCUS__ = presenterFocus;
     window.__SLIDE_PRESENTATION__ = presentation;
+    window.__SLIDE_FOOTER_CHAPTER_NAVIGATION__ = footerChapterNavigation;
     document.querySelectorAll("[data-media-tabs]").forEach(shell => new MediaTabs(shell));
     addEventListener("load", () => requestAnimationFrame(() => {
       if (new URLSearchParams(location.search).get("debug") === "1") document.documentElement.dataset.debug = "true";
