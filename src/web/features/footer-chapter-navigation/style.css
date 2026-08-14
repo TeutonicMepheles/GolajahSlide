@@ -1,0 +1,189 @@
+    /* ===========================================
+       FOOTER CHAPTER NAVIGATION
+       Section progress bar plus an upward chapter menu.
+       =========================================== */
+    .section-footer {
+      position: absolute;
+      left: 110px;
+      right: 110px;
+      bottom: 34px;
+      z-index: 24;
+      display: grid;
+      grid-template-columns: repeat(var(--section-count), minmax(0, 1fr));
+      height: 54px;
+      border-top: 2px solid #C9C8CF;
+      overflow: visible;
+    }
+    .section-footer-item {
+      position: relative;
+      min-width: 0;
+      height: 54px;
+    }
+    .section-footer-trigger {
+      position: relative;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      width: 100%;
+      height: 54px;
+      padding: 0 10px 2px;
+      overflow: hidden;
+      border: 0;
+      border-radius: 0;
+      color: #9998A1;
+      background: transparent;
+      font: inherit;
+      font-size: 22px;
+      font-weight: 400;
+      line-height: 1.2;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .section-footer-trigger:disabled {
+      cursor: default;
+      opacity: 1;
+    }
+    .section-footer-item.active > .section-footer-trigger,
+    .section-footer-item.is-open > .section-footer-trigger {
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .section-footer-item.active > .section-footer-trigger::before,
+    .section-footer-item.is-open > .section-footer-trigger::before {
+      content: "";
+      position: absolute;
+      top: -3px;
+      left: 0;
+      right: 0;
+      height: 5px;
+      border-radius: 999px;
+      background: var(--accent);
+    }
+    .section-footer-trigger:focus-visible,
+    .section-footer-chapter:focus-visible {
+      outline: 3px solid color-mix(in srgb, var(--accent) 62%, white);
+      outline-offset: 2px;
+    }
+    .section-footer-menu {
+      position: absolute;
+      left: 50%;
+      bottom: 54px;
+      z-index: 32;
+      width: 380px;
+      max-height: 540px;
+      padding: 12px;
+      overflow: visible;
+      border: 1px solid rgba(17,17,17,.1);
+      border-radius: 16px;
+      color: var(--ink);
+      background: rgba(255,255,255,.98);
+      box-shadow: 0 24px 64px rgba(35,27,74,.2);
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+      transform: translate(-50%, 12px) scale(.985);
+      transform-origin: 50% 100%;
+      transition: opacity .16s ease, transform .18s var(--ease), visibility 0s linear .18s;
+    }
+    .section-footer-menu::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -8px;
+      width: 15px;
+      height: 15px;
+      border-right: 1px solid rgba(17,17,17,.1);
+      border-bottom: 1px solid rgba(17,17,17,.1);
+      background: rgba(255,255,255,.98);
+      transform: translateX(-50%) rotate(45deg);
+    }
+    .section-footer-item.is-open > .section-footer-menu {
+      opacity: 1;
+      pointer-events: auto;
+      visibility: visible;
+      transform: translate(-50%, 0) scale(1);
+      transition-delay: 0s;
+    }
+    .section-footer-menu-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 7px 10px 11px;
+      color: #8E8B96;
+      font-size: 16px;
+      line-height: 1.2;
+    }
+    .section-footer-menu-header strong {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--ink);
+      font-weight: 700;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .section-footer-menu-header span { white-space: nowrap; }
+    .section-footer-menu-list {
+      display: grid;
+      gap: 4px;
+      max-height: 462px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+    .section-footer-chapter {
+      display: grid;
+      grid-template-columns: 8px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      min-height: 50px;
+      padding: 9px 11px;
+      border: 0;
+      border-radius: 10px;
+      color: var(--ink);
+      background: transparent;
+      font: inherit;
+      line-height: 1.25;
+      text-align: left;
+      cursor: pointer;
+    }
+    .section-footer-chapter:hover,
+    .section-footer-chapter:focus-visible {
+      background: color-mix(in srgb, var(--accent-soft) 52%, white);
+    }
+    .section-footer-chapter.is-current {
+      color: var(--accent);
+      background: color-mix(in srgb, var(--accent-soft) 78%, white);
+      font-weight: 700;
+    }
+    .section-footer-chapter-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #C9C8CF;
+    }
+    .section-footer-chapter.is-current .section-footer-chapter-dot {
+      background: var(--accent);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
+    }
+    .section-footer-chapter-label {
+      min-width: 0;
+      overflow: hidden;
+      font-size: 19px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .section-footer-chapter-page {
+      color: #8E8B96;
+      font-size: 15px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    body.editor-open .section-footer-menu { display: none !important; }
+    @media print {
+      .section-footer-menu { display: none !important; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .section-footer-menu { transition: none; }
+    }

@@ -612,6 +612,39 @@ Second page.
         self.assertIn("overflow: visible", style)
         self.assertIn("@media (prefers-reduced-motion: reduce)", template)
 
+    def test_footer_chapters_group_repeated_names_and_fall_back_to_titles(self):
+        slides = [
+            build_slides.Slide(1, "intro", "content", "开场", "", "基础", "text", "text", {}, [], [], "", "概览"),
+            build_slides.Slide(2, "intro-more", "content", "更多开场", "", "基础", "text", "text", {}, [], [], "", "概览"),
+            build_slides.Slide(3, "setup", "content", "配置", "", "基础", "text", "text", {}, [], [], ""),
+            build_slides.Slide(4, "advanced", "content", "深入标题", "", "深入", "text", "text", {}, [], [], ""),
+        ]
+
+        chapters = build_slides.collect_section_chapters(["基础", "深入"], slides)
+
+        self.assertEqual(chapters["基础"], [
+            {"title": "概览", "page": 1},
+            {"title": "配置", "page": 3},
+        ])
+        self.assertEqual(chapters["深入"], [{"title": "深入标题", "page": 4}])
+        footer = build_slides.render_footer(slides[1], ["基础", "深入"], chapters)
+        self.assertEqual(footer.count('role="menuitem"'), 3)
+        self.assertIn('data-slide-target="0" data-page-number="1"', footer)
+        self.assertIn('data-slide-target="2" data-page-number="3"', footer)
+        self.assertIn('aria-current="location"', footer)
+
+    def test_footer_chapter_navigation_feature_is_composed(self):
+        template = build_slides.TEMPLATE_PATH.read_text(encoding="utf-8")
+        style = build_slides.TEMPLATE_FRAGMENT_PATHS["{{FOOTER_CHAPTER_NAVIGATION_CSS}}"].read_text(encoding="utf-8")
+        runtime = build_slides.TEMPLATE_FRAGMENT_PATHS["{{FOOTER_CHAPTER_NAVIGATION_RUNTIME}}"].read_text(encoding="utf-8")
+        self.assertIn("{{FOOTER_CHAPTER_NAVIGATION_CSS}}", template)
+        self.assertIn("{{FOOTER_CHAPTER_NAVIGATION_RUNTIME}}", template)
+        self.assertIn("class FooterChapterNavigation", runtime)
+        self.assertIn("bottom: 54px", style)
+        self.assertIn("body.editor-open .section-footer-menu", style)
+        self.assertIn("@media print", style)
+        self.assertIn("new FooterChapterNavigation(presentation)", template)
+
     def test_atomic_writer_replaces_content_without_temp_files(self):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "artifact.txt"

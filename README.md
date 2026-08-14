@@ -78,6 +78,7 @@ python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 - 图片缩放、拖拽、全屏和临时标注
 - 页面级布局、坐标、正文样式和动画顺序覆盖
 - 构建期内容密度检查与浏览器运行时溢出诊断
+- 页脚 Section 子章节导航（悬浮向上展开，点击跳转到子章节首个 Page）
 
 ## 演示操作
 
@@ -88,6 +89,7 @@ python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 - 当前视觉全屏：`F`
 - 当前视觉标注：`A`
 - 悬浮聚焦开关：`H`（默认开启；Slide 内显示主题色鼠标圆圈，容器使用浅色聚焦，再悬停段落或列表项时使用更深的主题色强调）
+- 页脚章节导航：悬浮或聚焦 Section，使用 `↑` / `↓` 浏览子章节，`Enter` 跳转，`Escape` 关闭
 
 访问 `index.html?debug=1` 可以标记运行时检测到的溢出区域；诊断结果也可通过 `window.__SLIDE_DIAGNOSTICS__` 读取。
 

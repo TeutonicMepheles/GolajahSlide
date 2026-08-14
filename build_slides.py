@@ -34,6 +34,8 @@ WEB_FEATURE_ROOT = ROOT / "src" / "web" / "features"
 TEMPLATE_FRAGMENT_PATHS = {
     "{{PRESENTER_FOCUS_CSS}}": WEB_FEATURE_ROOT / "presenter-focus" / "style.css",
     "{{PRESENTER_FOCUS_RUNTIME}}": WEB_FEATURE_ROOT / "presenter-focus" / "runtime.js",
+    "{{FOOTER_CHAPTER_NAVIGATION_CSS}}": WEB_FEATURE_ROOT / "footer-chapter-navigation" / "style.css",
+    "{{FOOTER_CHAPTER_NAVIGATION_RUNTIME}}": WEB_FEATURE_ROOT / "footer-chapter-navigation" / "runtime.js",
 }
 STAGE_WIDTH = 1920
 STAGE_HEIGHT = 1080
@@ -99,6 +101,7 @@ class Slide:
     media: list[Media]
     blocks: list[Block]
     raw_body: str
+    chapter: str = ""
     editor_override: dict[str, object] = field(default_factory=dict)
 
 
@@ -1302,7 +1305,21 @@ def parse_slide(chunk: str, number: int, deck: dict[str, object], source_dir: Pa
     requested = config.get("layout", "auto").lower()
     resolved = resolve_layout(kind, requested, media, blocks, messages, number)
     section = config.get("section", "") or str(deck.get("default-section", ""))
-    return Slide(number, slide_identifier(config, number), kind, title, subtitle, section, requested, resolved, config, media, blocks, body_without_media)
+    return Slide(
+        number,
+        slide_identifier(config, number),
+        kind,
+        title,
+        subtitle,
+        section,
+        requested,
+        resolved,
+        config,
+        media,
+        blocks,
+        body_without_media,
+        chapter=config.get("chapter", "").strip(),
+    )
 
 
 def normalize_region(value: object, messages: BuildMessages, slide_no: int, name: str) -> dict[str, int] | None:
@@ -1510,12 +1527,70 @@ def render_copy(blocks: list[Block], class_name: str = "text-grid") -> str:
     return f'<div class="{class_name} count-{count}{focus}">' + "".join(block.html for block in blocks) + "</div>"
 
 
-def render_footer(slide: Slide, sections: list[str]) -> str:
+def collect_section_chapters(sections: list[str], slides: list[Slide]) -> dict[str, list[dict[str, object]]]:
+    chapters: dict[str, list[dict[str, object]]] = {section: [] for section in sections}
+    seen: dict[str, set[str]] = {section: set() for section in sections}
+    current_section = sections[0] if sections else ""
+    for slide in slides:
+        if slide.section:
+            if slide.section not in chapters:
+                continue
+            current_section = slide.section
+        if not current_section or current_section not in chapters:
+            continue
+        title = slide.chapter or slide.title
+        if not title or title in seen[current_section]:
+            continue
+        seen[current_section].add(title)
+        chapters[current_section].append({"title": title, "page": slide.number})
+    return chapters
+
+
+def render_footer(
+    slide: Slide,
+    sections: list[str],
+    section_chapters: dict[str, list[dict[str, object]]] | None = None,
+) -> str:
     show_default = slide.kind == "content"
     if not bool_config(slide.config, "footer", show_default) or not sections:
         return ""
-    cells = "".join(f'<span class="{"active" if name == slide.section else ""}">{html.escape(name)}</span>' for name in sections)
-    return f'<footer class="section-footer" style="--section-count:{len(sections)}">{cells}</footer>'
+    chapter_map = section_chapters or collect_section_chapters(sections, [slide])
+    cells: list[str] = []
+    for name in sections:
+        active_class = " active" if name == slide.section else ""
+        entries = chapter_map.get(name, [])
+        current_chapter = slide.chapter or slide.title
+        chapter_buttons: list[str] = []
+        for entry in entries:
+            entry_title = str(entry["title"])
+            entry_page = int(entry["page"])
+            is_current = entry_title == current_chapter
+            current_attr = ' aria-current="location"' if is_current else ""
+            chapter_buttons.append(
+                f'<button type="button" class="section-footer-chapter{" is-current" if is_current else ""}" '
+                f'role="menuitem"{current_attr} '
+                f'data-slide-target="{entry_page - 1}" data-page-number="{entry_page}">'
+                '<span class="section-footer-chapter-dot" aria-hidden="true"></span>'
+                f'<span class="section-footer-chapter-label">{html.escape(entry_title)}</span>'
+                f'<span class="section-footer-chapter-page">P.{entry_page}</span></button>'
+            )
+        menu = (
+            f'<div class="section-footer-menu" role="menu" aria-label="{html.escape(name, quote=True)} 子章节" '
+            'aria-hidden="true" inert>'
+            '<div class="section-footer-menu-header" role="presentation">'
+            f'<strong>{html.escape(name)}</strong><span>{len(entries)} 个子章节</span></div>'
+            f'<div class="section-footer-menu-list" role="presentation">{"".join(chapter_buttons)}</div></div>'
+        ) if entries else ""
+        disabled = ' disabled aria-disabled="true"' if not entries else ' aria-haspopup="menu" aria-expanded="false"'
+        cells.append(
+            f'<div class="section-footer-item{active_class}" data-section-nav-item>'
+            f'<button type="button" class="section-footer-trigger" data-section-nav-trigger{disabled}>'
+            f'{html.escape(name)}</button>{menu}</div>'
+        )
+    return (
+        f'<footer class="section-footer" style="--section-count:{len(sections)}" '
+        f'aria-label="章节导航">{"".join(cells)}</footer>'
+    )
 
 
 def render_placeholder(label: str) -> str:
@@ -1580,7 +1655,12 @@ def render_content(slide: Slide) -> str:
     return f'<div class="split-layout {shape}{reverse}"><div class="split-media">{media_html}</div>{copy_html}</div>'
 
 
-def render_slide(slide: Slide, deck: dict[str, object], sections: list[str]) -> str:
+def render_slide(
+    slide: Slide,
+    deck: dict[str, object],
+    sections: list[str],
+    section_chapters: dict[str, list[dict[str, object]]] | None = None,
+) -> str:
     has_diagram = any(block.kind in {"mermaid", "excalidraw", "archscribe"} for block in slide.blocks)
     diagram_class = " has-diagram diagram-fullstage" if has_diagram and not bool_config(slide.config, "footer", True) else (" has-diagram" if has_diagram else "")
     classes = f"slide {slide.kind}-slide layout-{slide.layout_resolved} density-{slide.config.get('density', str(deck.get('density', 'reading')))}{diagram_class}"
@@ -1590,7 +1670,7 @@ def render_slide(slide: Slide, deck: dict[str, object], sections: list[str]) -> 
         subtitle = f'<p class="subtitle">{render_inline(slide.subtitle)}</p>' if slide.subtitle else ""
         inner = (
             f'<header class="slide-header reveal" data-presenter-focus><h1>{render_inline(slide.title)}</h1>{subtitle}</header>'
-            f'<div class="content">{render_content(slide)}</div>{render_footer(slide, sections)}'
+            f'<div class="content">{render_content(slide)}</div>{render_footer(slide, sections, section_chapters)}'
         )
     return (
         f'<section class="{classes}" data-title="{html.escape(slide.title, quote=True)}" '
@@ -1601,7 +1681,9 @@ def render_slide(slide: Slide, deck: dict[str, object], sections: list[str]) -> 
         f'data-has-chart="{str(any(block.kind == "chart" for block in slide.blocks)).lower()}" '
         f'data-has-diagram="{str(has_diagram).lower()}" '
         f'data-layout-requested="{html.escape(slide.layout_requested)}" '
-        f'data-layout-resolved="{html.escape(slide.layout_resolved)}">{inner}</section>'
+        f'data-layout-resolved="{html.escape(slide.layout_resolved)}" '
+        f'data-section="{html.escape(slide.section, quote=True)}" '
+        f'data-chapter="{html.escape(slide.chapter, quote=True)}">{inner}</section>'
     )
 
 
@@ -2281,7 +2363,8 @@ def build(
     for slide in slides:
         validate_slide(slide, slide.config.get("density", density), messages)
     sections = collect_sections(deck, slides, messages)
-    rendered = "\n".join(render_slide(slide, deck, sections) for slide in slides)
+    section_chapters = collect_section_chapters(sections, slides)
+    rendered = "\n".join(render_slide(slide, deck, sections, section_chapters) for slide in slides)
     title = str(deck.get("title", slides[0].title))
     embedded_editor_config = {
         "schemaVersion": EDITOR_SCHEMA_VERSION,

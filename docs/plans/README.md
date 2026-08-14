@@ -4,6 +4,7 @@
 
 | Plan | Status | Scope | Summary | Last verified |
 |---|---|---|---|---|
+| [Footer Chapter Navigation](2026-08-14-footer-chapter-navigation.md) | Implemented | Section/Chapter metadata, footer popover, keyboard navigation, Harness and browser validation | 悬浮页脚 Section 向上展开纵向子章节列表，点击跳转到子章节首个 Page | 2026-08-14 |
 | [Diagram Design – Editorial Mermaid Pipeline](2026-08-12-diagram-design-mermaid.md) | Implemented | Repository Skill, editorial Mermaid renderer, provenance/cache gates, Harness and browser validation | 保留 Mermaid 语义源码，用 diagram-design 的编辑式 HTML/SVG 作为可审查的 Slide 交付产物 | 2026-08-14 |
 | [Presenter Focus – Pointer Cue and Theme Depth](2026-08-12-presenter-focus-pointer-theme.md) | Implemented | Pointer cue, focus depth palette, theme-derived tokens, Harness and browser validation | 增加鼠标圆形示意，并让容器/文本聚焦按语义深度使用由主题色派生的浅/深层级 | 2026-08-12 |
 | [Modular Foundation — Stable First Slice](2026-08-12-modular-foundation.md) | Implemented | Architecture rules, Presenter Focus source boundary, focused Harness, validation entry point | 在不改变 Python-only 和单 HTML 交付的前提下，建立并验证了第一个浏览器 Feature 闭环 | 2026-08-12 |

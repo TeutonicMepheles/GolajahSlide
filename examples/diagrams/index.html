@@ -219,31 +219,59 @@
       height: 800px;
       max-height: 800px;
     }
+    /* ===========================================
+       FOOTER CHAPTER NAVIGATION
+       Section progress bar plus an upward chapter menu.
+       =========================================== */
     .section-footer {
       position: absolute;
       left: 110px;
       right: 110px;
       bottom: 34px;
-      height: 54px;
+      z-index: 24;
       display: grid;
       grid-template-columns: repeat(var(--section-count), minmax(0, 1fr));
+      height: 54px;
       border-top: 2px solid #C9C8CF;
-      z-index: 4;
+      overflow: visible;
     }
-    .section-footer span {
+    .section-footer-item {
+      position: relative;
+      min-width: 0;
+      height: 54px;
+    }
+    .section-footer-trigger {
       position: relative;
       display: flex;
       align-items: flex-end;
       justify-content: center;
+      width: 100%;
+      height: 54px;
       padding: 0 10px 2px;
-      color: #9998A1;
-      font-size: 22px;
-      white-space: nowrap;
       overflow: hidden;
+      border: 0;
+      border-radius: 0;
+      color: #9998A1;
+      background: transparent;
+      font: inherit;
+      font-size: 22px;
+      font-weight: 400;
+      line-height: 1.2;
       text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
     }
-    .section-footer span.active { color: var(--accent); font-weight: 700; }
-    .section-footer span.active::before {
+    .section-footer-trigger:disabled {
+      cursor: default;
+      opacity: 1;
+    }
+    .section-footer-item.active > .section-footer-trigger,
+    .section-footer-item.is-open > .section-footer-trigger {
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .section-footer-item.active > .section-footer-trigger::before,
+    .section-footer-item.is-open > .section-footer-trigger::before {
       content: "";
       position: absolute;
       top: -3px;
@@ -252,6 +280,133 @@
       height: 5px;
       border-radius: 999px;
       background: var(--accent);
+    }
+    .section-footer-trigger:focus-visible,
+    .section-footer-chapter:focus-visible {
+      outline: 3px solid color-mix(in srgb, var(--accent) 62%, white);
+      outline-offset: 2px;
+    }
+    .section-footer-menu {
+      position: absolute;
+      left: 50%;
+      bottom: 54px;
+      z-index: 32;
+      width: 380px;
+      max-height: 540px;
+      padding: 12px;
+      overflow: visible;
+      border: 1px solid rgba(17,17,17,.1);
+      border-radius: 16px;
+      color: var(--ink);
+      background: rgba(255,255,255,.98);
+      box-shadow: 0 24px 64px rgba(35,27,74,.2);
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+      transform: translate(-50%, 12px) scale(.985);
+      transform-origin: 50% 100%;
+      transition: opacity .16s ease, transform .18s var(--ease), visibility 0s linear .18s;
+    }
+    .section-footer-menu::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -8px;
+      width: 15px;
+      height: 15px;
+      border-right: 1px solid rgba(17,17,17,.1);
+      border-bottom: 1px solid rgba(17,17,17,.1);
+      background: rgba(255,255,255,.98);
+      transform: translateX(-50%) rotate(45deg);
+    }
+    .section-footer-item.is-open > .section-footer-menu {
+      opacity: 1;
+      pointer-events: auto;
+      visibility: visible;
+      transform: translate(-50%, 0) scale(1);
+      transition-delay: 0s;
+    }
+    .section-footer-menu-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 7px 10px 11px;
+      color: #8E8B96;
+      font-size: 16px;
+      line-height: 1.2;
+    }
+    .section-footer-menu-header strong {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--ink);
+      font-weight: 700;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .section-footer-menu-header span { white-space: nowrap; }
+    .section-footer-menu-list {
+      display: grid;
+      gap: 4px;
+      max-height: 462px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+    .section-footer-chapter {
+      display: grid;
+      grid-template-columns: 8px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      min-height: 50px;
+      padding: 9px 11px;
+      border: 0;
+      border-radius: 10px;
+      color: var(--ink);
+      background: transparent;
+      font: inherit;
+      line-height: 1.25;
+      text-align: left;
+      cursor: pointer;
+    }
+    .section-footer-chapter:hover,
+    .section-footer-chapter:focus-visible {
+      background: color-mix(in srgb, var(--accent-soft) 52%, white);
+    }
+    .section-footer-chapter.is-current {
+      color: var(--accent);
+      background: color-mix(in srgb, var(--accent-soft) 78%, white);
+      font-weight: 700;
+    }
+    .section-footer-chapter-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #C9C8CF;
+    }
+    .section-footer-chapter.is-current .section-footer-chapter-dot {
+      background: var(--accent);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
+    }
+    .section-footer-chapter-label {
+      min-width: 0;
+      overflow: hidden;
+      font-size: 19px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .section-footer-chapter-page {
+      color: #8E8B96;
+      font-size: 15px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    body.editor-open .section-footer-menu { display: none !important; }
+    @media print {
+      .section-footer-menu { display: none !important; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .section-footer-menu { transition: none; }
     }
 
     /* ===========================================
@@ -1156,7 +1311,7 @@
 <body>
   <div class="deck-viewport">
     <main class="deck-stage" id="deckStage" aria-label="构建期 SVG 图表示例">
-<section class="slide content-slide layout-chart density-speaking has-diagram diagram-fullstage" data-title="Mermaid 保留语义，重绘提升层级" data-slide-id="mermaid-svg-flow" data-source-page="P1" data-slide-kind="content" data-media-count="0" data-block-count="1" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="true" data-layout-requested="chart" data-layout-resolved="chart"><header class="slide-header reveal" data-presenter-focus><h1>Mermaid 保留语义，重绘提升层级</h1><p class="subtitle">Agent 编辑 HTML/SVG 构图，构建器绑定语义来源并执行质量门禁</p></header><div class="content"><div class="chart-layout"><div class="chart-stage"><figure class="card chart-card diagram-card" data-visual-widget="image" data-diagram-engine="diagram-design" tabindex="0" aria-label="GolajahSlide 图表构建流程"><div class="visual-widget-content chart-content diagram-content" data-visual-content><svg xmlns="http://www.w3.org/2000/svg" id="diagram-p1-diagram-design-93ef3e5c-diagram-build-flow" viewBox="0 0 1840 800" role="img" aria-labelledby="diagram-p1-diagram-design-93ef3e5c-title diagram-p1-diagram-design-93ef3e5c-description" class="diagram-svg" preserveAspectRatio="xMidYMid meet" focusable="false" data-diagram-engine="diagram-design">
+<section class="slide content-slide layout-chart density-speaking has-diagram diagram-fullstage" data-title="Mermaid 保留语义，重绘提升层级" data-slide-id="mermaid-svg-flow" data-source-page="P1" data-slide-kind="content" data-media-count="0" data-block-count="1" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="true" data-layout-requested="chart" data-layout-resolved="chart" data-section="流程图" data-chapter=""><header class="slide-header reveal" data-presenter-focus><h1>Mermaid 保留语义，重绘提升层级</h1><p class="subtitle">Agent 编辑 HTML/SVG 构图，构建器绑定语义来源并执行质量门禁</p></header><div class="content"><div class="chart-layout"><div class="chart-stage"><figure class="card chart-card diagram-card" data-visual-widget="image" data-diagram-engine="diagram-design" tabindex="0" aria-label="GolajahSlide 图表构建流程"><div class="visual-widget-content chart-content diagram-content" data-visual-content><svg xmlns="http://www.w3.org/2000/svg" id="diagram-p1-diagram-design-93ef3e5c-diagram-build-flow" viewBox="0 0 1840 800" role="img" aria-labelledby="diagram-p1-diagram-design-93ef3e5c-title diagram-p1-diagram-design-93ef3e5c-description" class="diagram-svg" preserveAspectRatio="xMidYMid meet" focusable="false" data-diagram-engine="diagram-design">
     <title id="diagram-p1-diagram-design-93ef3e5c-title">GolajahSlide 图表构建流程</title><desc id="diagram-p1-diagram-design-93ef3e5c-description">Mermaid 语义依次进入编辑式重绘、质量门禁和 SVG 内联，失败时返回语义源继续修改</desc><style data-slide-diagram-style="true">#diagram-p1-diagram-design-93ef3e5c-diagram-build-flow text, #diagram-p1-diagram-design-93ef3e5c-diagram-build-flow tspan { font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif !important; }</style><defs>
       <marker id="diagram-p1-diagram-design-93ef3e5c-diagram-build-arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
         <path d="M0 0 L12 6 L0 12 Z" fill="#5B5965" />
@@ -1206,7 +1361,7 @@
 
     <text x="920" y="712" text-anchor="middle" fill="#85828E" font-size="28" font-style="italic" font-weight="500" font-family="PingFang SC, Noto Sans CJK SC, Microsoft YaHei, sans-serif">语义留在 Mermaid，视觉决策留在可审查的 HTML/SVG</text>
   </svg></div></figure></div><div class="empty-copy" aria-hidden="true"></div></div></div></section>
-<section class="slide content-slide layout-chart density-speaking has-diagram diagram-fullstage" data-title="Excalidraw 用于需要人工精修的自由构图" data-slide-id="excalidraw-svg-flow" data-source-page="P2" data-slide-kind="content" data-media-count="0" data-block-count="1" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="true" data-layout-requested="chart" data-layout-resolved="chart"><header class="slide-header reveal" data-presenter-focus><h1>Excalidraw 用于需要人工精修的自由构图</h1><p class="subtitle">保留可编辑场景，构建时使用官方 exportToSvg 输出矢量成品</p></header><div class="content"><div class="chart-layout"><div class="chart-stage"><figure class="card chart-card diagram-card" data-visual-widget="image" data-diagram-engine="excalidraw" tabindex="0" aria-label="Mermaid 与 Excalidraw 的统一交付流程"><div class="visual-widget-content chart-content diagram-content" data-visual-content><svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 1264 434" class="diagram-svg" id="diagram-p2-excalidraw-9441596e-root" preserveAspectRatio="xMidYMid meet" role="img" focusable="false" data-diagram-engine="excalidraw" aria-labelledby="diagram-p2-excalidraw-9441596e-title diagram-p2-excalidraw-9441596e-description"><title id="diagram-p2-excalidraw-9441596e-title">Mermaid 与 Excalidraw 的统一交付流程</title><desc id="diagram-p2-excalidraw-9441596e-description">Mermaid 和 Excalidraw 两种源格式汇入 SVG 规范化与质量门禁，最后交付到 Slide</desc><style data-slide-diagram-style="true">#diagram-p2-excalidraw-9441596e-root text, #diagram-p2-excalidraw-9441596e-root tspan { font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif !important; }</style><metadata /><defs><style class="style-fonts">
+<section class="slide content-slide layout-chart density-speaking has-diagram diagram-fullstage" data-title="Excalidraw 用于需要人工精修的自由构图" data-slide-id="excalidraw-svg-flow" data-source-page="P2" data-slide-kind="content" data-media-count="0" data-block-count="1" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="true" data-layout-requested="chart" data-layout-resolved="chart" data-section="流程图" data-chapter=""><header class="slide-header reveal" data-presenter-focus><h1>Excalidraw 用于需要人工精修的自由构图</h1><p class="subtitle">保留可编辑场景，构建时使用官方 exportToSvg 输出矢量成品</p></header><div class="content"><div class="chart-layout"><div class="chart-stage"><figure class="card chart-card diagram-card" data-visual-widget="image" data-diagram-engine="excalidraw" tabindex="0" aria-label="Mermaid 与 Excalidraw 的统一交付流程"><div class="visual-widget-content chart-content diagram-content" data-visual-content><svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 1264 434" class="diagram-svg" id="diagram-p2-excalidraw-9441596e-root" preserveAspectRatio="xMidYMid meet" role="img" focusable="false" data-diagram-engine="excalidraw" aria-labelledby="diagram-p2-excalidraw-9441596e-title diagram-p2-excalidraw-9441596e-description"><title id="diagram-p2-excalidraw-9441596e-title">Mermaid 与 Excalidraw 的统一交付流程</title><desc id="diagram-p2-excalidraw-9441596e-description">Mermaid 和 Excalidraw 两种源格式汇入 SVG 规范化与质量门禁，最后交付到 Slide</desc><style data-slide-diagram-style="true">#diagram-p2-excalidraw-9441596e-root text, #diagram-p2-excalidraw-9441596e-root tspan { font-family: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif !important; }</style><metadata /><defs><style class="style-fonts">
       </style></defs><g stroke-linecap="round" transform="translate(32 32) rotate(0 130 55)"><path d="M27.5 0 C72.28 0, 117.06 0, 232.5 0 C250.83 0, 260 9.17, 260 27.5 C260 41.85, 260 56.2, 260 82.5 C260 100.83, 250.83 110, 232.5 110 C175.59 110, 118.68 110, 27.5 110 C9.17 110, 0 100.83, 0 82.5 C0 62.3, 0 42.1, 0 27.5 C0 9.17, 9.17 0, 27.5 0" stroke="none" stroke-width="0" fill="#e8f0f8" /><path d="M27.5 0 C68.59 0, 109.69 0, 232.5 0 M27.5 0 C83.13 0, 138.76 0, 232.5 0 M232.5 0 C250.83 0, 260 9.17, 260 27.5 M232.5 0 C250.83 0, 260 9.17, 260 27.5 M260 27.5 C260 47.73, 260 67.95, 260 82.5 M260 27.5 C260 46.29, 260 65.09, 260 82.5 M260 82.5 C260 100.83, 250.83 110, 232.5 110 M260 82.5 C260 100.83, 250.83 110, 232.5 110 M232.5 110 C154 110, 75.5 110, 27.5 110 M232.5 110 C150.94 110, 69.38 110, 27.5 110 M27.5 110 C9.17 110, 0 100.83, 0 82.5 M27.5 110 C9.17 110, 0 100.83, 0 82.5 M0 82.5 C0 62.27, 0 42.05, 0 27.5 M0 82.5 C0 65.01, 0 47.51, 0 27.5 M0 27.5 C0 9.17, 9.17 0, 27.5 0 M0 27.5 C0 9.17, 9.17 0, 27.5 0" stroke="#2c8c99" stroke-width="2" fill="none" /></g><g transform="translate(88 66) rotate(0 74 20)"><text x="74" y="28.192" font-family="Excalifont, Xiaolai, Segoe UI Emoji" font-size="32px" fill="#151515" text-anchor="middle" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">Mermaid 源</text></g><g stroke-linecap="round" transform="translate(32 292) rotate(0 130 55)"><path d="M27.5 0 C80.47 0, 133.44 0, 232.5 0 C250.83 0, 260 9.17, 260 27.5 C260 44.64, 260 61.78, 260 82.5 C260 100.83, 250.83 110, 232.5 110 C161.06 110, 89.63 110, 27.5 110 C9.17 110, 0 100.83, 0 82.5 C0 68.54, 0 54.58, 0 27.5 C0 9.17, 9.17 0, 27.5 0" stroke="none" stroke-width="0" fill="#fff2e8" /><path d="M27.5 0 C68.59 0, 109.69 0, 232.5 0 M27.5 0 C71.65 0, 115.8 0, 232.5 0 M232.5 0 C250.83 0, 260 9.17, 260 27.5 M232.5 0 C250.83 0, 260 9.17, 260 27.5 M260 27.5 C260 38.65, 260 49.8, 260 82.5 M260 27.5 C260 45.14, 260 62.78, 260 82.5 M260 82.5 C260 100.83, 250.83 110, 232.5 110 M260 82.5 C260 100.83, 250.83 110, 232.5 110 M232.5 110 C188.58 110, 144.65 110, 27.5 110 M232.5 110 C185.45 110, 138.41 110, 27.5 110 M27.5 110 C9.17 110, 0 100.83, 0 82.5 M27.5 110 C9.17 110, 0 100.83, 0 82.5 M0 82.5 C0 63.73, 0 44.95, 0 27.5 M0 82.5 C0 67.6, 0 52.7, 0 27.5 M0 27.5 C0 9.17, 9.17 0, 27.5 0 M0 27.5 C0 9.17, 9.17 0, 27.5 0" stroke="#e2762d" stroke-width="2" fill="none" /></g><g transform="translate(68 326) rotate(0 94 20)"><text x="94" y="28.192" font-family="Excalifont, Xiaolai, Segoe UI Emoji" font-size="32px" fill="#151515" text-anchor="middle" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">Excalidraw 源</text></g><g stroke-linecap="round" transform="translate(512 132) rotate(0 120 85)"><path d="M151.25 21.5 C168.7 34.33, 186.16 47.16, 209.75 64.5 C240 86, 240 86, 209.75 107.5 C188.55 122.36, 167.35 137.21, 151.25 148.5 C121 170, 121 170, 90.75 148.5 C77.48 139.51, 64.21 130.52, 30.25 107.5 C0 86, 0 86, 30.25 64.5 C50.84 49.87, 71.42 35.24, 90.75 21.5 C121 0, 121 0, 151.25 21.5" stroke="none" stroke-width="0" fill="#f1eeff" /><path d="M151.25 21.5 C162.98 30.12, 174.71 38.74, 209.75 64.5 M151.25 21.5 C172.27 36.95, 193.29 52.4, 209.75 64.5 M209.75 64.5 C240 86, 240 86, 209.75 107.5 M209.75 64.5 C240 86, 240 86, 209.75 107.5 M209.75 107.5 C195.84 117.25, 181.93 126.99, 151.25 148.5 M209.75 107.5 C192.21 119.79, 174.67 132.08, 151.25 148.5 M151.25 148.5 C121 170, 121 170, 90.75 148.5 M151.25 148.5 C121 170, 121 170, 90.75 148.5 M90.75 148.5 C75.89 138.43, 61.03 128.36, 30.25 107.5 M90.75 148.5 C74.95 137.79, 59.15 127.09, 30.25 107.5 M30.25 107.5 C0 86, 0 86, 30.25 64.5 M30.25 107.5 C0 86, 0 86, 30.25 64.5 M30.25 64.5 C49.31 50.96, 68.36 37.41, 90.75 21.5 M30.25 64.5 C43.79 54.88, 57.32 45.26, 90.75 21.5 M90.75 21.5 C121 0, 121 0, 151.25 21.5 M90.75 21.5 C121 0, 121 0, 151.25 21.5" stroke="#6f60e5" stroke-width="2" fill="none" /></g><g transform="translate(565 197) rotate(0 67 20)"><text x="67" y="28.192" font-family="Excalifont, Xiaolai, Segoe UI Emoji" font-size="32px" fill="#151515" text-anchor="middle" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">质量门禁</text></g><g stroke-linecap="round" transform="translate(972 162) rotate(0 130 55)"><path d="M27.5 0 C96.86 0, 166.22 0, 232.5 0 C250.83 0, 260 9.17, 260 27.5 C260 39.22, 260 50.94, 260 82.5 C260 100.83, 250.83 110, 232.5 110 C173.02 110, 113.54 110, 27.5 110 C9.17 110, 0 100.83, 0 82.5 C0 70.03, 0 57.56, 0 27.5 C0 9.17, 9.17 0, 27.5 0" stroke="none" stroke-width="0" fill="#d9e9df" /><path d="M27.5 0 C68.6 0, 109.7 0, 232.5 0 M27.5 0 C89.68 0, 151.87 0, 232.5 0 M232.5 0 C250.83 0, 260 9.17, 260 27.5 M232.5 0 C250.83 0, 260 9.17, 260 27.5 M260 27.5 C260 42.5, 260 57.5, 260 82.5 M260 27.5 C260 42.84, 260 58.17, 260 82.5 M260 82.5 C260 100.83, 250.83 110, 232.5 110 M260 82.5 C260 100.83, 250.83 110, 232.5 110 M232.5 110 C175.72 110, 118.95 110, 27.5 110 M232.5 110 C172.48 110, 112.46 110, 27.5 110 M27.5 110 C9.17 110, 0 100.83, 0 82.5 M27.5 110 C9.17 110, 0 100.83, 0 82.5 M0 82.5 C0 66.63, 0 50.75, 0 27.5 M0 82.5 C0 61.79, 0 41.08, 0 27.5 M0 27.5 C0 9.17, 9.17 0, 27.5 0 M0 27.5 C0 9.17, 9.17 0, 27.5 0" stroke="#24836d" stroke-width="2" fill="none" /></g><g transform="translate(1024 196) rotate(0 78 20)"><text x="78" y="28.192" font-family="Excalifont, Xiaolai, Segoe UI Emoji" font-size="32px" fill="#151515" text-anchor="middle" style="white-space: pre;" direction="ltr" dominant-baseline="alphabetic">清晰 Slide</text></g><g stroke-linecap="round"><g transform="translate(292 87) rotate(0 120 47.5)"><path d="M0 0 C40 15.83, 200 79.17, 240 95 M0 0 C40 15.83, 200 79.17, 240 95" stroke="#2b2a28" stroke-width="3" fill="none" /></g><g transform="translate(292 87) rotate(0 120 47.5)"><path d="M215.01 94.3 C220.02 94.44, 225.03 94.58, 240 95 M215.01 94.3 C221.19 94.48, 227.37 94.65, 240 95" stroke="#2b2a28" stroke-width="3" fill="none" /></g><g transform="translate(292 87) rotate(0 120 47.5)"><path d="M221.3 78.4 C225.05 81.73, 228.8 85.06, 240 95 M221.3 78.4 C225.93 82.51, 230.55 86.61, 240 95" stroke="#2b2a28" stroke-width="3" fill="none" /></g></g><mask /><g stroke-linecap="round"><g transform="translate(292 347) rotate(0 120 -47.5)"><path d="M0 0 C40 -15.83, 200 -79.17, 240 -95 M0 0 C40 -15.83, 200 -79.17, 240 -95" stroke="#2b2a28" stroke-width="3" fill="none" /></g><g transform="translate(292 347) rotate(0 120 -47.5)"><path d="M221.3 -78.4 C225.05 -81.73, 228.8 -85.06, 240 -95 M221.3 -78.4 C227.27 -83.7, 233.24 -89, 240 -95" stroke="#2b2a28" stroke-width="3" fill="none" /></g><g transform="translate(292 347) rotate(0 120 -47.5)"><path d="M215.01 -94.3 C220.02 -94.44, 225.03 -94.58, 240 -95 M215.01 -94.3 C222.99 -94.53, 230.97 -94.75, 240 -95" stroke="#2b2a28" stroke-width="3" fill="none" /></g></g><mask /><g stroke-linecap="round"><g transform="translate(752 217) rotate(0 110 0)"><path d="M0 0 C36.67 0, 183.33 0, 220 0 M0 0 C36.67 0, 183.33 0, 220 0" stroke="#2b2a28" stroke-width="3" fill="none" /></g><g transform="translate(752 217) rotate(0 110 0)"><path d="M196.51 8.55 C201.22 6.84, 205.93 5.12, 220 0 M196.51 8.55 C205.7 5.2, 214.89 1.86, 220 0" stroke="#2b2a28" stroke-width="3" fill="none" /></g><g transform="translate(752 217) rotate(0 110 0)"><path d="M196.51 -8.55 C201.22 -6.84, 205.93 -5.12, 220 0 M196.51 -8.55 C205.7 -5.2, 214.89 -1.86, 220 0" stroke="#2b2a28" stroke-width="3" fill="none" /></g></g><mask /></svg></div></figure></div><div class="empty-copy" aria-hidden="true"></div></div></div></section>
     </main>
   </div>
@@ -2726,6 +2881,93 @@
       }
       toggle() { this.setEnabled(!this.enabled); }
     }
+    /* ===========================================
+       FOOTER CHAPTER NAVIGATION
+       =========================================== */
+    class FooterChapterNavigation {
+      constructor(presentation) {
+        this.presentation = presentation;
+        this.items = [...document.querySelectorAll("[data-section-nav-item]")];
+        this.openItem = null;
+        this.items.forEach(item => this.bindItem(item));
+        document.addEventListener("pointerdown", event => {
+          if (!event.target.closest?.("[data-section-nav-item]")) this.closeAll();
+        }, {passive:true});
+        this.slideObserver = new MutationObserver(mutations => {
+          if (mutations.some(mutation => mutation.attributeName === "class")) this.closeAll();
+        });
+        this.presentation.slides.forEach(slide => {
+          this.slideObserver.observe(slide, {attributes:true, attributeFilter:["class"]});
+        });
+      }
+      menuFor(item) { return item.querySelector(".section-footer-menu"); }
+      buttonsFor(item) { return [...item.querySelectorAll(".section-footer-chapter")]; }
+      setOpen(item, open) {
+        if (!item || !this.menuFor(item)) return;
+        if (open && this.openItem && this.openItem !== item) this.setOpen(this.openItem, false);
+        const trigger = item.querySelector("[data-section-nav-trigger]");
+        const menu = this.menuFor(item);
+        item.classList.toggle("is-open", open);
+        trigger.setAttribute("aria-expanded", String(open));
+        menu.setAttribute("aria-hidden", String(!open));
+        menu.toggleAttribute("inert", !open);
+        this.openItem = open ? item : (this.openItem === item ? null : this.openItem);
+      }
+      closeAll() {
+        if (this.openItem) this.setOpen(this.openItem, false);
+      }
+      focusChapter(item, index) {
+        const buttons = this.buttonsFor(item);
+        if (!buttons.length) return;
+        buttons[(index + buttons.length) % buttons.length].focus();
+      }
+      bindItem(item) {
+        const trigger = item.querySelector("[data-section-nav-trigger]");
+        const menu = this.menuFor(item);
+        if (!trigger || !menu) return;
+        item.addEventListener("pointerenter", () => this.setOpen(item, true));
+        item.addEventListener("pointerleave", () => {
+          if (!item.contains(document.activeElement)) this.setOpen(item, false);
+        });
+        item.addEventListener("focusin", () => this.setOpen(item, true));
+        item.addEventListener("focusout", () => queueMicrotask(() => {
+          if (!item.contains(document.activeElement) && !item.matches(":hover")) this.setOpen(item, false);
+        }));
+        trigger.addEventListener("click", () => this.setOpen(item, true));
+        trigger.addEventListener("keydown", event => {
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            this.setOpen(item, true);
+            this.focusChapter(item, event.key === "ArrowDown" ? 0 : -1);
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            this.setOpen(item, false);
+          }
+        });
+        menu.addEventListener("keydown", event => {
+          const buttons = this.buttonsFor(item);
+          const index = buttons.indexOf(document.activeElement);
+          if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+            event.preventDefault();
+            const next = event.key === "Home" ? 0 : event.key === "End" ? -1 : index + (event.key === "ArrowDown" ? 1 : -1);
+            this.focusChapter(item, next);
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            trigger.focus();
+            this.setOpen(item, false);
+          }
+        });
+        menu.addEventListener("click", event => {
+          const button = event.target.closest?.("[data-slide-target]");
+          if (!button) return;
+          const target = Number.parseInt(button.dataset.slideTarget, 10);
+          if (!Number.isFinite(target)) return;
+          this.presentation.show(target);
+          this.closeAll();
+          button.blur();
+        });
+      }
+    }
 
     /* ===========================================
        PRESENTATION CONTROLLER
@@ -2897,9 +3139,11 @@
     const layoutEditor = new SlideLayoutEditor(embeddedEditorConfig);
     const presenterFocus = new PresenterFocus();
     const presentation = new SlidePresentation(visualWidgetManager, layoutEditor, presenterFocus);
+    const footerChapterNavigation = new FooterChapterNavigation(presentation);
     window.__SLIDE_LAYOUT_EDITOR__ = layoutEditor;
     window.__SLIDE_PRESENTER_FOCUS__ = presenterFocus;
     window.__SLIDE_PRESENTATION__ = presentation;
+    window.__SLIDE_FOOTER_CHAPTER_NAVIGATION__ = footerChapterNavigation;
     document.querySelectorAll("[data-media-tabs]").forEach(shell => new MediaTabs(shell));
     addEventListener("load", () => requestAnimationFrame(() => {
       if (new URLSearchParams(location.search).get("debug") === "1") document.documentElement.dataset.debug = "true";

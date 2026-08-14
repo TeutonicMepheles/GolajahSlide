@@ -219,31 +219,59 @@
       height: 800px;
       max-height: 800px;
     }
+    /* ===========================================
+       FOOTER CHAPTER NAVIGATION
+       Section progress bar plus an upward chapter menu.
+       =========================================== */
     .section-footer {
       position: absolute;
       left: 110px;
       right: 110px;
       bottom: 34px;
-      height: 54px;
+      z-index: 24;
       display: grid;
       grid-template-columns: repeat(var(--section-count), minmax(0, 1fr));
+      height: 54px;
       border-top: 2px solid #C9C8CF;
-      z-index: 4;
+      overflow: visible;
     }
-    .section-footer span {
+    .section-footer-item {
+      position: relative;
+      min-width: 0;
+      height: 54px;
+    }
+    .section-footer-trigger {
       position: relative;
       display: flex;
       align-items: flex-end;
       justify-content: center;
+      width: 100%;
+      height: 54px;
       padding: 0 10px 2px;
-      color: #9998A1;
-      font-size: 22px;
-      white-space: nowrap;
       overflow: hidden;
+      border: 0;
+      border-radius: 0;
+      color: #9998A1;
+      background: transparent;
+      font: inherit;
+      font-size: 22px;
+      font-weight: 400;
+      line-height: 1.2;
       text-overflow: ellipsis;
+      white-space: nowrap;
+      cursor: pointer;
     }
-    .section-footer span.active { color: var(--accent); font-weight: 700; }
-    .section-footer span.active::before {
+    .section-footer-trigger:disabled {
+      cursor: default;
+      opacity: 1;
+    }
+    .section-footer-item.active > .section-footer-trigger,
+    .section-footer-item.is-open > .section-footer-trigger {
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .section-footer-item.active > .section-footer-trigger::before,
+    .section-footer-item.is-open > .section-footer-trigger::before {
       content: "";
       position: absolute;
       top: -3px;
@@ -252,6 +280,133 @@
       height: 5px;
       border-radius: 999px;
       background: var(--accent);
+    }
+    .section-footer-trigger:focus-visible,
+    .section-footer-chapter:focus-visible {
+      outline: 3px solid color-mix(in srgb, var(--accent) 62%, white);
+      outline-offset: 2px;
+    }
+    .section-footer-menu {
+      position: absolute;
+      left: 50%;
+      bottom: 54px;
+      z-index: 32;
+      width: 380px;
+      max-height: 540px;
+      padding: 12px;
+      overflow: visible;
+      border: 1px solid rgba(17,17,17,.1);
+      border-radius: 16px;
+      color: var(--ink);
+      background: rgba(255,255,255,.98);
+      box-shadow: 0 24px 64px rgba(35,27,74,.2);
+      opacity: 0;
+      pointer-events: none;
+      visibility: hidden;
+      transform: translate(-50%, 12px) scale(.985);
+      transform-origin: 50% 100%;
+      transition: opacity .16s ease, transform .18s var(--ease), visibility 0s linear .18s;
+    }
+    .section-footer-menu::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -8px;
+      width: 15px;
+      height: 15px;
+      border-right: 1px solid rgba(17,17,17,.1);
+      border-bottom: 1px solid rgba(17,17,17,.1);
+      background: rgba(255,255,255,.98);
+      transform: translateX(-50%) rotate(45deg);
+    }
+    .section-footer-item.is-open > .section-footer-menu {
+      opacity: 1;
+      pointer-events: auto;
+      visibility: visible;
+      transform: translate(-50%, 0) scale(1);
+      transition-delay: 0s;
+    }
+    .section-footer-menu-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 7px 10px 11px;
+      color: #8E8B96;
+      font-size: 16px;
+      line-height: 1.2;
+    }
+    .section-footer-menu-header strong {
+      min-width: 0;
+      overflow: hidden;
+      color: var(--ink);
+      font-weight: 700;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .section-footer-menu-header span { white-space: nowrap; }
+    .section-footer-menu-list {
+      display: grid;
+      gap: 4px;
+      max-height: 462px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+    }
+    .section-footer-chapter {
+      display: grid;
+      grid-template-columns: 8px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+      min-height: 50px;
+      padding: 9px 11px;
+      border: 0;
+      border-radius: 10px;
+      color: var(--ink);
+      background: transparent;
+      font: inherit;
+      line-height: 1.25;
+      text-align: left;
+      cursor: pointer;
+    }
+    .section-footer-chapter:hover,
+    .section-footer-chapter:focus-visible {
+      background: color-mix(in srgb, var(--accent-soft) 52%, white);
+    }
+    .section-footer-chapter.is-current {
+      color: var(--accent);
+      background: color-mix(in srgb, var(--accent-soft) 78%, white);
+      font-weight: 700;
+    }
+    .section-footer-chapter-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #C9C8CF;
+    }
+    .section-footer-chapter.is-current .section-footer-chapter-dot {
+      background: var(--accent);
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
+    }
+    .section-footer-chapter-label {
+      min-width: 0;
+      overflow: hidden;
+      font-size: 19px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .section-footer-chapter-page {
+      color: #8E8B96;
+      font-size: 15px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+    body.editor-open .section-footer-menu { display: none !important; }
+    @media print {
+      .section-footer-menu { display: none !important; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .section-footer-menu { transition: none; }
     }
 
     /* ===========================================
@@ -1156,14 +1311,14 @@
 <body>
   <div class="deck-viewport">
     <main class="deck-stage" id="deckStage" aria-label="通用 Markdown Slides 工程模板">
-<section class="slide cover-slide layout-hero-split density-reading" data-title="通用 Markdown Slides 工程模板" data-slide-id="cover" data-source-page="P1" data-slide-kind="cover" data-media-count="0" data-block-count="0" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="hero-split"><div class="hero-shell hero-cover hero-layout-hero-split"><div class="hero-copy reveal" data-presenter-focus><p class="hero-kicker">PRESENTATION TEMPLATE</p><h1>通用 Markdown Slides 工程模板</h1><p class="hero-subtitle">固定 16:9、智能图片布局、中文排版与可复用图表控件</p><p class="hero-meta">Your Name · 2026-08</p></div><div class="hero-visual reveal"><figure class="visual-placeholder" aria-label="空白图片占位"><span class="placeholder-mark" aria-hidden="true"></span><figcaption>封面图占位<small>替换为项目自己的视觉素材</small></figcaption></figure></div></div></section>
-<section class="slide section-slide layout-hero-split density-reading" data-title="让内容决定版式" data-slide-id="layout-section" data-source-page="P2" data-slide-kind="section" data-media-count="0" data-block-count="0" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="hero-split"><div class="hero-shell hero-section hero-layout-hero-split"><div class="hero-copy reveal" data-presenter-focus><p class="hero-kicker">自动布局</p><h1>让内容决定版式</h1><p class="hero-subtitle">图片比例、文本密度与语义结构共同参与布局选择</p><p class="hero-meta">Your Name · 2026-08</p></div><div class="hero-visual reveal"><figure class="visual-placeholder" aria-label="空白图片占位"><span class="placeholder-mark" aria-hidden="true"></span><figcaption>章节图占位<small>替换为项目自己的视觉素材</small></figcaption></figure></div></div></section>
-<section class="slide content-slide layout-split density-reading" data-title="接近 1:1 的图片自动进入左右布局" data-slide-id="square-image" data-source-page="P3" data-slide-kind="content" data-media-count="1" data-block-count="2" data-text-length="84" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="split" data-layout-resolved="split"><header class="slide-header reveal" data-presenter-focus><h1>接近 1:1 的图片自动进入左右布局</h1><p class="subtitle">视觉与解释并列，避免图片缩成难以阅读的小图</p></header><div class="content"><div class="split-layout square"><div class="split-media"><figure class="card media-figure visual-widget active" data-visual-widget="image" tabindex="0"><div class="visual-widget-content" data-visual-content><img src="assets/demo-square.svg" alt="正方形布局示意" style="object-fit:contain" draggable="false"></div><figcaption>正方形视觉素材</figcaption></figure></div><div class="split-copy count-2"><article class="card text-card section-card" data-presenter-focus><h3>自动判断</h3><ul><li>图片宽高比在 <code>0.72–1.35</code> 之间时，<mark data-presenter-text="inline">优先使用图文左右布局</mark></li><li>竖图使用更窄的图片栏，横图使用更宽的图片栏</li></ul></article><article class="card text-card section-card" data-presenter-focus><h3>手动控制</h3><p>需要改变阅读顺序时，可设置 <code>image-position: right</code>。</p></article></div></div></div><footer class="section-footer" style="--section-count:4"><span class="">开始</span><span class="active">自动布局</span><span class="">内容组件</span><span class="">交付检查</span></footer></section>
-<section class="slide content-slide layout-media density-reading" data-title="接近 16:9 的图片优先占满展示区域" data-slide-id="wide-image" data-source-page="P4" data-slide-kind="content" data-media-count="1" data-block-count="1" data-text-length="46" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="media"><header class="slide-header reveal" data-presenter-focus><h1>接近 16:9 的图片优先占满展示区域</h1><p class="subtitle">图片下方只保留简短说明，建议不超过两行</p></header><div class="content"><div class="wide-media-layout"><div class="wide-media-stage"><figure class="card media-figure visual-widget active" data-visual-widget="image" tabindex="0"><div class="visual-widget-content" data-visual-content><img src="assets/demo-wide.svg" alt="十六比九布局示意" style="object-fit:contain" draggable="false"></div><figcaption>接近屏幕比例的图片自动采用通栏展示</figcaption></figure></div><div class="wide-copy count-1 focus-grid"><article class="card text-card section-card" data-presenter-focus><p>这类页面让视觉成为主角；如果说明文字超过两行容量，构建器会自动回退为图文左右布局并给出提示。</p></article></div></div></div><footer class="section-footer" style="--section-count:4"><span class="">开始</span><span class="active">自动布局</span><span class="">内容组件</span><span class="">交付检查</span></footer></section>
-<section class="slide content-slide layout-text density-reading" data-title="中文内容页强调层级与呼吸感" data-slide-id="chinese-layout" data-source-page="P5" data-slide-kind="content" data-media-count="0" data-block-count="4" data-text-length="159" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="text"><header class="slide-header reveal" data-presenter-focus><h1>中文内容页强调层级与呼吸感</h1><p class="subtitle">标题、副标题保持同一高度，统一左对齐</p></header><div class="content"><div class="text-grid count-4"><article class="card text-card section-card" data-presenter-focus><h3>一页一个核心结论</h3><p>正文先写结论，再补充证据。演讲型页面尽量控制在 1–3 个要点；阅读型页面可以使用更完整的结构，但仍应优先拆页。</p></article><article class="card text-card section-card" data-presenter-focus><h3>使用稳定的字号台阶</h3><p>页面标题、卡片标题、正文、标签和图注各自保持清晰层级，避免所有文字挤在同一字号。</p></article><article class="card text-card section-card" data-presenter-focus><h3>避免中文孤字</h3><p>模板使用更适合中文的断行策略；表格不再允许任意位置切断英文标识符。</p></article><article class="card soft text-card callout-card callout-tip" data-presenter-focus><strong>方法提示</strong><p>内容不足时会扩大单卡片的视觉权重；内容过多时构建报告会建议拆页。</p></article></div></div><footer class="section-footer" style="--section-count:4"><span class="">开始</span><span class="">自动布局</span><span class="active">内容组件</span><span class="">交付检查</span></footer></section>
-<section class="slide content-slide layout-table density-reading" data-title="表格沿用现有视觉控件" data-slide-id="table-controls" data-source-page="P6" data-slide-kind="content" data-media-count="0" data-block-count="1" data-text-length="136" data-has-table="true" data-has-chart="false" data-has-diagram="false" data-layout-requested="table" data-layout-resolved="table"><header class="slide-header reveal" data-presenter-focus><h1>表格沿用现有视觉控件</h1><p class="subtitle">悬停后可缩放、全屏与临时标注</p></header><div class="content"><div class="table-layout"><article class="card table-card" data-presenter-focus data-visual-widget="table" tabindex="0"><div class="visual-widget-content" data-visual-content><table class="data-table" data-columns="3" data-rows="5"><thead><tr><th>页面元素</th><th>Markdown 写法</th><th>默认行为</th></tr></thead><tbody><tr><td>标题 / 副标题</td><td><code>#</code> / <code>##</code></td><td>内容页左对齐</td></tr><tr><td>内容卡片</td><td><code>###</code> + 正文</td><td>依据数量自动排成 1–3 列</td></tr><tr><td>表格</td><td>GFM Table</td><td>自动列宽、避免任意断词</td></tr><tr><td>图片</td><td><code>![alt](path &quot;caption&quot;)</code></td><td>读取宽高比后选择布局</td></tr><tr><td>提示</td><td><code>&gt; [!TIP]</code></td><td>转换为强调卡片</td></tr></tbody></table></div></article></div></div><footer class="section-footer" style="--section-count:4"><span class="">开始</span><span class="">自动布局</span><span class="active">内容组件</span><span class="">交付检查</span></footer></section>
-<section class="slide content-slide layout-chart density-reading" data-title="轻量图表直接写在 Markdown 中" data-slide-id="chart-controls" data-source-page="P7" data-slide-kind="content" data-media-count="0" data-block-count="2" data-text-length="46" data-has-table="false" data-has-chart="true" data-has-diagram="false" data-layout-requested="chart" data-layout-resolved="chart"><header class="slide-header reveal" data-presenter-focus><h1>轻量图表直接写在 Markdown 中</h1><p class="subtitle">图表也复用缩放、全屏和标注控件</p></header><div class="content"><div class="chart-layout"><div class="chart-stage"><figure class="card chart-card" data-visual-widget="image" tabindex="0"><div class="visual-widget-content chart-content" data-visual-content><svg class="chart-svg" viewBox="0 0 1600 610" role="img" aria-label="各阶段投入占比"><text x="80" y="70" font-size="34" font-weight="700" fill="#111">各阶段投入占比</text><line x1="120" y1="480.0" x2="1480" y2="480.0" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="489.0" text-anchor="end" font-size="22" fill="#777">0</text><line x1="120" y1="392.5" x2="1480" y2="392.5" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="401.5" text-anchor="end" font-size="22" fill="#777">7.75</text><line x1="120" y1="305.0" x2="1480" y2="305.0" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="314.0" text-anchor="end" font-size="22" fill="#777">15.5</text><line x1="120" y1="217.5" x2="1480" y2="217.5" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="226.5" text-anchor="end" font-size="22" fill="#777">23.25</text><line x1="120" y1="130.0" x2="1480" y2="130.0" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="139.0" text-anchor="end" font-size="22" fill="#777">31</text><text x="290.0" y="528" text-anchor="middle" font-size="24" fill="#555">调研</text><rect x="224.0" y="231.6" width="132.0" height="248.4" rx="14" fill="#6F60E5"/><text x="290.0" y="215.6" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">22%</text><text x="630.0" y="528" text-anchor="middle" font-size="24" fill="#555">设计</text><rect x="564.0" y="130.0" width="132.0" height="350.0" rx="14" fill="#6F60E5"/><text x="630.0" y="114.0" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">31%</text><text x="970.0" y="528" text-anchor="middle" font-size="24" fill="#555">开发</text><rect x="904.0" y="163.9" width="132.0" height="316.1" rx="14" fill="#6F60E5"/><text x="970.0" y="147.9" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">28%</text><text x="1310.0" y="528" text-anchor="middle" font-size="24" fill="#555">验证</text><rect x="1244.0" y="265.5" width="132.0" height="214.5" rx="14" fill="#6F60E5"/><text x="1310.0" y="249.5" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">19%</text></svg></div><figcaption>各阶段投入占比</figcaption></figure></div><div class="chart-copy count-1 focus-grid"><article class="card soft text-card callout-card callout-note" data-presenter-focus><strong>补充说明</strong><p>内置 <code>bar</code>、<code>line</code>、<code>donut</code> 三种图表；复杂图表建议导出为 SVG 后按图片引用。</p></article></div></div></div><footer class="section-footer" style="--section-count:4"><span class="">开始</span><span class="">自动布局</span><span class="active">内容组件</span><span class="">交付检查</span></footer></section>
-<section class="slide content-slide layout-text density-reading" data-title="构建报告让问题在交付前暴露" data-slide-id="delivery-check" data-source-page="P8" data-slide-kind="content" data-media-count="0" data-block-count="2" data-text-length="151" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="text"><header class="slide-header reveal" data-presenter-focus><h1>构建报告让问题在交付前暴露</h1><p class="subtitle">版式选择可追踪，风险不会静默被裁掉</p></header><div class="content"><div class="text-grid count-2"><article class="card text-card section-card" data-presenter-focus><h3>构建期检查</h3><ul><li>缺失图片、图表字段错误直接报错</li><li>标题过长、内容过密、表格行数过多给出警告</li><li><code>index.build.json</code> 记录每页最终采用的布局</li></ul></article><article class="card text-card section-card" data-presenter-focus><h3>浏览器检查</h3><ul><li><code>window._<wbr>_<wbr>SLIDE_<wbr>DIAGNOSTICS_<wbr>_<wbr></code> 暴露运行时溢出结果</li><li>加 <code>?debug=1</code> 会在页面上标出发生溢出的容器</li><li>固定 1920×1080 舞台在宽屏、投影和手机上只做等比缩放</li></ul></article></div></div><footer class="section-footer" style="--section-count:4"><span class="">开始</span><span class="">自动布局</span><span class="">内容组件</span><span class="active">交付检查</span></footer></section>
+<section class="slide cover-slide layout-hero-split density-reading" data-title="通用 Markdown Slides 工程模板" data-slide-id="cover" data-source-page="P1" data-slide-kind="cover" data-media-count="0" data-block-count="0" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="hero-split" data-section="" data-chapter=""><div class="hero-shell hero-cover hero-layout-hero-split"><div class="hero-copy reveal" data-presenter-focus><p class="hero-kicker">PRESENTATION TEMPLATE</p><h1>通用 Markdown Slides 工程模板</h1><p class="hero-subtitle">固定 16:9、智能图片布局、中文排版与可复用图表控件</p><p class="hero-meta">Your Name · 2026-08</p></div><div class="hero-visual reveal"><figure class="visual-placeholder" aria-label="空白图片占位"><span class="placeholder-mark" aria-hidden="true"></span><figcaption>封面图占位<small>替换为项目自己的视觉素材</small></figcaption></figure></div></div></section>
+<section class="slide section-slide layout-hero-split density-reading" data-title="让内容决定版式" data-slide-id="layout-section" data-source-page="P2" data-slide-kind="section" data-media-count="0" data-block-count="0" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="hero-split" data-section="自动布局" data-chapter="布局原则"><div class="hero-shell hero-section hero-layout-hero-split"><div class="hero-copy reveal" data-presenter-focus><p class="hero-kicker">自动布局</p><h1>让内容决定版式</h1><p class="hero-subtitle">图片比例、文本密度与语义结构共同参与布局选择</p><p class="hero-meta">Your Name · 2026-08</p></div><div class="hero-visual reveal"><figure class="visual-placeholder" aria-label="空白图片占位"><span class="placeholder-mark" aria-hidden="true"></span><figcaption>章节图占位<small>替换为项目自己的视觉素材</small></figcaption></figure></div></div></section>
+<section class="slide content-slide layout-split density-reading" data-title="接近 1:1 的图片自动进入左右布局" data-slide-id="square-image" data-source-page="P3" data-slide-kind="content" data-media-count="1" data-block-count="2" data-text-length="84" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="split" data-layout-resolved="split" data-section="自动布局" data-chapter="图片布局"><header class="slide-header reveal" data-presenter-focus><h1>接近 1:1 的图片自动进入左右布局</h1><p class="subtitle">视觉与解释并列，避免图片缩成难以阅读的小图</p></header><div class="content"><div class="split-layout square"><div class="split-media"><figure class="card media-figure visual-widget active" data-visual-widget="image" tabindex="0"><div class="visual-widget-content" data-visual-content><img src="assets/demo-square.svg" alt="正方形布局示意" style="object-fit:contain" draggable="false"></div><figcaption>正方形视觉素材</figcaption></figure></div><div class="split-copy count-2"><article class="card text-card section-card" data-presenter-focus><h3>自动判断</h3><ul><li>图片宽高比在 <code>0.72–1.35</code> 之间时，<mark data-presenter-text="inline">优先使用图文左右布局</mark></li><li>竖图使用更窄的图片栏，横图使用更宽的图片栏</li></ul></article><article class="card text-card section-card" data-presenter-focus><h3>手动控制</h3><p>需要改变阅读顺序时，可设置 <code>image-position: right</code>。</p></article></div></div></div><footer class="section-footer" style="--section-count:4" aria-label="章节导航"><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">开始</button><div class="section-footer-menu" role="menu" aria-label="开始 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>开始</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="0" data-page-number="1"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">通用 Markdown Slides 工程模板</span><span class="section-footer-chapter-page">P.1</span></button></div></div></div><div class="section-footer-item active" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">自动布局</button><div class="section-footer-menu" role="menu" aria-label="自动布局 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>自动布局</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="1" data-page-number="2"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">布局原则</span><span class="section-footer-chapter-page">P.2</span></button><button type="button" class="section-footer-chapter is-current" role="menuitem" aria-current="location" data-slide-target="2" data-page-number="3"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">图片布局</span><span class="section-footer-chapter-page">P.3</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">内容组件</button><div class="section-footer-menu" role="menu" aria-label="内容组件 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>内容组件</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="4" data-page-number="5"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">文本内容</span><span class="section-footer-chapter-page">P.5</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="5" data-page-number="6"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">数据内容</span><span class="section-footer-chapter-page">P.6</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">交付检查</button><div class="section-footer-menu" role="menu" aria-label="交付检查 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>交付检查</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="7" data-page-number="8"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">交付检查</span><span class="section-footer-chapter-page">P.8</span></button></div></div></div></footer></section>
+<section class="slide content-slide layout-media density-reading" data-title="接近 16:9 的图片优先占满展示区域" data-slide-id="wide-image" data-source-page="P4" data-slide-kind="content" data-media-count="1" data-block-count="1" data-text-length="46" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="media" data-section="自动布局" data-chapter="图片布局"><header class="slide-header reveal" data-presenter-focus><h1>接近 16:9 的图片优先占满展示区域</h1><p class="subtitle">图片下方只保留简短说明，建议不超过两行</p></header><div class="content"><div class="wide-media-layout"><div class="wide-media-stage"><figure class="card media-figure visual-widget active" data-visual-widget="image" tabindex="0"><div class="visual-widget-content" data-visual-content><img src="assets/demo-wide.svg" alt="十六比九布局示意" style="object-fit:contain" draggable="false"></div><figcaption>接近屏幕比例的图片自动采用通栏展示</figcaption></figure></div><div class="wide-copy count-1 focus-grid"><article class="card text-card section-card" data-presenter-focus><p>这类页面让视觉成为主角；如果说明文字超过两行容量，构建器会自动回退为图文左右布局并给出提示。</p></article></div></div></div><footer class="section-footer" style="--section-count:4" aria-label="章节导航"><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">开始</button><div class="section-footer-menu" role="menu" aria-label="开始 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>开始</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="0" data-page-number="1"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">通用 Markdown Slides 工程模板</span><span class="section-footer-chapter-page">P.1</span></button></div></div></div><div class="section-footer-item active" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">自动布局</button><div class="section-footer-menu" role="menu" aria-label="自动布局 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>自动布局</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="1" data-page-number="2"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">布局原则</span><span class="section-footer-chapter-page">P.2</span></button><button type="button" class="section-footer-chapter is-current" role="menuitem" aria-current="location" data-slide-target="2" data-page-number="3"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">图片布局</span><span class="section-footer-chapter-page">P.3</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">内容组件</button><div class="section-footer-menu" role="menu" aria-label="内容组件 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>内容组件</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="4" data-page-number="5"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">文本内容</span><span class="section-footer-chapter-page">P.5</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="5" data-page-number="6"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">数据内容</span><span class="section-footer-chapter-page">P.6</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">交付检查</button><div class="section-footer-menu" role="menu" aria-label="交付检查 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>交付检查</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="7" data-page-number="8"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">交付检查</span><span class="section-footer-chapter-page">P.8</span></button></div></div></div></footer></section>
+<section class="slide content-slide layout-text density-reading" data-title="中文内容页强调层级与呼吸感" data-slide-id="chinese-layout" data-source-page="P5" data-slide-kind="content" data-media-count="0" data-block-count="4" data-text-length="159" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="text" data-section="内容组件" data-chapter="文本内容"><header class="slide-header reveal" data-presenter-focus><h1>中文内容页强调层级与呼吸感</h1><p class="subtitle">标题、副标题保持同一高度，统一左对齐</p></header><div class="content"><div class="text-grid count-4"><article class="card text-card section-card" data-presenter-focus><h3>一页一个核心结论</h3><p>正文先写结论，再补充证据。演讲型页面尽量控制在 1–3 个要点；阅读型页面可以使用更完整的结构，但仍应优先拆页。</p></article><article class="card text-card section-card" data-presenter-focus><h3>使用稳定的字号台阶</h3><p>页面标题、卡片标题、正文、标签和图注各自保持清晰层级，避免所有文字挤在同一字号。</p></article><article class="card text-card section-card" data-presenter-focus><h3>避免中文孤字</h3><p>模板使用更适合中文的断行策略；表格不再允许任意位置切断英文标识符。</p></article><article class="card soft text-card callout-card callout-tip" data-presenter-focus><strong>方法提示</strong><p>内容不足时会扩大单卡片的视觉权重；内容过多时构建报告会建议拆页。</p></article></div></div><footer class="section-footer" style="--section-count:4" aria-label="章节导航"><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">开始</button><div class="section-footer-menu" role="menu" aria-label="开始 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>开始</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="0" data-page-number="1"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">通用 Markdown Slides 工程模板</span><span class="section-footer-chapter-page">P.1</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">自动布局</button><div class="section-footer-menu" role="menu" aria-label="自动布局 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>自动布局</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="1" data-page-number="2"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">布局原则</span><span class="section-footer-chapter-page">P.2</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="2" data-page-number="3"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">图片布局</span><span class="section-footer-chapter-page">P.3</span></button></div></div></div><div class="section-footer-item active" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">内容组件</button><div class="section-footer-menu" role="menu" aria-label="内容组件 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>内容组件</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter is-current" role="menuitem" aria-current="location" data-slide-target="4" data-page-number="5"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">文本内容</span><span class="section-footer-chapter-page">P.5</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="5" data-page-number="6"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">数据内容</span><span class="section-footer-chapter-page">P.6</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">交付检查</button><div class="section-footer-menu" role="menu" aria-label="交付检查 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>交付检查</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="7" data-page-number="8"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">交付检查</span><span class="section-footer-chapter-page">P.8</span></button></div></div></div></footer></section>
+<section class="slide content-slide layout-table density-reading" data-title="表格沿用现有视觉控件" data-slide-id="table-controls" data-source-page="P6" data-slide-kind="content" data-media-count="0" data-block-count="1" data-text-length="136" data-has-table="true" data-has-chart="false" data-has-diagram="false" data-layout-requested="table" data-layout-resolved="table" data-section="内容组件" data-chapter="数据内容"><header class="slide-header reveal" data-presenter-focus><h1>表格沿用现有视觉控件</h1><p class="subtitle">悬停后可缩放、全屏与临时标注</p></header><div class="content"><div class="table-layout"><article class="card table-card" data-presenter-focus data-visual-widget="table" tabindex="0"><div class="visual-widget-content" data-visual-content><table class="data-table" data-columns="3" data-rows="5"><thead><tr><th>页面元素</th><th>Markdown 写法</th><th>默认行为</th></tr></thead><tbody><tr><td>标题 / 副标题</td><td><code>#</code> / <code>##</code></td><td>内容页左对齐</td></tr><tr><td>内容卡片</td><td><code>###</code> + 正文</td><td>依据数量自动排成 1–3 列</td></tr><tr><td>表格</td><td>GFM Table</td><td>自动列宽、避免任意断词</td></tr><tr><td>图片</td><td><code>![alt](path &quot;caption&quot;)</code></td><td>读取宽高比后选择布局</td></tr><tr><td>提示</td><td><code>&gt; [!TIP]</code></td><td>转换为强调卡片</td></tr></tbody></table></div></article></div></div><footer class="section-footer" style="--section-count:4" aria-label="章节导航"><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">开始</button><div class="section-footer-menu" role="menu" aria-label="开始 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>开始</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="0" data-page-number="1"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">通用 Markdown Slides 工程模板</span><span class="section-footer-chapter-page">P.1</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">自动布局</button><div class="section-footer-menu" role="menu" aria-label="自动布局 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>自动布局</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="1" data-page-number="2"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">布局原则</span><span class="section-footer-chapter-page">P.2</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="2" data-page-number="3"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">图片布局</span><span class="section-footer-chapter-page">P.3</span></button></div></div></div><div class="section-footer-item active" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">内容组件</button><div class="section-footer-menu" role="menu" aria-label="内容组件 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>内容组件</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="4" data-page-number="5"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">文本内容</span><span class="section-footer-chapter-page">P.5</span></button><button type="button" class="section-footer-chapter is-current" role="menuitem" aria-current="location" data-slide-target="5" data-page-number="6"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">数据内容</span><span class="section-footer-chapter-page">P.6</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">交付检查</button><div class="section-footer-menu" role="menu" aria-label="交付检查 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>交付检查</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="7" data-page-number="8"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">交付检查</span><span class="section-footer-chapter-page">P.8</span></button></div></div></div></footer></section>
+<section class="slide content-slide layout-chart density-reading" data-title="轻量图表直接写在 Markdown 中" data-slide-id="chart-controls" data-source-page="P7" data-slide-kind="content" data-media-count="0" data-block-count="2" data-text-length="46" data-has-table="false" data-has-chart="true" data-has-diagram="false" data-layout-requested="chart" data-layout-resolved="chart" data-section="内容组件" data-chapter="数据内容"><header class="slide-header reveal" data-presenter-focus><h1>轻量图表直接写在 Markdown 中</h1><p class="subtitle">图表也复用缩放、全屏和标注控件</p></header><div class="content"><div class="chart-layout"><div class="chart-stage"><figure class="card chart-card" data-visual-widget="image" tabindex="0"><div class="visual-widget-content chart-content" data-visual-content><svg class="chart-svg" viewBox="0 0 1600 610" role="img" aria-label="各阶段投入占比"><text x="80" y="70" font-size="34" font-weight="700" fill="#111">各阶段投入占比</text><line x1="120" y1="480.0" x2="1480" y2="480.0" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="489.0" text-anchor="end" font-size="22" fill="#777">0</text><line x1="120" y1="392.5" x2="1480" y2="392.5" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="401.5" text-anchor="end" font-size="22" fill="#777">7.75</text><line x1="120" y1="305.0" x2="1480" y2="305.0" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="314.0" text-anchor="end" font-size="22" fill="#777">15.5</text><line x1="120" y1="217.5" x2="1480" y2="217.5" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="226.5" text-anchor="end" font-size="22" fill="#777">23.25</text><line x1="120" y1="130.0" x2="1480" y2="130.0" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="139.0" text-anchor="end" font-size="22" fill="#777">31</text><text x="290.0" y="528" text-anchor="middle" font-size="24" fill="#555">调研</text><rect x="224.0" y="231.6" width="132.0" height="248.4" rx="14" fill="#6F60E5"/><text x="290.0" y="215.6" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">22%</text><text x="630.0" y="528" text-anchor="middle" font-size="24" fill="#555">设计</text><rect x="564.0" y="130.0" width="132.0" height="350.0" rx="14" fill="#6F60E5"/><text x="630.0" y="114.0" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">31%</text><text x="970.0" y="528" text-anchor="middle" font-size="24" fill="#555">开发</text><rect x="904.0" y="163.9" width="132.0" height="316.1" rx="14" fill="#6F60E5"/><text x="970.0" y="147.9" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">28%</text><text x="1310.0" y="528" text-anchor="middle" font-size="24" fill="#555">验证</text><rect x="1244.0" y="265.5" width="132.0" height="214.5" rx="14" fill="#6F60E5"/><text x="1310.0" y="249.5" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">19%</text></svg></div><figcaption>各阶段投入占比</figcaption></figure></div><div class="chart-copy count-1 focus-grid"><article class="card soft text-card callout-card callout-note" data-presenter-focus><strong>补充说明</strong><p>内置 <code>bar</code>、<code>line</code>、<code>donut</code> 三种图表；复杂图表建议导出为 SVG 后按图片引用。</p></article></div></div></div><footer class="section-footer" style="--section-count:4" aria-label="章节导航"><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">开始</button><div class="section-footer-menu" role="menu" aria-label="开始 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>开始</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="0" data-page-number="1"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">通用 Markdown Slides 工程模板</span><span class="section-footer-chapter-page">P.1</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">自动布局</button><div class="section-footer-menu" role="menu" aria-label="自动布局 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>自动布局</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="1" data-page-number="2"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">布局原则</span><span class="section-footer-chapter-page">P.2</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="2" data-page-number="3"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">图片布局</span><span class="section-footer-chapter-page">P.3</span></button></div></div></div><div class="section-footer-item active" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">内容组件</button><div class="section-footer-menu" role="menu" aria-label="内容组件 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>内容组件</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="4" data-page-number="5"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">文本内容</span><span class="section-footer-chapter-page">P.5</span></button><button type="button" class="section-footer-chapter is-current" role="menuitem" aria-current="location" data-slide-target="5" data-page-number="6"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">数据内容</span><span class="section-footer-chapter-page">P.6</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">交付检查</button><div class="section-footer-menu" role="menu" aria-label="交付检查 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>交付检查</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="7" data-page-number="8"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">交付检查</span><span class="section-footer-chapter-page">P.8</span></button></div></div></div></footer></section>
+<section class="slide content-slide layout-text density-reading" data-title="构建报告让问题在交付前暴露" data-slide-id="delivery-check" data-source-page="P8" data-slide-kind="content" data-media-count="0" data-block-count="2" data-text-length="151" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="text" data-section="交付检查" data-chapter="交付检查"><header class="slide-header reveal" data-presenter-focus><h1>构建报告让问题在交付前暴露</h1><p class="subtitle">版式选择可追踪，风险不会静默被裁掉</p></header><div class="content"><div class="text-grid count-2"><article class="card text-card section-card" data-presenter-focus><h3>构建期检查</h3><ul><li>缺失图片、图表字段错误直接报错</li><li>标题过长、内容过密、表格行数过多给出警告</li><li><code>index.build.json</code> 记录每页最终采用的布局</li></ul></article><article class="card text-card section-card" data-presenter-focus><h3>浏览器检查</h3><ul><li><code>window._<wbr>_<wbr>SLIDE_<wbr>DIAGNOSTICS_<wbr>_<wbr></code> 暴露运行时溢出结果</li><li>加 <code>?debug=1</code> 会在页面上标出发生溢出的容器</li><li>固定 1920×1080 舞台在宽屏、投影和手机上只做等比缩放</li></ul></article></div></div><footer class="section-footer" style="--section-count:4" aria-label="章节导航"><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">开始</button><div class="section-footer-menu" role="menu" aria-label="开始 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>开始</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="0" data-page-number="1"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">通用 Markdown Slides 工程模板</span><span class="section-footer-chapter-page">P.1</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">自动布局</button><div class="section-footer-menu" role="menu" aria-label="自动布局 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>自动布局</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="1" data-page-number="2"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">布局原则</span><span class="section-footer-chapter-page">P.2</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="2" data-page-number="3"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">图片布局</span><span class="section-footer-chapter-page">P.3</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">内容组件</button><div class="section-footer-menu" role="menu" aria-label="内容组件 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>内容组件</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="4" data-page-number="5"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">文本内容</span><span class="section-footer-chapter-page">P.5</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="5" data-page-number="6"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">数据内容</span><span class="section-footer-chapter-page">P.6</span></button></div></div></div><div class="section-footer-item active" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">交付检查</button><div class="section-footer-menu" role="menu" aria-label="交付检查 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>交付检查</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter is-current" role="menuitem" aria-current="location" data-slide-target="7" data-page-number="8"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">交付检查</span><span class="section-footer-chapter-page">P.8</span></button></div></div></div></footer></section>
     </main>
   </div>
   <div class="control-hotzone" aria-hidden="true"></div>
@@ -2682,6 +2837,93 @@
       }
       toggle() { this.setEnabled(!this.enabled); }
     }
+    /* ===========================================
+       FOOTER CHAPTER NAVIGATION
+       =========================================== */
+    class FooterChapterNavigation {
+      constructor(presentation) {
+        this.presentation = presentation;
+        this.items = [...document.querySelectorAll("[data-section-nav-item]")];
+        this.openItem = null;
+        this.items.forEach(item => this.bindItem(item));
+        document.addEventListener("pointerdown", event => {
+          if (!event.target.closest?.("[data-section-nav-item]")) this.closeAll();
+        }, {passive:true});
+        this.slideObserver = new MutationObserver(mutations => {
+          if (mutations.some(mutation => mutation.attributeName === "class")) this.closeAll();
+        });
+        this.presentation.slides.forEach(slide => {
+          this.slideObserver.observe(slide, {attributes:true, attributeFilter:["class"]});
+        });
+      }
+      menuFor(item) { return item.querySelector(".section-footer-menu"); }
+      buttonsFor(item) { return [...item.querySelectorAll(".section-footer-chapter")]; }
+      setOpen(item, open) {
+        if (!item || !this.menuFor(item)) return;
+        if (open && this.openItem && this.openItem !== item) this.setOpen(this.openItem, false);
+        const trigger = item.querySelector("[data-section-nav-trigger]");
+        const menu = this.menuFor(item);
+        item.classList.toggle("is-open", open);
+        trigger.setAttribute("aria-expanded", String(open));
+        menu.setAttribute("aria-hidden", String(!open));
+        menu.toggleAttribute("inert", !open);
+        this.openItem = open ? item : (this.openItem === item ? null : this.openItem);
+      }
+      closeAll() {
+        if (this.openItem) this.setOpen(this.openItem, false);
+      }
+      focusChapter(item, index) {
+        const buttons = this.buttonsFor(item);
+        if (!buttons.length) return;
+        buttons[(index + buttons.length) % buttons.length].focus();
+      }
+      bindItem(item) {
+        const trigger = item.querySelector("[data-section-nav-trigger]");
+        const menu = this.menuFor(item);
+        if (!trigger || !menu) return;
+        item.addEventListener("pointerenter", () => this.setOpen(item, true));
+        item.addEventListener("pointerleave", () => {
+          if (!item.contains(document.activeElement)) this.setOpen(item, false);
+        });
+        item.addEventListener("focusin", () => this.setOpen(item, true));
+        item.addEventListener("focusout", () => queueMicrotask(() => {
+          if (!item.contains(document.activeElement) && !item.matches(":hover")) this.setOpen(item, false);
+        }));
+        trigger.addEventListener("click", () => this.setOpen(item, true));
+        trigger.addEventListener("keydown", event => {
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            this.setOpen(item, true);
+            this.focusChapter(item, event.key === "ArrowDown" ? 0 : -1);
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            this.setOpen(item, false);
+          }
+        });
+        menu.addEventListener("keydown", event => {
+          const buttons = this.buttonsFor(item);
+          const index = buttons.indexOf(document.activeElement);
+          if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+            event.preventDefault();
+            const next = event.key === "Home" ? 0 : event.key === "End" ? -1 : index + (event.key === "ArrowDown" ? 1 : -1);
+            this.focusChapter(item, next);
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            trigger.focus();
+            this.setOpen(item, false);
+          }
+        });
+        menu.addEventListener("click", event => {
+          const button = event.target.closest?.("[data-slide-target]");
+          if (!button) return;
+          const target = Number.parseInt(button.dataset.slideTarget, 10);
+          if (!Number.isFinite(target)) return;
+          this.presentation.show(target);
+          this.closeAll();
+          button.blur();
+        });
+      }
+    }
 
     /* ===========================================
        PRESENTATION CONTROLLER
@@ -2853,9 +3095,11 @@
     const layoutEditor = new SlideLayoutEditor(embeddedEditorConfig);
     const presenterFocus = new PresenterFocus();
     const presentation = new SlidePresentation(visualWidgetManager, layoutEditor, presenterFocus);
+    const footerChapterNavigation = new FooterChapterNavigation(presentation);
     window.__SLIDE_LAYOUT_EDITOR__ = layoutEditor;
     window.__SLIDE_PRESENTER_FOCUS__ = presenterFocus;
     window.__SLIDE_PRESENTATION__ = presentation;
+    window.__SLIDE_FOOTER_CHAPTER_NAVIGATION__ = footerChapterNavigation;
     document.querySelectorAll("[data-media-tabs]").forEach(shell => new MediaTabs(shell));
     addEventListener("load", () => requestAnimationFrame(() => {
       if (new URLSearchParams(location.search).get("debug") === "1") document.documentElement.dataset.debug = "true";
