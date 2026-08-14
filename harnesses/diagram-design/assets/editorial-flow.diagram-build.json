@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0",
+  "engine": "diagram-design",
+  "renderer": "diagram-design",
+  "source": "assets/editorial-flow.diagram.html",
+  "sourceHtmlSha256": "448484dbdc2a7cc507c2960264ba0449801869930d693079fb3d8afbbf54e801",
+  "mermaidSourceHash": "c8bc70ecd854303a40889b39eab1ebe3a136e6806f96680ef3f1de221c66f826",
+  "buildHash": "9f31896133110731df990c12a8b88ad8cd9c0842f5f8c75fc1df8a4c710de6b5",
+  "svgSha256": "410a60b03e62c73bfc14ab2cf4d2de341c6d559fb69ae7f3dc07ef9ac27ba912",
+  "minimumSafeMargin": 82.0,
+  "viewBoxWidth": 1840.0,
+  "viewBoxHeight": 800.0,
+  "minimumSourceFontSize": 28.0
+}

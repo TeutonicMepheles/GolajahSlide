@@ -110,7 +110,7 @@ npm run test:presenter-focus
 
 ## 清晰规整的流程图
 
-Mermaid 与 Excalidraw 都作为构建期源格式，统一导出、校验并以内联 SVG 写入 HTML。发布页面不加载图表渲染器；已有预生成 SVG 时仍可零依赖构建。完整协议和取舍见 [构建期 SVG 图表方案](docs/DIAGRAMS.md)，可运行内容见 [中文双引擎示例](examples/diagrams/slides.md)。
+Mermaid、Diagram Design HTML 与 Excalidraw 都作为构建期源格式，统一导出、校验并以内联 SVG 写入 HTML。发布页面不加载图表渲染器；已有预生成 SVG 时仍可零依赖构建。默认 Mermaid CLI 适合自动布局；在围栏里声明 `renderer: diagram-design`，可保留 Mermaid 语义源，同时使用仓库级 `$golajah-diagram-design` Skill 做面向 Slide 的编辑式重绘。完整协议见 [构建期 SVG 图表方案](docs/DIAGRAMS.md)，可运行内容见 [中文图表示例](examples/diagrams/slides.md)。
 
 安装锁定的构建工具并重新生成 SVG：
 

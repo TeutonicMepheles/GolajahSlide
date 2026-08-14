@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GolajahSlide editorial diagram</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 100%; min-height: 100%; margin: 0; background: #111111; }
+    body { display: grid; place-items: center; padding: 24px; }
+    svg { display: block; width: min(100%, 1840px); height: auto; background: #FFFFFF; }
+  </style>
+</head>
+<body>
+  <svg id="replace-diagram-id" viewBox="0 0 1840 800" role="img"
+       aria-labelledby="replace-diagram-title replace-diagram-desc"
+       xmlns="http://www.w3.org/2000/svg">
+    <title id="replace-diagram-title">Replace with a concise diagram name</title>
+    <desc id="replace-diagram-desc">Replace with the nodes, relationships, and reading order.</desc>
+    <defs>
+      <marker id="replace-arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+        <path d="M0 0 L12 6 L0 12 Z" fill="#5B5965"/>
+      </marker>
+      <marker id="replace-arrow-accent" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+        <path d="M0 0 L12 6 L0 12 Z" fill="#6F60E5"/>
+      </marker>
+    </defs>
+    <rect width="1840" height="800" fill="#FFFFFF"/>
+
+    <!-- Draw connectors before nodes. Replace this example geometry. -->
+    <path d="M600 400 H780" fill="none" stroke="#6F60E5" stroke-width="3"
+          marker-end="url(#replace-arrow-accent)"/>
+
+    <rect x="240" y="320" width="360" height="160" rx="8" fill="#FFFFFF"
+          stroke="#111111" stroke-width="2"/>
+    <text x="420" y="412" text-anchor="middle" fill="#111111" font-size="32"
+          font-weight="700" font-family="PingFang SC, Noto Sans CJK SC, Microsoft YaHei, sans-serif">Source node</text>
+
+    <rect x="780" y="320" width="360" height="160" rx="8" fill="#F0EEFF"
+          stroke="#6F60E5" stroke-width="3"/>
+    <text x="960" y="412" text-anchor="middle" fill="#4C3BC6" font-size="32"
+          font-weight="700" font-family="PingFang SC, Noto Sans CJK SC, Microsoft YaHei, sans-serif">Focal node</text>
+  </svg>
+</body>
+</html>

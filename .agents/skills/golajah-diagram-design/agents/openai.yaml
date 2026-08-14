@@ -1,0 +1,4 @@
+interface:
+  display_name: "Golajah Diagram Design"
+  short_description: "Redraw Mermaid as editorial Slide SVGs"
+  default_prompt: "Use $golajah-diagram-design to redraw this Mermaid diagram for a GolajahSlide deck."
