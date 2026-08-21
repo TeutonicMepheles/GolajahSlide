@@ -1037,6 +1037,96 @@
         filter: saturate(1.12) contrast(1.05);
       }
     }
+    /* ===========================================
+       CITATIONS
+       =========================================== */
+    .citation {
+      position: relative;
+      top: -.35em;
+      margin-inline: .08em;
+      font-size: .58em;
+      line-height: 0;
+      vertical-align: baseline;
+    }
+    .citation-ref {
+      display: inline-grid;
+      min-width: 1.35em;
+      height: 1.35em;
+      padding-inline: .18em;
+      place-items: center;
+      border-radius: 999px;
+      color: var(--accent-strong);
+      background: color-mix(in srgb, var(--accent-soft) 82%, #fff);
+      font-weight: 800;
+      line-height: 1;
+      text-decoration: none;
+      outline: 0 solid transparent;
+      transition: color .16s ease, background .16s ease, outline-color .16s ease;
+    }
+    .citation-ref:is(:hover, :focus-visible, [aria-expanded="true"]) {
+      color: #fff;
+      background: var(--accent-strong);
+      outline: 4px solid color-mix(in srgb, var(--accent) 28%, transparent);
+    }
+    .citation-missing { color: #B42318; font-weight: 800; }
+    .citation-tooltip {
+      position: fixed;
+      left: 0;
+      top: 0;
+      z-index: 30000;
+      width: min(520px, calc(100vw - 32px));
+      padding: 18px 20px 16px;
+      border: 1px solid color-mix(in srgb, var(--accent) 28%, #D7D6DD);
+      border-radius: 16px;
+      color: var(--ink);
+      background: rgba(255,255,255,.98);
+      box-shadow: 0 18px 48px rgba(17,17,17,.22);
+      font-family: var(--font);
+      opacity: 0;
+      visibility: hidden;
+      transform: translateY(6px);
+      transition: opacity .14s ease, transform .14s ease, visibility 0s linear .14s;
+      pointer-events: none;
+    }
+    .citation-tooltip[data-open="true"] {
+      opacity: 1;
+      visibility: visible;
+      transform: translateY(0);
+      transition-delay: 0s;
+      pointer-events: auto;
+    }
+    .citation-tooltip-number {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--accent-strong);
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+    .citation-tooltip-text {
+      margin: 0 0 10px;
+      font-size: 17px;
+      font-weight: 650;
+      line-height: 1.45;
+    }
+    .citation-tooltip-link {
+      display: block;
+      color: var(--accent-strong);
+      font-size: 14px;
+      font-weight: 650;
+      line-height: 1.4;
+      text-decoration: none;
+      overflow-wrap: anywhere;
+    }
+    .citation-tooltip-link:hover { text-decoration: underline; }
+    @media (prefers-reduced-motion: reduce) {
+      .citation-ref, .citation-tooltip { transition: none; }
+    }
+    @media print {
+      .citation-tooltip { display: none !important; }
+      .citation-ref { color: var(--ink); background: transparent; outline: 0; }
+    }
     .slide[data-editor-typography="true"] :is(.text-card p, .text-card li, .code-card code, .data-table td) {
       line-height: var(--editor-body-line-height) !important;
       color: var(--editor-body-color) !important;
@@ -1363,7 +1453,7 @@
   <nav class="deck-controls" aria-label="演示控制">
     <button id="prev" aria-label="上一页" title="上一页">‹</button>
     <button id="next" aria-label="下一页" title="下一页">›</button>
-    <button id="focus" class="active" aria-label="关闭悬浮聚焦" aria-pressed="true" title="关闭悬浮聚焦（H）">◎</button>
+    <button id="focus" aria-label="开启悬浮聚焦" aria-pressed="false" title="开启悬浮聚焦（H）">◎</button>
     <button id="edit" aria-label="打开页面编辑器" aria-controls="layoutEditorPanel" aria-expanded="false" title="页面编辑器（E）">✦</button>
     <button id="save" aria-label="下载 HTML" title="下载 HTML">⇩</button>
   </nav>
@@ -2854,7 +2944,7 @@
     class PresenterFocus {
       constructor(shortcut = "H") {
         this.button = document.getElementById("focus");
-        this.enabled = true;
+        this.enabled = false;
         const normalizedShortcut = this.normalizeShortcut(shortcut);
         this.shortcut = normalizedShortcut && !this.isReservedShortcut(normalizedShortcut) ? normalizedShortcut : "H";
         this.pointerFrame = null;
@@ -2878,7 +2968,7 @@
         document.addEventListener("visibilitychange", () => {
           if (document.hidden) this.hidePointer();
         });
-        this.setEnabled(true);
+        this.setEnabled(false);
       }
       normalizeShortcut(value) {
         if (typeof value !== "string") return null;
@@ -3080,6 +3170,98 @@
         });
       }
     }
+    /* ===========================================
+       CITATIONS
+       =========================================== */
+    class Citations {
+      constructor() {
+        this.active = null;
+        this.hideTimer = null;
+        this.tooltip = this.createTooltip();
+        document.addEventListener("pointerover", event => this.onPointerOver(event));
+        document.addEventListener("pointerout", event => this.onPointerOut(event));
+        document.addEventListener("focusin", event => this.onFocusIn(event));
+        document.addEventListener("focusout", event => this.onFocusOut(event));
+        document.addEventListener("keydown", event => {
+          if (event.key === "Escape") this.hide(true);
+        });
+        addEventListener("resize", () => this.active && this.position());
+        this.tooltip.addEventListener("pointerenter", () => this.cancelHide());
+        this.tooltip.addEventListener("pointerleave", () => this.scheduleHide());
+      }
+      createTooltip() {
+        const tooltip = document.createElement("aside");
+        tooltip.className = "citation-tooltip";
+        tooltip.id = "citationTooltip";
+        tooltip.dataset.open = "false";
+        tooltip.setAttribute("role", "tooltip");
+        tooltip.innerHTML = '<span class="citation-tooltip-number"></span><p class="citation-tooltip-text"></p><a class="citation-tooltip-link" target="_blank" rel="noreferrer"></a>';
+        document.body.appendChild(tooltip);
+        return tooltip;
+      }
+      reference(target) { return target.closest?.(".citation-ref") || null; }
+      onPointerOver(event) {
+        const ref = this.reference(event.target);
+        if (ref) this.show(ref);
+      }
+      onPointerOut(event) {
+        const ref = this.reference(event.target);
+        if (ref && !ref.contains(event.relatedTarget) && !this.tooltip.contains(event.relatedTarget)) this.scheduleHide();
+      }
+      onFocusIn(event) {
+        const ref = this.reference(event.target);
+        if (ref) this.show(ref);
+      }
+      onFocusOut(event) {
+        const ref = this.reference(event.target);
+        if (ref && !this.tooltip.contains(event.relatedTarget)) this.scheduleHide();
+      }
+      cancelHide() {
+        if (this.hideTimer !== null) clearTimeout(this.hideTimer);
+        this.hideTimer = null;
+      }
+      scheduleHide() {
+        this.cancelHide();
+        this.hideTimer = setTimeout(() => this.hide(), 120);
+      }
+      show(ref) {
+        this.cancelHide();
+        if (this.active && this.active !== ref) this.active.setAttribute("aria-expanded", "false");
+        this.active = ref;
+        const number = ref.dataset.citationNumber;
+        const link = this.tooltip.querySelector(".citation-tooltip-link");
+        this.tooltip.querySelector(".citation-tooltip-number").textContent = `引用 ${number}`;
+        this.tooltip.querySelector(".citation-tooltip-text").textContent = ref.dataset.citationText || "";
+        link.textContent = `${ref.dataset.citationUrl}  ↗`;
+        link.href = ref.href;
+        ref.setAttribute("aria-describedby", this.tooltip.id);
+        ref.setAttribute("aria-expanded", "true");
+        this.tooltip.dataset.open = "true";
+        this.position();
+      }
+      position() {
+        if (!this.active) return;
+        const anchor = this.active.getBoundingClientRect();
+        const tip = this.tooltip.getBoundingClientRect();
+        const gap = 12;
+        const edge = 16;
+        let left = anchor.left + anchor.width / 2 - tip.width / 2;
+        left = Math.max(edge, Math.min(innerWidth - tip.width - edge, left));
+        let top = anchor.bottom + gap;
+        if (top + tip.height > innerHeight - edge) top = anchor.top - tip.height - gap;
+        top = Math.max(edge, Math.min(innerHeight - tip.height - edge, top));
+        this.tooltip.style.left = `${Math.round(left)}px`;
+        this.tooltip.style.top = `${Math.round(top)}px`;
+      }
+      hide(returnFocus = false) {
+        this.cancelHide();
+        const previous = this.active;
+        if (previous) previous.setAttribute("aria-expanded", "false");
+        this.active = null;
+        this.tooltip.dataset.open = "false";
+        if (returnFocus && previous && document.activeElement === this.tooltip.querySelector("a")) previous.focus();
+      }
+    }
 
     /* ===========================================
        PRESENTATION CONTROLLER
@@ -3249,10 +3431,12 @@
     const visualWidgetManager = new SlideVisualWidgetManager();
     const layoutEditor = new SlideLayoutEditor(embeddedEditorConfig);
     const presenterFocus = new PresenterFocus(layoutEditor.shortcuts.presenterFocus);
+    const citations = new Citations();
     const presentation = new SlidePresentation(visualWidgetManager, layoutEditor, presenterFocus);
     const footerChapterNavigation = new FooterChapterNavigation(presentation);
     window.__SLIDE_LAYOUT_EDITOR__ = layoutEditor;
     window.__SLIDE_PRESENTER_FOCUS__ = presenterFocus;
+    window.__SLIDE_CITATIONS__ = citations;
     window.__SLIDE_PRESENTATION__ = presentation;
     window.__SLIDE_FOOTER_CHAPTER_NAVIGATION__ = footerChapterNavigation;
     document.querySelectorAll("[data-media-tabs]").forEach(shell => new MediaTabs(shell));

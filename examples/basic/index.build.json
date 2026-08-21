@@ -19,5 +19,12 @@
     ]
   },
   "warnings": [],
-  "errors": []
+  "errors": [],
+  "citations": {
+    "defined": 1,
+    "referenced": 1,
+    "ids": [
+      "kimi-agent-frameworks"
+    ]
+  }
 }

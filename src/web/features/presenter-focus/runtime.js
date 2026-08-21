@@ -4,7 +4,7 @@
     class PresenterFocus {
       constructor(shortcut = "H") {
         this.button = document.getElementById("focus");
-        this.enabled = true;
+        this.enabled = false;
         const normalizedShortcut = this.normalizeShortcut(shortcut);
         this.shortcut = normalizedShortcut && !this.isReservedShortcut(normalizedShortcut) ? normalizedShortcut : "H";
         this.pointerFrame = null;
@@ -28,7 +28,7 @@
         document.addEventListener("visibilitychange", () => {
           if (document.hidden) this.hidePointer();
         });
-        this.setEnabled(true);
+        this.setEnabled(false);
       }
       normalizeShortcut(value) {
         if (typeof value !== "string") return null;

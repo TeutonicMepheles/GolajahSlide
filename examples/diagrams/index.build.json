@@ -12,9 +12,14 @@
   },
   "warnings": [],
   "errors": [],
+  "citations": {
+    "defined": 0,
+    "referenced": 0,
+    "ids": []
+  },
   "diagrams": {
     "detected": 2,
-    "renderRequested": true,
+    "renderRequested": false,
     "mermaid": {
       "detected": 0,
       "rendered": [],
@@ -23,16 +28,12 @@
     "diagramDesign": {
       "detected": 1,
       "rendered": [],
-      "cached": [
-        "assets/mermaid-build-flow.svg"
-      ]
+      "cached": []
     },
     "excalidraw": {
       "detected": 1,
       "rendered": [],
-      "cached": [
-        "assets/editable-diagram.svg"
-      ]
+      "cached": []
     },
     "quality": {
       "mermaid-svg-flow": [

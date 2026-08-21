@@ -26,12 +26,15 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
+from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parent
 TEMPLATE_PATH = ROOT / "templates" / "deck.html"
 WEB_FEATURE_ROOT = ROOT / "src" / "web" / "features"
 TEMPLATE_FRAGMENT_PATHS = {
+    "{{CITATIONS_CSS}}": WEB_FEATURE_ROOT / "citations" / "style.css",
+    "{{CITATIONS_RUNTIME}}": WEB_FEATURE_ROOT / "citations" / "runtime.js",
     "{{PRESENTER_FOCUS_CSS}}": WEB_FEATURE_ROOT / "presenter-focus" / "style.css",
     "{{PRESENTER_FOCUS_RUNTIME}}": WEB_FEATURE_ROOT / "presenter-focus" / "runtime.js",
     "{{FOOTER_CHAPTER_NAVIGATION_CSS}}": WEB_FEATURE_ROOT / "footer-chapter-navigation" / "style.css",
@@ -47,7 +50,10 @@ IMAGE_RE = re.compile(r'^!\[([^\]]*)\]\((\S+?)(?:\s+["\']([^"\']*)["\'])?\)\s*$'
 DIRECTIVE_RE = re.compile(r"<!--\s*slide\s*(.*?)-->", re.I | re.S)
 TABLE_DIVIDER_RE = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$")
 LIST_RE = re.compile(r"^\s*([-*+] |\d+[.)] )(.*)$")
-INLINE_TOKEN_RE = re.compile(r"(`[^`]+`|\*\*[^*]+\*\*|==[^=\n]+==|\[[^\]]+\]\([^)]+\))")
+INLINE_TOKEN_RE = re.compile(r"(`[^`]+`|\*\*[^*]+\*\*|==[^=\n]+==|\[\^[0-9A-Za-z_-]{1,64}\]|\[[^\]]+\]\([^)]+\))")
+CITATION_DEFINITION_RE = re.compile(r"^\s*\[\^([0-9A-Za-z_-]{1,64})\]:\s*(.*?)\s*$")
+CITATION_MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)\s*$", re.I)
+CITATION_BARE_URL_RE = re.compile(r"(https?://\S+)\s*$", re.I)
 HEX_COLOR_RE = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 REVEAL_KEY_RE = re.compile(r"^[0-9A-Za-z_-]{1,64}$")
 ARCHSCRIBE_FENCE_RE = re.compile(r"(?ms)^```archscribe[ \t]*\n(.*?)^```[ \t]*$")
@@ -117,6 +123,83 @@ class BuildMessages:
     def error(self, slide: int | None, message: str) -> None:
         prefix = f"P{slide}: " if slide else ""
         self.errors.append(prefix + message)
+
+
+@dataclass(frozen=True)
+class Citation:
+    citation_id: str
+    text: str
+    href: str
+
+    @property
+    def display_url(self) -> str:
+        parsed = urlsplit(self.href)
+        path = parsed.path.rstrip("/")
+        return f"{parsed.netloc}{path}" + (f"?{parsed.query}" if parsed.query else "")
+
+
+class CitationRegistry:
+    def __init__(self, definitions: dict[str, Citation], messages: BuildMessages) -> None:
+        self.definitions = definitions
+        self.messages = messages
+        self.numbers: dict[str, int] = {}
+
+    def render(self, citation_id: str, slide_no: int) -> str:
+        citation = self.definitions.get(citation_id)
+        if citation is None:
+            self.messages.error(slide_no, f"引用 [^{citation_id}] 没有对应定义")
+            return '<sup class="citation citation-missing" title="缺少引用定义">?</sup>'
+        number = self.numbers.setdefault(citation_id, len(self.numbers) + 1)
+        label = f"引用 {number}：{citation.text}"
+        return (
+            '<sup class="citation">'
+            f'<a class="citation-ref" href="{html.escape(citation.href, quote=True)}" '
+            'target="_blank" rel="noreferrer" '
+            f'data-citation-id="{html.escape(citation_id, quote=True)}" '
+            f'data-citation-number="{number}" '
+            f'data-citation-text="{html.escape(citation.text, quote=True)}" '
+            f'data-citation-url="{html.escape(citation.display_url, quote=True)}" '
+            f'aria-label="{html.escape(label, quote=True)}">{number}</a></sup>'
+        )
+
+
+def extract_citations(source: str, messages: BuildMessages) -> tuple[str, dict[str, Citation]]:
+    definitions: dict[str, Citation] = {}
+    kept: list[str] = []
+    fence: str | None = None
+    for line in source.replace("\r\n", "\n").splitlines():
+        stripped = line.strip()
+        fence_match = re.match(r"^(`{3,}|~{3,})", stripped)
+        if fence:
+            kept.append(line)
+            if stripped.startswith(fence):
+                fence = None
+            continue
+        if fence_match:
+            fence = fence_match.group(1)[0] * len(fence_match.group(1))
+            kept.append(line)
+            continue
+        match = CITATION_DEFINITION_RE.match(line)
+        if not match:
+            kept.append(line)
+            continue
+        citation_id, raw = match.groups()
+        link = CITATION_MARKDOWN_LINK_RE.search(raw)
+        if link:
+            link_label, href = link.groups()
+            text = raw[: link.start()].rstrip(" —–-:：") or link_label
+        else:
+            bare = CITATION_BARE_URL_RE.search(raw)
+            if not bare:
+                messages.error(None, f"引用 [^{citation_id}] 缺少 http(s) 原文链接")
+                continue
+            href = bare.group(1).rstrip(".,;，。；")
+            text = raw[: bare.start()].rstrip(" —–-:：") or href
+        if citation_id in definitions:
+            messages.error(None, f"引用 [^{citation_id}] 重复定义")
+            continue
+        definitions[citation_id] = Citation(citation_id, text, href)
+    return "\n".join(kept), definitions
 
 
 def write_text_atomic(path: Path, source: str) -> None:
@@ -587,7 +670,7 @@ def extract_media(body: str, source_dir: Path, output_dir: Path, messages: Build
     return media, "\n".join(kept).strip()
 
 
-def render_inline(text: str) -> str:
+def render_inline(text: str, citations: CitationRegistry | None = None, slide_no: int = 0) -> str:
     pieces: list[str] = []
     cursor = 0
     for match in INLINE_TOKEN_RE.finditer(text):
@@ -597,9 +680,12 @@ def render_inline(text: str) -> str:
             code = html.escape(token[1:-1]).replace("_", "_<wbr>")
             pieces.append(f"<code>{code}</code>")
         elif token.startswith("**"):
-            pieces.append(f"<strong>{render_inline(token[2:-2])}</strong>")
+            pieces.append(f"<strong>{render_inline(token[2:-2], citations, slide_no)}</strong>")
         elif token.startswith("=="):
-            pieces.append(f'<mark data-presenter-text="inline">{render_inline(token[2:-2])}</mark>')
+            pieces.append(f'<mark data-presenter-text="inline">{render_inline(token[2:-2], citations, slide_no)}</mark>')
+        elif token.startswith("[^"):
+            citation_id = token[2:-1]
+            pieces.append(citations.render(citation_id, slide_no) if citations else html.escape(token))
         else:
             link = re.match(r"\[([^\]]+)\]\(([^)]+)\)", token)
             if link:
@@ -615,14 +701,14 @@ def split_table_row(line: str) -> list[str]:
     return [cell.strip() for cell in re.split(r"(?<!\\)\|", stripped)]
 
 
-def render_table(lines: list[str]) -> Block:
+def render_table(lines: list[str], citations: CitationRegistry | None = None, slide_no: int = 0) -> Block:
     headers = split_table_row(lines[0])
     rows = [split_table_row(line) for line in lines[2:]]
     cols = max([len(headers), *[len(row) for row in rows]])
     headers += [""] * (cols - len(headers))
     normalized_rows = [row + [""] * (cols - len(row)) for row in rows]
-    thead = "".join(f"<th>{render_inline(cell)}</th>" for cell in headers)
-    tbody = "".join("<tr>" + "".join(f"<td>{render_inline(cell)}</td>" for cell in row) + "</tr>" for row in normalized_rows)
+    thead = "".join(f"<th>{render_inline(cell, citations, slide_no)}</th>" for cell in headers)
+    tbody = "".join("<tr>" + "".join(f"<td>{render_inline(cell, citations, slide_no)}</td>" for cell in row) + "</tr>" for row in normalized_rows)
     markup = (
         '<article class="card table-card" data-presenter-focus data-visual-widget="table" tabindex="0">'
         '<div class="visual-widget-content" data-visual-content>'
@@ -1100,11 +1186,11 @@ def render_chart_svg(chart_type: str, labels: list[str], values: list[float], ti
     )
 
 
-def paragraph_block(parts: list[str], title: str | None = None) -> Block | None:
+def paragraph_block(parts: list[str], title: str | None = None, citations: CitationRegistry | None = None, slide_no: int = 0) -> Block | None:
     if not parts and not title:
         return None
     content = "".join(parts)
-    heading = f"<h3>{render_inline(title)}</h3>" if title else ""
+    heading = f"<h3>{render_inline(title, citations, slide_no)}</h3>" if title else ""
     plain = re.sub(r"<[^>]+>", " ", content)
     return Block("section", f'<article class="card text-card section-card" data-presenter-focus>{heading}{content}</article>', plain)
 
@@ -1115,6 +1201,7 @@ def parse_blocks(
     output_dir: Path,
     messages: BuildMessages,
     slide_no: int,
+    citations: CitationRegistry | None = None,
     diagram_stage_size: tuple[int, int] = (DIAGRAM_STAGE_WIDTH, DIAGRAM_STAGE_HEIGHT),
 ) -> list[Block]:
     lines = body.splitlines()
@@ -1124,7 +1211,7 @@ def parse_blocks(
 
     def flush() -> None:
         nonlocal current_title, current_parts
-        block = paragraph_block(current_parts, current_title)
+        block = paragraph_block(current_parts, current_title, citations, slide_no)
         if block:
             blocks.append(block)
         current_title = None
@@ -1171,7 +1258,7 @@ def parse_blocks(
             while i < len(lines) and "|" in lines[i] and lines[i].strip():
                 table_lines.append(lines[i])
                 i += 1
-            blocks.append(render_table(table_lines))
+            blocks.append(render_table(table_lines, citations, slide_no))
             continue
         if stripped.startswith(">"):
             flush()
@@ -1185,7 +1272,7 @@ def parse_blocks(
                 callout_kind = quoted.pop(0)[2:-1].lower()
                 label = {"tip": "方法提示", "note": "补充说明", "warning": "风险提示", "quote": "关键结论", "question": "思考问题"}.get(callout_kind, "关键结论")
             quote_text = " ".join(quoted)
-            blocks.append(Block("callout", f'<article class="card soft text-card callout-card callout-{html.escape(callout_kind)}" data-presenter-focus><strong>{label}</strong><p>{render_inline(quote_text)}</p></article>', quote_text))
+            blocks.append(Block("callout", f'<article class="card soft text-card callout-card callout-{html.escape(callout_kind)}" data-presenter-focus><strong>{label}</strong><p>{render_inline(quote_text, citations, slide_no)}</p></article>', quote_text))
             continue
         list_match = LIST_RE.match(line)
         if list_match:
@@ -1198,7 +1285,7 @@ def parse_blocks(
                 items.append(match.group(2).strip())
                 i += 1
             tag = "ol" if ordered else "ul"
-            current_parts.append(f"<{tag}>" + "".join(f"<li>{render_inline(item)}</li>" for item in items) + f"</{tag}>")
+            current_parts.append(f"<{tag}>" + "".join(f"<li>{render_inline(item, citations, slide_no)}</li>" for item in items) + f"</{tag}>")
             continue
         paragraph: list[str] = [stripped]
         i += 1
@@ -1210,7 +1297,7 @@ def parse_blocks(
                 break
             paragraph.append(next_line)
             i += 1
-        current_parts.append(f"<p>{render_inline(' '.join(paragraph))}</p>")
+        current_parts.append(f"<p>{render_inline(' '.join(paragraph), citations, slide_no)}</p>")
     flush()
     return blocks
 
@@ -1288,7 +1375,7 @@ def resolve_layout(kind: str, requested: str, media: list[Media], blocks: list[B
     return "split"
 
 
-def parse_slide(chunk: str, number: int, deck: dict[str, object], source_dir: Path, output_dir: Path, messages: BuildMessages) -> Slide:
+def parse_slide(chunk: str, number: int, deck: dict[str, object], source_dir: Path, output_dir: Path, messages: BuildMessages, citations: CitationRegistry | None = None) -> Slide:
     config, cleaned = clean_directive(chunk)
     title, subtitle, body = pop_headings(cleaned)
     kind = config.get("type", "content").lower()
@@ -1301,7 +1388,7 @@ def parse_slide(chunk: str, number: int, deck: dict[str, object], source_dir: Pa
     media, body_without_media = extract_media(body, source_dir, output_dir, messages, number)
     fullstage = not bool_config(config, "footer", True)
     diagram_stage_size = (DIAGRAM_STAGE_WIDTH, DIAGRAM_STAGE_HEIGHT) if fullstage else (1700, 716)
-    blocks = parse_blocks(body_without_media, source_dir, output_dir, messages, number, diagram_stage_size)
+    blocks = parse_blocks(body_without_media, source_dir, output_dir, messages, number, citations, diagram_stage_size)
     requested = config.get("layout", "auto").lower()
     resolved = resolve_layout(kind, requested, media, blocks, messages, number)
     section = config.get("section", "") or str(deck.get("default-section", ""))
@@ -2351,11 +2438,13 @@ def build(
     except (OSError, UnicodeError) as error:
         print(f"ERROR: cannot read template source: {error}", file=sys.stderr)
         return 2
+    source, citation_definitions = extract_citations(source, messages)
+    citations = CitationRegistry(citation_definitions, messages)
     deck, chunks = split_deck_source(source)
     if not chunks:
         print("ERROR: no slides found", file=sys.stderr)
         return 2
-    slides = [parse_slide(chunk, index, deck, source_path.parent, output_path.parent, messages) for index, chunk in enumerate(chunks, 1)]
+    slides = [parse_slide(chunk, index, deck, source_path.parent, output_path.parent, messages, citations) for index, chunk in enumerate(chunks, 1)]
     if mermaid_specs or excalidraw_configs:
         diagram_report["quality"] = {
             slide.slide_id: [block.meta for block in slide.blocks if block.kind in {"mermaid", "excalidraw"}]
@@ -2442,6 +2531,11 @@ def build(
         },
         "warnings": messages.warnings,
         "errors": messages.errors,
+        "citations": {
+            "defined": len(citation_definitions),
+            "referenced": len(citations.numbers),
+            "ids": list(citations.numbers),
+        },
     }
     if archscribe_configs:
         report["archscribe"] = archscribe_report

@@ -11,6 +11,11 @@
   },
   "warnings": [],
   "errors": [],
+  "citations": {
+    "defined": 0,
+    "referenced": 0,
+    "ids": []
+  },
   "archscribe": {
     "detected": 1,
     "renderRequested": false,

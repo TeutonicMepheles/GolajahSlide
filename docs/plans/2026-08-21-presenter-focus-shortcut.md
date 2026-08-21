@@ -21,7 +21,7 @@
 
 - 不提供整套演示控制的键位重映射。
 - 不允许在输入框、可编辑内容或交互控件中触发悬浮聚焦。
-- 不改变悬浮聚焦的视觉设计、默认启用状态或编辑模式暂停行为。
+- 不改变悬浮聚焦的视觉设计或编辑模式暂停行为。
 
 ## Ownership and boundaries
 
@@ -32,6 +32,7 @@
 ## Acceptance gates
 
 - [x] 默认 `H` 可切换悬浮聚焦。
+- [x] 页面加载时悬浮聚焦默认关闭，用户显式开启后才显示暗幕、描边和指针圆圈。
 - [x] 编辑模式可录入并立即启用新的无冲突快捷键。
 - [x] 输入控件中不会误触快捷键，冲突键不会覆盖当前配置。
 - [x] 键位可经本地状态、导出/导入 JSON 和重新构建保留。
@@ -47,5 +48,6 @@ Implemented on 2026-08-21.
 
 - 页面编辑器新增整份演示文稿级别的“演示快捷键”录入框与恢复默认按钮；支持字母、数字、F1–F12 和修饰键组合。
 - Presenter Focus 独立负责规范化、冲突判定、键盘事件匹配以及工具栏 title / `aria-keyshortcuts` 同步；输入框、按钮和可编辑内容聚焦时不会误触。
+- Presenter Focus 初始状态改为关闭；刷新页面后保持关闭，不持久化临时启用状态。
 - `shortcuts.presenterFocus` 会进入本地编辑状态和布局 JSON，构建器验证后内嵌到自包含 HTML；浏览器测试验证了改键、拒绝冲突、旧键失效、新键开关和刷新恢复。
-- Validation: `npm test` passed（Python `31/31` + Footer Chapter Navigation、Presenter Focus、Diagram Design Chromium Harness）；`basic`、`diagrams`、`archscribe` 均以 `--strict` 构建成功；页面编辑器原生布局下拉框的深色选项可读性回归通过；`git diff --check` passed。
+- Validation: `npm test` passed（Python `35/35` + Presenter Focus、Footer Chapter Navigation、Citations、Diagram Design Chromium Harness）；`basic`、`diagrams`、`archscribe` 均以 `--strict` 构建成功；页面编辑器原生布局下拉框的深色选项可读性回归通过；`git diff --check` passed。

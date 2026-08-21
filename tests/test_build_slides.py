@@ -624,6 +624,59 @@ Second page.
         self.assertIn('<mark data-presenter-text="inline">重点 <strong>结论</strong></mark>', source)
         self.assertIn("<code>code</code>", source)
 
+    def test_citations_are_numbered_by_first_use_and_reused(self):
+        messages = build_slides.BuildMessages()
+        source, definitions = build_slides.extract_citations(
+            "正文[^kimi]，再次引用[^kimi]。\n\n[^kimi]: Kimi Agent 框架 — https://www.kimi.ai/zh-hant/resources/best-ai-agent-frameworks",
+            messages,
+        )
+        registry = build_slides.CitationRegistry(definitions, messages)
+        rendered = build_slides.render_inline(source, registry, 1)
+        self.assertEqual(rendered.count('data-citation-number="1"'), 2)
+        self.assertIn('data-citation-text="Kimi Agent 框架"', rendered)
+        self.assertIn('href="https://www.kimi.ai/zh-hant/resources/best-ai-agent-frameworks"', rendered)
+        self.assertNotIn("[^kimi]:", source)
+        self.assertEqual(messages.errors, [])
+
+    def test_citation_definition_accepts_trailing_markdown_link(self):
+        messages = build_slides.BuildMessages()
+        _, definitions = build_slides.extract_citations(
+            "[^kimi]: Kimi 来源 — [打开原文](https://www.kimi.ai/zh-hant/resources/best-ai-agent-frameworks)",
+            messages,
+        )
+        self.assertEqual(definitions["kimi"].text, "Kimi 来源")
+        self.assertEqual(definitions["kimi"].display_url, "www.kimi.ai/zh-hant/resources/best-ai-agent-frameworks")
+        self.assertEqual(messages.errors, [])
+
+    def test_citation_validation_reports_missing_duplicate_and_unlinked_definitions(self):
+        messages = build_slides.BuildMessages()
+        _, definitions = build_slides.extract_citations(
+            "[^dup]: 第一条 — https://example.com/one\n[^dup]: 第二条 — https://example.com/two\n[^offline]: 没有链接",
+            messages,
+        )
+        registry = build_slides.CitationRegistry(definitions, messages)
+        missing = build_slides.render_inline("缺失[^unknown]", registry, 3)
+        self.assertIn("citation-missing", missing)
+        self.assertTrue(any("重复定义" in error for error in messages.errors))
+        self.assertTrue(any("缺少 http(s)" in error for error in messages.errors))
+        self.assertTrue(any("P3" in error and "没有对应定义" in error for error in messages.errors))
+
+    def test_citation_feature_is_composed_into_a_strict_build(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            markdown.write_text(
+                "# 引用测试\n\n正文[^kimi]\n\n[^kimi]: Kimi — https://www.kimi.ai/zh-hant/resources/best-ai-agent-frameworks\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(build_slides.build(markdown, output, strict=True), 0)
+            rendered = output.read_text(encoding="utf-8")
+            report = json.loads(output.with_suffix(".build.json").read_text(encoding="utf-8"))
+            self.assertIn("class Citations", rendered)
+            self.assertNotIn("{{CITATIONS_CSS}}", rendered)
+            self.assertEqual(report["citations"], {"defined": 1, "referenced": 1, "ids": ["kimi"]})
+
     def test_presenter_focus_feature_sources_are_composed_and_input_aware(self):
         template = build_slides.TEMPLATE_PATH.read_text(encoding="utf-8")
         style = build_slides.TEMPLATE_FRAGMENT_PATHS["{{PRESENTER_FOCUS_CSS}}"].read_text(encoding="utf-8")
