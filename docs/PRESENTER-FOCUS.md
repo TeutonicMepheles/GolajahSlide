@@ -30,7 +30,7 @@
 
 ## 实现结构
 
-构建器为语义文字容器输出 `data-presenter-focus`。[Presenter Focus Feature](../src/web/features/presenter-focus/README.md) 的样式用 `:hover` 提亮目标，并用当前 Slide 上受限范围的 `:has()` 打开暗幕；`PresenterFocus` 负责工具栏与 `H` 键开关、文本目标注册和指针圆圈状态。圆圈的位置更新以 `requestAnimationFrame` 合并，只写入一个不接收指针事件的展示节点，不改变既有指针事件顺序。构建时 Feature CSS/JavaScript 会被内联进模板，最终产物仍是单文件 HTML。
+构建器为语义文字容器输出 `data-presenter-focus`。[Presenter Focus Feature](../src/web/features/presenter-focus/README.md) 的样式用 `:hover` 提亮目标，并用当前 Slide 上受限范围的 `:has()` 打开暗幕；`PresenterFocus` 负责工具栏与全局快捷键开关、文本目标注册和指针圆圈状态。快捷键默认是 `H`，可在页面编辑器的“演示快捷键”中录入新键位，并随布局 JSON 保存。圆圈的位置更新以 `requestAnimationFrame` 合并，只写入一个不接收指针事件的展示节点，不改变既有指针事件顺序。构建时 Feature CSS/JavaScript 会被内联进模板，最终产物仍是单文件 HTML。
 
 不支持 `:has()` 的旧浏览器会自然降级：目标仍有轮廓和光晕，但不会显示整页暗幕；内容、导航和编辑能力不受影响。
 
