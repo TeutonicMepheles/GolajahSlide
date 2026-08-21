@@ -4,7 +4,7 @@ Presenter Focus is a browser-only presentation Feature. It provides a theme-awar
 
 ## Runtime contract
 
-- Focus is enabled by default and toggled by the `H` shortcut or `#focus` control. `H` is the default; Layout Editor can replace it with a deck-wide single key or modified key combination.
+- Focus is disabled by default and toggled by the `H` shortcut or `#focus` control. `H` is the default; Layout Editor can replace it with a deck-wide single key or modified key combination.
 - A non-interactive `aria-hidden` pointer cue follows mouse/pen movement inside the active Slide. It keeps the system cursor visible and batches position updates with `requestAnimationFrame`.
 - The Feature owns `body.presenter-focus-enabled`, the control's active/ARIA state, and automatic `data-presenter-text="block"` registration.
 - The Feature owns its theme-derived tokens: container focus uses the lightest accent mix, pointer cue uses the middle mix, and nested text uses the strongest accent mix.

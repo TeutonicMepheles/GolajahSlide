@@ -43,6 +43,10 @@ try {
 
   const target = await page.$(".slide.active .text-card[data-presenter-focus]");
   assert(target, "active slide should expose a semantic presenter-focus target");
+  assert.equal(await page.$eval("body", node => node.classList.contains("presenter-focus-enabled")), false);
+  assert.equal(await page.$eval("#focus", node => node.getAttribute("aria-pressed")), "false");
+  await page.keyboard.press("h");
+  await page.waitForFunction(() => document.body.classList.contains("presenter-focus-enabled"));
   await target.hover();
   await page.waitForFunction(() =>
     getComputedStyle(document.querySelector(".slide.active"), "::after").opacity === "1"
@@ -255,8 +259,9 @@ try {
   await page.reload({ waitUntil: "load" });
   assert.equal(await page.$eval("#editorPresenterFocusShortcut", node => node.value), "K");
   assert.equal(await page.$eval("#focus", node => node.getAttribute("aria-keyshortcuts")), "K");
+  assert.equal(await page.$eval("body", node => node.classList.contains("presenter-focus-enabled")), false);
   await page.keyboard.press("k");
-  await page.waitForFunction(() => !document.body.classList.contains("presenter-focus-enabled"));
+  await page.waitForFunction(() => document.body.classList.contains("presenter-focus-enabled"));
 
   console.log("Presenter focus browser test passed.");
 } finally {

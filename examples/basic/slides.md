@@ -84,7 +84,7 @@ chapter: 文本内容
 
 ### 一页一个核心结论
 
-正文先写结论，再补充证据。演讲型页面尽量控制在 1–3 个要点；阅读型页面可以使用更完整的结构，但仍应优先拆页。
+正文先写结论，再补充证据。涉及 AI Agent 框架选型时，可将外部调研结论标为可追溯角标[^kimi-agent-frameworks]。演讲型页面尽量控制在 1–3 个要点；阅读型页面可以使用更完整的结构，但仍应优先拆页。
 
 ### 使用稳定的字号台阶
 
@@ -163,3 +163,5 @@ chapter: 交付检查
 - `window.__SLIDE_DIAGNOSTICS__` 暴露运行时溢出结果
 - 加 `?debug=1` 会在页面上标出发生溢出的容器
 - 固定 1920×1080 舞台在宽屏、投影和手机上只做等比缩放
+
+[^kimi-agent-frameworks]: Kimi：2025 年最佳 AI Agent 框架 — https://www.kimi.ai/zh-hant/resources/best-ai-agent-frameworks
