@@ -39,6 +39,8 @@ TEMPLATE_FRAGMENT_PATHS = {
     "{{PRESENTER_FOCUS_RUNTIME}}": WEB_FEATURE_ROOT / "presenter-focus" / "runtime.js",
     "{{FOOTER_CHAPTER_NAVIGATION_CSS}}": WEB_FEATURE_ROOT / "footer-chapter-navigation" / "style.css",
     "{{FOOTER_CHAPTER_NAVIGATION_RUNTIME}}": WEB_FEATURE_ROOT / "footer-chapter-navigation" / "runtime.js",
+    "{{GLOBAL_LOGO_CSS}}": WEB_FEATURE_ROOT / "global-logo" / "style.css",
+    "{{GLOBAL_LOGO_RUNTIME}}": WEB_FEATURE_ROOT / "global-logo" / "runtime.js",
 }
 STAGE_WIDTH = 1920
 STAGE_HEIGHT = 1080
@@ -1543,6 +1545,29 @@ def normalize_presenter_focus_shortcut(value: object, messages: BuildMessages) -
     return normalized
 
 
+def normalize_global_logo(value: object, messages: BuildMessages) -> dict[str, object]:
+    if not isinstance(value, dict):
+        return {"enabled": False, "src": "", "width": 190, "height": 72}
+    enabled = value.get("enabled") is True
+    src = value.get("src", "")
+    if not isinstance(src, str):
+        messages.warn(None, "全局 Logo src 必须是字符串，已使用占位符")
+        src = ""
+    if src:
+        valid_prefix = re.match(r"^data:image/(?:png|jpeg|webp);base64,", src, re.I)
+        encoded = src.split(",", 1)[1] if valid_prefix else ""
+        if not valid_prefix or len(src) > 2_800_000 or re.fullmatch(r"[A-Za-z0-9+/=]+", encoded) is None:
+            messages.warn(None, "全局 Logo 必须是 2 MB 以内的 PNG、JPEG 或 WebP data URL，已使用占位符")
+            src = ""
+    try:
+        width = max(80, min(420, round(float(value.get("width", 190)))))
+        height = max(36, min(180, round(float(value.get("height", 72)))))
+    except (TypeError, ValueError):
+        messages.warn(None, "全局 Logo 尺寸无效，已恢复为 190×72")
+        width, height = 190, 72
+    return {"enabled": enabled, "src": src, "width": width, "height": height}
+
+
 def apply_layout_overrides(slides: list[Slide], payload: dict[str, object], messages: BuildMessages) -> list[str]:
     entries = payload.get("slides", {})
     if not isinstance(entries, dict):
@@ -2495,6 +2520,14 @@ def build(
             "presenterFocus": normalize_presenter_focus_shortcut(
                 editor_payload.get("shortcuts", {}).get("presenterFocus")
                 if isinstance(editor_payload.get("shortcuts"), dict)
+                else None,
+                messages,
+            )
+        },
+        "branding": {
+            "logo": normalize_global_logo(
+                editor_payload.get("branding", {}).get("logo")
+                if isinstance(editor_payload.get("branding"), dict)
                 else None,
                 messages,
             )

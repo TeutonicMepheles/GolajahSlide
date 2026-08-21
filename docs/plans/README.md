@@ -4,6 +4,7 @@
 
 | Plan | Status | Scope | Summary | Last verified |
 |---|---|---|---|---|
+| [Global Logo — Editor Upload and Global Visibility](2026-08-21-global-logo.md) | Implemented | Global upper-right logo, editor upload/toggle/resize, persistence, Harness and browser validation | 页面右上角提供可全局开关、上传和调整尺寸的自包含 Logo | 2026-08-21 |
 | [Footer Chapter Navigation](2026-08-14-footer-chapter-navigation.md) | Implemented | Section/Chapter metadata, footer popover, keyboard navigation, Harness and browser validation | 悬浮页脚 Section 向上展开纵向子章节列表，点击跳转到子章节首个 Page | 2026-08-14 |
 | [Content Typography and Divider](2026-08-21-plain-content-typography.md) | Implemented | Non-heading content typography and textual-container separators | 非主副标题内容统一宋体粗标题与黑体正文，文本块使用底部细分隔线 | 2026-08-21 |
 | [Presenter Focus – Configurable Global Shortcut](2026-08-21-presenter-focus-shortcut.md) | Implemented | Presenter Focus shortcut, Layout Editor global setting, persistence and browser validation | 在编辑模式中设置整份演示文稿通用的悬浮聚焦开关键 | 2026-08-21 |

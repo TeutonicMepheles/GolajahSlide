@@ -7,7 +7,7 @@ slides.md
 slides.layout.json
 ```
 
-它不是全局主题或模板配置。全局舞台、基础样式和交互由 `templates/deck.html` 提供，自动布局规则由 `build_slides.py` 提供。
+它主要记录页面级布局调整，也承载编辑器支持的少量演示文稿级设置，例如快捷键和全局 Logo。全局舞台、基础样式和交互仍由 `templates/deck.html` 提供，自动布局规则由 `build_slides.py` 提供。
 
 ## 1. 自动加载与优先级
 
@@ -33,6 +33,15 @@ python3 build_slides.py slides.md --overrides review.layout.json -o index.html
   "stage": {"width": 1920, "height": 1080},
   "deckTitle": "演示文稿标题",
   "source": "slides.md",
+  "shortcuts": {"presenterFocus": "H"},
+  "branding": {
+    "logo": {
+      "enabled": true,
+      "src": "data:image/png;base64,...",
+      "width": 190,
+      "height": 72
+    }
+  },
   "slides": {
     "background-summary": {
       "layout": "split",
@@ -57,6 +66,8 @@ python3 build_slides.py slides.md --overrides review.layout.json -o index.html
 ```
 
 `slides` 的键必须对应 Markdown 页面配置中的稳定 `id`。不要依赖默认页码 ID，否则在页面前方增删内容后，旧覆盖可能应用到错误页面。
+
+`branding.logo` 是整份演示文稿共用的右上角 Logo。`enabled` 控制所有页面的显示；`src` 为空时使用占位符，上传 PNG、JPEG 或 WebP 后写入自包含的 data URL。`width` / `height` 可在编辑模式中拖动 Logo 左下角手柄调整，范围分别为 80–420 px 和 36–180 px；Logo 的右边界和标题区垂直中心线保持不变。编辑器限制源图片不超过 2 MB，包含 Logo 的布局 JSON 导入上限为 4 MB。
 
 ## 3. 布局类型
 
