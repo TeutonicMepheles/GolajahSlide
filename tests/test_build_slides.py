@@ -402,6 +402,7 @@ flowchart LR
             overrides.write_text(json.dumps({
                 "schemaVersion": "1.0",
                 "stage": {"width": 1920, "height": 1080},
+                "shortcuts": {"presenterFocus": "Ctrl+K"},
                 "slides": {
                     "wide-image": {
                         "layout": "split",
@@ -426,6 +427,7 @@ flowchart LR
             self.assertIn('"color":"#223344"', source)
             self.assertIn('"order":["header","block-1","visual"]', source)
             self.assertIn('"stepMs":160', source)
+            self.assertIn('"presenterFocus":"Ctrl+K"', source)
             self.assertEqual(report["layoutOverrides"]["appliedSlides"], ["wide-image"])
 
     def test_editor_sidecar_is_auto_loaded_and_scaled(self):
@@ -521,6 +523,14 @@ Second page.
         self.assertEqual(typography, {"lineHeight": 1.8, "color": "#AABBCC", "bold": True})
         self.assertEqual(animation, {"mode": "custom", "order": ["header", "block-1"], "stepMs": 40})
 
+    def test_presenter_focus_shortcut_is_normalized_and_rejects_conflicts(self):
+        messages = build_slides.BuildMessages()
+        self.assertEqual(build_slides.normalize_presenter_focus_shortcut("shift+ctrl+k", messages), "Ctrl+Shift+K")
+        self.assertEqual(build_slides.normalize_presenter_focus_shortcut("E", messages), "H")
+        self.assertEqual(build_slides.normalize_presenter_focus_shortcut("Ctrl+A", messages), "H")
+        self.assertEqual(build_slides.normalize_presenter_focus_shortcut("not-a-key", messages), "H")
+        self.assertEqual(len(messages.warnings), 3)
+
     def test_block_titles_are_larger_than_body_text(self):
         template = build_slides.TEMPLATE_PATH.read_text(encoding="utf-8")
 
@@ -533,6 +543,32 @@ Second page.
         self.assertGreater(font_size(".text-card h3"), font_size(".text-card p"))
         self.assertGreater(font_size(".callout-card > strong"), font_size(".callout-card p"))
         self.assertGreater(font_size(".code-label"), font_size(".code-card code"))
+
+    def test_callout_uses_the_same_type_scale_as_plain_content(self):
+        template = build_slides.TEMPLATE_PATH.read_text(encoding="utf-8")
+
+        self.assertIn(".text-card h3 { margin: 0 0 14px; color: var(--accent-strong); font-size: 36px;", template)
+        self.assertIn(".text-card p { margin: 0; font-size: 29px;", template)
+        self.assertIn(".callout-card > strong { display: block; margin-bottom: 10px; color: #fff; font-size: 36px;", template)
+        self.assertIn(".callout-card p { color: inherit; font-size: 29px;", template)
+        self.assertIn(".text-grid.focus-grid :is(.text-card h3, .callout-card > strong) { font-size: 44px; }", template)
+        self.assertIn(".density-speaking :is(.text-card h3, .callout-card > strong) { font-size: 38px; }", template)
+
+    def test_non_heading_content_uses_editorial_type_and_text_dividers(self):
+        template = build_slides.TEMPLATE_PATH.read_text(encoding="utf-8")
+
+        self.assertIn('--font-sans: "Source Han Sans SC"', template)
+        self.assertIn('--font-serif: "Source Han Serif SC"', template)
+        self.assertRegex(template, r"(?s)\.section-card\s*\{[^}]*border:\s*0;[^}]*border-bottom:\s*1px solid")
+        self.assertRegex(template, r"(?s)\.section-card\s*\{[^}]*border-radius:\s*0;[^}]*background:\s*transparent;")
+        self.assertRegex(template, r"(?s)\.content :is\(\.text-card h3, \.callout-card > strong, \.data-table th\)\s*\{[^}]*font-family:\s*var\(--font-serif\);[^}]*font-weight:\s*700;")
+        self.assertRegex(template, r"(?s)\.content :is\(\.text-card p, \.text-card ul, \.text-card ol, \.text-card li, \.data-table td, \.media-figure figcaption\)\s*\{[^}]*font-family:\s*var\(--font-sans\);[^}]*font-weight:\s*400;")
+        self.assertRegex(template, r"(?s)\.callout-card\s*\{[^}]*border:\s*0;[^}]*border-radius:\s*0;[^}]*background:\s*var\(--accent\);[^}]*color:\s*rgba\(255,255,255,\.76\);")
+        self.assertRegex(template, r"(?s)\.callout-card::after\s*\{[^}]*height:\s*1px;[^}]*background:\s*rgba\(255,255,255,\.72\);")
+        self.assertRegex(template, r"(?s)\.callout-card > strong\s*\{[^}]*color:\s*#fff;")
+        self.assertRegex(template, r"(?s)\.callout-card code\s*\{[^}]*border:\s*1px solid rgba\(255,255,255,\.32\);[^}]*background:\s*rgba\(17,17,17,\.34\);[^}]*color:\s*#fff;")
+        self.assertIn(".code-card { padding:", template)
+        self.assertIn(".chart-svg { display:", template)
 
     def test_missing_source_fails_cleanly_without_overwriting_output(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -595,8 +631,11 @@ Second page.
         self.assertIn("{{PRESENTER_FOCUS_CSS}}", template)
         self.assertIn("{{PRESENTER_FOCUS_RUNTIME}}", template)
         self.assertIn('id="focus"', template)
+        self.assertIn('id="editorPresenterFocusShortcut"', template)
+        self.assertIn("matchesShortcut(event)", runtime)
+        self.assertIn('aria-keyshortcuts', runtime)
         self.assertIn("class PresenterFocus", runtime)
-        self.assertIn('event.key === "h" || event.key === "H"', template)
+        self.assertNotIn('event.key === "h" || event.key === "H"', template)
         self.assertIn("body.presenter-focus-enabled:not(.editor-open)", style)
         self.assertIn("@media (hover: hover) and (pointer: fine)", style)
         self.assertIn(":has([data-presenter-focus]:not(.is-fullscreen):hover)", style)

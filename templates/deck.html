@@ -18,7 +18,9 @@
       --ink: #111111;
       --muted: rgba(17,17,17,.72);
       --line: #D7D6DD;
-      --font: "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei", sans-serif;
+      --font-sans: "Source Han Sans SC", "Source Han Sans CN", "思源黑体 CN", "Noto Sans CJK SC", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --font-serif: "Source Han Serif SC", "Source Han Serif CN", "思源宋体 CN", "Noto Serif CJK SC", "Songti SC", "SimSun", serif;
+      --font: var(--font-sans);
       --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
       --content-top: 214px;
       --content-height: 716px;
@@ -344,14 +346,53 @@
     }
     .soft { border-color: var(--accent-line); background: rgba(240,238,255,.96); }
     .text-card { padding: 28px 32px; }
-    .text-card h3 { margin: 0 0 14px; color: var(--accent-strong); font-size: 34px; line-height: 1.2; }
+    .text-card h3 { margin: 0 0 14px; color: var(--accent-strong); font-size: 36px; line-height: 1.2; }
     .text-card p { margin: 0; font-size: 29px; line-height: 1.46; }
     .text-card p + p { margin-top: 12px; }
     .text-card ul, .text-card ol { margin: 0; padding-left: 1.25em; font-size: 28px; line-height: 1.42; }
     .text-card li + li { margin-top: 8px; }
-    .callout-card { border-left: 8px solid var(--accent); }
-    .callout-card > strong { display: block; margin-bottom: 10px; color: var(--accent-strong); font-size: 32px; line-height: 1.2; }
-    .callout-card p { font-size: 28px; }
+    .section-card {
+      padding-right: 0;
+      padding-left: 0;
+      border: 0;
+      border-bottom: 1px solid color-mix(in srgb, var(--ink) 34%, transparent);
+      border-radius: 0;
+      background: transparent;
+    }
+    .content :is(.text-card h3, .callout-card > strong, .data-table th) {
+      font-family: var(--font-serif);
+      font-weight: 700;
+    }
+    .content :is(.text-card p, .text-card ul, .text-card ol, .text-card li, .data-table td, .media-figure figcaption) {
+      font-family: var(--font-sans);
+      font-weight: 400;
+    }
+    .callout-card {
+      padding-bottom: 56px;
+      border: 0;
+      border-radius: 0;
+      background: var(--accent);
+      color: rgba(255,255,255,.76);
+    }
+    .callout-card::after {
+      content: "";
+      position: absolute;
+      right: 32px;
+      bottom: 24px;
+      left: 32px;
+      height: 1px;
+      background: rgba(255,255,255,.72);
+    }
+    .callout-card > strong { display: block; margin-bottom: 10px; color: #fff; font-size: 36px; line-height: 1.2; }
+    .callout-card p { color: inherit; font-size: 29px; }
+    .callout-card code {
+      border: 1px solid rgba(255,255,255,.32);
+      background: rgba(17,17,17,.34);
+      color: #fff;
+      font-weight: 600;
+      box-decoration-break: clone;
+      -webkit-box-decoration-break: clone;
+    }
     .code-card { padding: 24px 28px; }
     .code-label { display: block; margin-bottom: 12px; color: var(--accent-strong); font-size: 27px; line-height: 1.2; font-weight: 700; }
     .code-card pre { margin: 0; white-space: pre-wrap; }
@@ -405,11 +446,11 @@
     .text-grid.count-5, .text-grid.count-6, .text-grid.count-7 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .text-grid.focus-grid .card { padding: 54px 64px; }
     .text-grid.focus-grid .text-card p { font-size: 38px; line-height: 1.45; }
-    .text-grid.focus-grid .text-card h3 { font-size: 44px; }
+    .text-grid.focus-grid :is(.text-card h3, .callout-card > strong) { font-size: 44px; }
     .density-speaking .text-card p,
     .density-speaking .text-card ul,
     .density-speaking .text-card ol { font-size: 32px; }
-    .density-speaking .text-card h3 { font-size: 38px; }
+    .density-speaking :is(.text-card h3, .callout-card > strong) { font-size: 38px; }
     .table-layout {
       height: 100%;
       display: flex;
@@ -788,7 +829,8 @@
     .editor-help { margin: 8px 0 0; color: rgba(255,255,255,.5); font-size: 12px; line-height: 1.45; }
     .editor-select,
     .editor-number,
-    .editor-color {
+    .editor-color,
+    .editor-shortcut {
       width: 100%;
       border: 1px solid rgba(255,255,255,.16);
       border-radius: 10px;
@@ -796,10 +838,13 @@
       background: rgba(255,255,255,.075);
       outline: none;
     }
-    .editor-select { height: 42px; padding: 0 12px; }
+    .editor-select { height: 42px; padding: 0 12px; color-scheme: dark; }
+    .editor-select option { color: #F7F6FB; background: #25232D; }
+    .editor-select option:disabled { color: #918D9B; }
     .editor-number { height: 38px; padding: 0 9px; font-variant-numeric: tabular-nums; }
     .editor-color { height: 38px; padding: 4px; cursor: pointer; }
-    .editor-select:focus, .editor-number:focus, .editor-color:focus { border-color: #9B8EFF; box-shadow: 0 0 0 3px rgba(111,96,229,.24); }
+    .editor-shortcut { height: 42px; padding: 0 12px; cursor: pointer; font-weight: 700; letter-spacing: .04em; }
+    .editor-select:focus, .editor-number:focus, .editor-color:focus, .editor-shortcut:focus { border-color: #9B8EFF; box-shadow: 0 0 0 3px rgba(111,96,229,.24); }
     .editor-region-tabs { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 7px; }
     .editor-region-tab,
     .editor-button {
@@ -1061,6 +1106,14 @@
         <button type="button" class="editor-button" id="editorResetAnimation" style="width:100%;margin-top:8px">使用默认生成顺序</button>
         <ol class="editor-order-list" id="editorAnimationOrder" aria-label="自定义内容显示顺序"></ol>
         <p class="editor-help">进入编排后，按希望出现的顺序点击页面容器；再次点击可取消标记。未标记内容会按默认顺序追加。</p>
+      </section>
+      <section class="editor-group">
+        <label class="editor-label" for="editorPresenterFocusShortcut">演示快捷键 <span>全局</span></label>
+        <input class="editor-shortcut" id="editorPresenterFocusShortcut" type="text" value="H" readonly aria-describedby="editorPresenterFocusShortcutHelp">
+        <div class="editor-button-row">
+          <button type="button" class="editor-button" id="editorResetPresenterFocusShortcut">恢复默认 H</button>
+        </div>
+        <p class="editor-help" id="editorPresenterFocusShortcutHelp">点击输入框，再按新的单键或组合键。用于开启或关闭悬浮聚焦；键位会应用于整份演示文稿。</p>
       </section>
       <section class="editor-group">
         <div class="editor-label">交给生成器</div>
@@ -1418,6 +1471,10 @@
         this.htmlOutputName = {{OUTPUT_FILENAME_JSON}};
         const embeddedSlides = embeddedConfig?.slides;
         this.entries = this.clone(embeddedSlides && typeof embeddedSlides === "object" && !Array.isArray(embeddedSlides) ? embeddedSlides : {});
+        const embeddedShortcuts = embeddedConfig?.shortcuts;
+        this.shortcuts = {
+          presenterFocus: typeof embeddedShortcuts?.presenterFocus === "string" ? embeddedShortcuts.presenterFocus : "H"
+        };
         this.presentation = null;
         this.active = false;
         this.textMode = false;
@@ -1437,6 +1494,7 @@
         this.bodyLineHeight = document.getElementById("editorBodyLineHeight");
         this.bodyColor = document.getElementById("editorBodyColor");
         this.bodyBold = document.getElementById("editorBodyBold");
+        this.presenterFocusShortcut = document.getElementById("editorPresenterFocusShortcut");
         this.status = document.getElementById("editorStatus");
         this.toastNode = document.getElementById("editorToast");
         this.fields = {
@@ -1450,6 +1508,9 @@
       }
       attach(presentation) {
         this.presentation = presentation;
+        if (!this.presentation.presenterFocus.setShortcut(this.shortcuts.presenterFocus)) this.presentation.presenterFocus.setShortcut("H");
+        this.shortcuts.presenterFocus = this.presentation.presenterFocus.shortcut;
+        this.presenterFocusShortcut.value = this.shortcuts.presenterFocus;
         this.presentation.slides.forEach(slide => {
           slide.dataset.generatedLayout = slide.dataset.layoutResolved;
           this.registerAnimationCandidates(slide);
@@ -1486,6 +1547,9 @@
           if (saved && typeof saved === "object" && saved.slides && typeof saved.slides === "object" && !Array.isArray(saved.slides)) {
             this.entries = {...this.entries, ...saved.slides};
           }
+          if (typeof saved?.shortcuts?.presenterFocus === "string") {
+            this.shortcuts.presenterFocus = saved.shortcuts.presenterFocus;
+          }
         } catch (_) {
           this.storageWarning = "浏览器无法读取之前的本地布局；当前仍可编辑并导出 JSON。";
         }
@@ -1514,6 +1578,7 @@
           stage: {...this.stageSize},
           deckTitle: this.deckTitle,
           source: this.source,
+          shortcuts: this.clone(this.shortcuts),
           slides: this.clone(this.entries)
         };
       }
@@ -1700,6 +1765,9 @@
         document.getElementById("editorAnimationMode").addEventListener("click", () => this.setAnimationMode(!this.animationMode));
         document.getElementById("editorPreviewAnimation").addEventListener("click", () => this.previewAnimation());
         document.getElementById("editorResetAnimation").addEventListener("click", () => this.resetAnimation());
+        this.presenterFocusShortcut.addEventListener("focus", () => this.presenterFocusShortcut.select());
+        this.presenterFocusShortcut.addEventListener("keydown", event => this.capturePresenterFocusShortcut(event));
+        document.getElementById("editorResetPresenterFocusShortcut").addEventListener("click", () => this.setPresenterFocusShortcut("H"));
         document.getElementById("editorExport").addEventListener("click", () => this.downloadJSON());
         document.getElementById("editorImport").addEventListener("click", () => document.getElementById("editorImportFile").click());
         document.getElementById("editorImportFile").addEventListener("change", event => this.importJSON(event.target.files?.[0]));
@@ -1707,6 +1775,35 @@
         document.getElementById("editorDownloadHtml").addEventListener("click", () => this.presentation?.save());
         document.getElementById("editorResetPage").addEventListener("click", () => this.resetPage());
         document.getElementById("editorResetDeck").addEventListener("click", () => this.resetDeck());
+      }
+      capturePresenterFocusShortcut(event) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (event.key === "Escape") {
+          this.presenterFocusShortcut.blur();
+          return;
+        }
+        const feature = this.presentation?.presenterFocus;
+        const shortcut = feature?.shortcutFromEvent(event);
+        if (!shortcut) {
+          if (!["Control", "Alt", "Shift", "Meta"].includes(event.key)) this.toast("仅支持字母、数字或 F1–F12，可搭配修饰键");
+          return;
+        }
+        if (feature.isReservedShortcut(shortcut)) {
+          this.toast(`${shortcut} 已用于其他演示控制，请换一个键位`);
+          return;
+        }
+        this.setPresenterFocusShortcut(shortcut);
+        this.presenterFocusShortcut.blur();
+      }
+      setPresenterFocusShortcut(value) {
+        const feature = this.presentation?.presenterFocus;
+        if (!feature?.setShortcut(value)) return false;
+        this.shortcuts.presenterFocus = feature.shortcut;
+        this.presenterFocusShortcut.value = feature.shortcut;
+        this.saveLocal();
+        this.toast(`悬浮聚焦快捷键已设为 ${feature.shortcut}`);
+        return true;
       }
       ensureOverlay(slide) {
         let overlay = slide.querySelector(":scope > .layout-editor-overlay");
@@ -2390,6 +2487,11 @@
             imported[id] = entry;
           }
           this.entries = {...this.entries, ...imported};
+          if (typeof payload.shortcuts?.presenterFocus === "string" &&
+              this.presentation.presenterFocus.setShortcut(payload.shortcuts.presenterFocus)) {
+            this.shortcuts.presenterFocus = this.presentation.presenterFocus.shortcut;
+            this.presenterFocusShortcut.value = this.shortcuts.presenterFocus;
+          }
           this.applyAll();
           this.saveLocal();
           this.refreshPanel();
@@ -2525,7 +2627,6 @@
           else if (["ArrowLeft","ArrowUp","PageUp"].includes(event.key)) { event.preventDefault(); this.step(-1); }
           else if (event.key === "Home") this.show(0);
           else if (event.key === "End") this.show(this.slides.length - 1);
-          else if (event.key === "h" || event.key === "H") this.presenterFocus.toggle();
           else if (event.key === "e" || event.key === "E") this.toggleEdit();
         });
         addEventListener("wheel", event => {
@@ -2598,7 +2699,7 @@
     try { embeddedEditorConfig = JSON.parse(document.getElementById("deckEditorConfig")?.textContent || "{}"); } catch (_) { /* invalid embedded data falls back to empty */ }
     const visualWidgetManager = new SlideVisualWidgetManager();
     const layoutEditor = new SlideLayoutEditor(embeddedEditorConfig);
-    const presenterFocus = new PresenterFocus();
+    const presenterFocus = new PresenterFocus(layoutEditor.shortcuts.presenterFocus);
     const presentation = new SlidePresentation(visualWidgetManager, layoutEditor, presenterFocus);
     const footerChapterNavigation = new FooterChapterNavigation(presentation);
     window.__SLIDE_LAYOUT_EDITOR__ = layoutEditor;

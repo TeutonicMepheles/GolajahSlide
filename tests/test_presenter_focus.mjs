@@ -179,6 +179,18 @@ try {
   await page.keyboard.press("h");
   await page.keyboard.press("e");
   await page.waitForFunction(() => document.body.classList.contains("editor-open"));
+  const layoutOptionPalette = await page.$$eval("#editorLayout option", options => options.map(option => ({
+    enabled: !option.disabled,
+    color: getComputedStyle(option).color,
+    backgroundColor: getComputedStyle(option).backgroundColor,
+  })));
+  assert(layoutOptionPalette.some(option => option.enabled), "layout picker should expose enabled options");
+  assert(
+    layoutOptionPalette.filter(option => option.enabled).every(option =>
+      option.color === "rgb(247, 246, 251)" && option.backgroundColor === "rgb(37, 35, 45)"
+    ),
+    `enabled layout options should remain legible in the native popup: ${JSON.stringify(layoutOptionPalette)}`
+  );
   await page.waitForFunction(() =>
     getComputedStyle(document.querySelector(".slide.active"), "::after").opacity === "0"
   );
@@ -193,13 +205,58 @@ try {
     "editor mode should hide the pointer cue"
   );
 
+  await page.click("#editorPresenterFocusShortcut");
+  await page.keyboard.press("k");
+  assert.equal(await page.$eval("#editorPresenterFocusShortcut", node => node.value), "K");
+  assert.equal(await page.$eval("#focus", node => node.getAttribute("aria-keyshortcuts")), "K");
+  assert.match(await page.$eval("#focus", node => node.title), /（K）$/);
+  assert.equal(
+    await page.evaluate(() => window.__SLIDE_LAYOUT_EDITOR__.exportPayload().shortcuts.presenterFocus),
+    "K",
+    "global shortcut should be included in editor export payload"
+  );
+
+  await page.click("#editorPresenterFocusShortcut");
+  await page.keyboard.press("e");
+  assert.equal(
+    await page.$eval("#editorPresenterFocusShortcut", node => node.value),
+    "K",
+    "reserved editor shortcut should not replace the focus shortcut"
+  );
+  assert.equal(await page.$eval("body", node => node.classList.contains("editor-open")), true);
+
   await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !document.body.classList.contains("editor-open"));
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => {
+    document.activeElement?.blur();
+    resolve();
+  }))));
+  await page.keyboard.press("h");
+  assert.equal(
+    await page.$eval("body", node => node.classList.contains("presenter-focus-enabled")),
+    true,
+    "old shortcut should stop toggling after reassignment"
+  );
+  await page.keyboard.press("k");
+  await page.waitForFunction(() => !document.body.classList.contains("presenter-focus-enabled"));
+  await page.keyboard.press("k");
+  await page.waitForFunction(() => document.body.classList.contains("presenter-focus-enabled"));
   await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]);
+  await page.waitForFunction(() =>
+    getComputedStyle(document.querySelector(".slide.active .text-card[data-presenter-focus]")).scale === "1"
+  );
   assert.equal(
     await page.$eval(".slide.active .text-card[data-presenter-focus]", node => getComputedStyle(node).scale),
     "1",
     "reduced-motion mode should remove focus scaling"
   );
+
+  await page.reload({ waitUntil: "load" });
+  assert.equal(await page.$eval("#editorPresenterFocusShortcut", node => node.value), "K");
+  assert.equal(await page.$eval("#focus", node => node.getAttribute("aria-keyshortcuts")), "K");
+  await page.keyboard.press("k");
+  await page.waitForFunction(() => !document.body.classList.contains("presenter-focus-enabled"));
 
   console.log("Presenter focus browser test passed.");
 } finally {

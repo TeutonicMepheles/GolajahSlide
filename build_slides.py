@@ -1425,6 +1425,37 @@ def load_layout_overrides(path: Path | None, messages: BuildMessages) -> dict[st
     return payload
 
 
+def normalize_presenter_focus_shortcut(value: object, messages: BuildMessages) -> str:
+    default = "H"
+    if value is None:
+        return default
+    if not isinstance(value, str):
+        messages.warn(None, "悬浮聚焦快捷键必须是字符串，已使用 H")
+        return default
+    aliases = {"control": "Ctrl", "ctrl": "Ctrl", "alt": "Alt", "shift": "Shift", "meta": "Meta", "cmd": "Meta", "command": "Meta"}
+    modifiers: set[str] = set()
+    key: str | None = None
+    for raw_part in (part.strip() for part in value.split("+")):
+        if not raw_part:
+            continue
+        modifier = aliases.get(raw_part.lower())
+        if modifier:
+            modifiers.add(modifier)
+        elif key is None:
+            key = raw_part.upper()
+        else:
+            key = None
+            break
+    if key is None or re.fullmatch(r"(?:[A-Z0-9]|F(?:[1-9]|1[0-2]))", key) is None:
+        messages.warn(None, "悬浮聚焦快捷键无效，已使用 H")
+        return default
+    normalized = "+".join([name for name in ("Ctrl", "Alt", "Shift", "Meta") if name in modifiers] + [key])
+    if key in {"A", "F"} or normalized == "E":
+        messages.warn(None, f"悬浮聚焦快捷键 {normalized} 与现有演示控制冲突，已使用 H")
+        return default
+    return normalized
+
+
 def apply_layout_overrides(slides: list[Slide], payload: dict[str, object], messages: BuildMessages) -> list[str]:
     entries = payload.get("slides", {})
     if not isinstance(entries, dict):
@@ -2371,6 +2402,14 @@ def build(
         "stage": {"width": STAGE_WIDTH, "height": STAGE_HEIGHT},
         "deckTitle": title,
         "source": source_path.name,
+        "shortcuts": {
+            "presenterFocus": normalize_presenter_focus_shortcut(
+                editor_payload.get("shortcuts", {}).get("presenterFocus")
+                if isinstance(editor_payload.get("shortcuts"), dict)
+                else None,
+                messages,
+            )
+        },
         "slides": {slide.slide_id: slide.editor_override for slide in slides if slide.editor_override},
     }
     editor_json = json.dumps(embedded_editor_config, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
