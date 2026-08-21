@@ -19,5 +19,10 @@
     ]
   },
   "warnings": [],
-  "errors": []
+  "errors": [],
+  "citations": {
+    "defined": 0,
+    "referenced": 0,
+    "ids": []
+  }
 }

@@ -194,6 +194,20 @@ Callout 内的行内代码使用深色半透明底、白色半粗文字和浅色
 
 支持 `TIP`、`NOTE`、`WARNING`、`QUOTE`、`QUESTION`。标签会转为中文，字号低于同级卡片标题，避免提示语抢夺层级。
 
+正文引用使用标准脚注标记；引用定义在整份演示中全局有效，不会成为页面正文：
+
+```markdown
+选择 AI Agent 框架时需要综合比较编排能力和工具生态[^kimi-agent-frameworks]。
+
+[^kimi-agent-frameworks]: Kimi：2025 年最佳 AI Agent 框架 — https://www.kimi.ai/zh-hant/resources/best-ai-agent-frameworks
+```
+
+- 引用 ID 可使用字母、数字、下划线和连字符，最长 64 个字符。
+- 编号按整份演示首次出现的顺序生成；重复引用同一个 ID 会复用编号。
+- 定义必须以 HTTP(S) 裸链接或 Markdown 链接结尾。
+- 鼠标悬浮或键盘聚焦角标会显示来源和原文链接；点击角标或提示中的链接会在新标签页打开原文。
+- 构建会拒绝缺失、重复或没有原文链接的引用定义。
+
 ## 9. 表格
 
 使用标准 GFM 表格：

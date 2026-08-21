@@ -718,6 +718,7 @@
     .slide.visible .reveal { opacity: 1; transform: translateY(0); }
     .slide.diagnostic-layout .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
 {{PRESENTER_FOCUS_CSS}}
+{{CITATIONS_CSS}}
     .slide[data-editor-typography="true"] :is(.text-card p, .text-card li, .code-card code, .data-table td) {
       line-height: var(--editor-body-line-height) !important;
       color: var(--editor-body-color) !important;
@@ -2531,6 +2532,7 @@
 
 {{PRESENTER_FOCUS_RUNTIME}}
 {{FOOTER_CHAPTER_NAVIGATION_RUNTIME}}
+{{CITATIONS_RUNTIME}}
 
     /* ===========================================
        PRESENTATION CONTROLLER
@@ -2700,10 +2702,12 @@
     const visualWidgetManager = new SlideVisualWidgetManager();
     const layoutEditor = new SlideLayoutEditor(embeddedEditorConfig);
     const presenterFocus = new PresenterFocus(layoutEditor.shortcuts.presenterFocus);
+    const citations = new Citations();
     const presentation = new SlidePresentation(visualWidgetManager, layoutEditor, presenterFocus);
     const footerChapterNavigation = new FooterChapterNavigation(presentation);
     window.__SLIDE_LAYOUT_EDITOR__ = layoutEditor;
     window.__SLIDE_PRESENTER_FOCUS__ = presenterFocus;
+    window.__SLIDE_CITATIONS__ = citations;
     window.__SLIDE_PRESENTATION__ = presentation;
     window.__SLIDE_FOOTER_CHAPTER_NAVIGATION__ = footerChapterNavigation;
     document.querySelectorAll("[data-media-tabs]").forEach(shell => new MediaTabs(shell));
