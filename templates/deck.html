@@ -222,6 +222,7 @@
       max-height: 800px;
     }
 {{FOOTER_CHAPTER_NAVIGATION_CSS}}
+{{GLOBAL_LOGO_CSS}}
 
     /* ===========================================
        COVER AND SECTION PLACEHOLDERS
@@ -1117,6 +1118,19 @@
         <p class="editor-help" id="editorPresenterFocusShortcutHelp">点击输入框，再按新的单键或组合键。用于开启或关闭悬浮聚焦；键位会应用于整份演示文稿。</p>
       </section>
       <section class="editor-group">
+        <div class="editor-toggle-row">
+          <div><div class="editor-label">全局 Logo <span>所有页面</span></div><p class="editor-help">显示在页面右上角，与内容页标题区对齐。</p></div>
+          <button type="button" class="editor-button" id="editorLogoEnabled" aria-pressed="false">已关闭</button>
+        </div>
+        <div class="editor-button-row">
+          <button type="button" class="editor-button primary" id="editorUploadLogo">上传 Logo</button>
+          <button type="button" class="editor-button" id="editorClearLogo">使用占位符</button>
+        </div>
+        <button type="button" class="editor-button" id="editorResetLogoSize" style="width:100%;margin-top:8px">恢复尺寸 190×72</button>
+        <input id="editorLogoFile" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" hidden>
+        <p class="editor-help" id="editorLogoStatus">尚未上传；打开后显示 LOGO 占位符。打开编辑器后可拖动 Logo 左下角手柄调整尺寸。</p>
+      </section>
+      <section class="editor-group">
         <div class="editor-label">交给生成器</div>
         <div class="editor-button-row">
           <button type="button" class="editor-button primary" id="editorExport">导出布局 JSON</button>
@@ -1476,6 +1490,12 @@
         this.shortcuts = {
           presenterFocus: typeof embeddedShortcuts?.presenterFocus === "string" ? embeddedShortcuts.presenterFocus : "H"
         };
+        const embeddedLogo = embeddedConfig?.branding?.logo;
+        this.branding = {
+          logo: embeddedLogo && typeof embeddedLogo === "object"
+            ? {enabled: embeddedLogo.enabled === true, src: typeof embeddedLogo.src === "string" ? embeddedLogo.src : "", width: embeddedLogo.width, height: embeddedLogo.height}
+            : {enabled: false, src: "", width: 190, height: 72}
+        };
         this.presentation = null;
         this.active = false;
         this.textMode = false;
@@ -1496,6 +1516,8 @@
         this.bodyColor = document.getElementById("editorBodyColor");
         this.bodyBold = document.getElementById("editorBodyBold");
         this.presenterFocusShortcut = document.getElementById("editorPresenterFocusShortcut");
+        this.logoEnabled = document.getElementById("editorLogoEnabled");
+        this.logoStatus = document.getElementById("editorLogoStatus");
         this.status = document.getElementById("editorStatus");
         this.toastNode = document.getElementById("editorToast");
         this.fields = {
@@ -1509,6 +1531,7 @@
       }
       attach(presentation) {
         this.presentation = presentation;
+        this.presentation.globalLogo.attach(this.presentation.slides, () => this.persistLogo());
         if (!this.presentation.presenterFocus.setShortcut(this.shortcuts.presenterFocus)) this.presentation.presenterFocus.setShortcut("H");
         this.shortcuts.presenterFocus = this.presentation.presenterFocus.shortcut;
         this.presenterFocusShortcut.value = this.shortcuts.presenterFocus;
@@ -1519,6 +1542,7 @@
           this.ensureAnimationOverlay(slide);
         });
         this.applyAll();
+        this.refreshLogoPanel();
         this.refreshPanel();
       }
       storageKey() { return `slides-template-layouts:${location.pathname}:${this.deckTitle}`; }
@@ -1551,6 +1575,14 @@
           if (typeof saved?.shortcuts?.presenterFocus === "string") {
             this.shortcuts.presenterFocus = saved.shortcuts.presenterFocus;
           }
+          if (saved?.branding?.logo && typeof saved.branding.logo === "object") {
+            this.branding.logo = {
+              enabled: saved.branding.logo.enabled === true,
+              src: typeof saved.branding.logo.src === "string" ? saved.branding.logo.src : "",
+              width: saved.branding.logo.width,
+              height: saved.branding.logo.height
+            };
+          }
         } catch (_) {
           this.storageWarning = "浏览器无法读取之前的本地布局；当前仍可编辑并导出 JSON。";
         }
@@ -1580,6 +1612,7 @@
           deckTitle: this.deckTitle,
           source: this.source,
           shortcuts: this.clone(this.shortcuts),
+          branding: this.clone(this.branding),
           slides: this.clone(this.entries)
         };
       }
@@ -1769,6 +1802,11 @@
         this.presenterFocusShortcut.addEventListener("focus", () => this.presenterFocusShortcut.select());
         this.presenterFocusShortcut.addEventListener("keydown", event => this.capturePresenterFocusShortcut(event));
         document.getElementById("editorResetPresenterFocusShortcut").addEventListener("click", () => this.setPresenterFocusShortcut("H"));
+        this.logoEnabled.addEventListener("click", () => this.setLogoEnabled(this.logoEnabled.getAttribute("aria-pressed") !== "true"));
+        document.getElementById("editorUploadLogo").addEventListener("click", () => document.getElementById("editorLogoFile").click());
+        document.getElementById("editorLogoFile").addEventListener("change", event => this.uploadLogo(event.target.files?.[0]));
+        document.getElementById("editorClearLogo").addEventListener("click", () => this.clearLogo());
+        document.getElementById("editorResetLogoSize").addEventListener("click", () => this.resetLogoSize());
         document.getElementById("editorExport").addEventListener("click", () => this.downloadJSON());
         document.getElementById("editorImport").addEventListener("click", () => document.getElementById("editorImportFile").click());
         document.getElementById("editorImportFile").addEventListener("change", event => this.importJSON(event.target.files?.[0]));
@@ -1805,6 +1843,46 @@
         this.saveLocal();
         this.toast(`悬浮聚焦快捷键已设为 ${feature.shortcut}`);
         return true;
+      }
+      refreshLogoPanel() {
+        const logo = this.presentation?.globalLogo?.config() || this.branding.logo;
+        this.logoEnabled.setAttribute("aria-pressed", String(logo.enabled));
+        this.logoEnabled.textContent = logo.enabled ? "已打开" : "已关闭";
+        const sourceStatus = logo.src ? "已内嵌全局 Logo" : "当前使用 LOGO 占位符";
+        this.logoStatus.textContent = `${sourceStatus}；尺寸 ${logo.width}×${logo.height}。拖动页面中 Logo 左下角手柄可微调。`;
+      }
+      persistLogo() {
+        this.branding.logo = this.presentation.globalLogo.config();
+        this.refreshLogoPanel();
+        this.saveLocal();
+      }
+      setLogoEnabled(enabled) {
+        this.presentation.globalLogo.setEnabled(enabled);
+        this.persistLogo();
+        this.toast(enabled ? "已在所有页面显示全局 Logo" : "已在所有页面隐藏全局 Logo");
+      }
+      async uploadLogo(file) {
+        if (!file) return;
+        try {
+          const source = await this.presentation.globalLogo.sourceFromFile(file);
+          this.presentation.globalLogo.setSource(source);
+          this.persistLogo();
+          this.toast("全局 Logo 已上传并应用到所有页面");
+        } catch (error) {
+          this.toast(`上传失败：${error.message}`);
+        } finally {
+          document.getElementById("editorLogoFile").value = "";
+        }
+      }
+      clearLogo() {
+        this.presentation.globalLogo.clearSource();
+        this.persistLogo();
+        this.toast("已恢复全局 Logo 占位符");
+      }
+      resetLogoSize() {
+        this.presentation.globalLogo.resetSize();
+        this.persistLogo();
+        this.toast("全局 Logo 尺寸已恢复为 190×72");
       }
       ensureOverlay(slide) {
         let overlay = slide.querySelector(":scope > .layout-editor-overlay");
@@ -2444,7 +2522,7 @@
       async importJSON(file) {
         if (!file) return;
         try {
-          if (file.size > 2 * 1024 * 1024) throw new Error("文件超过 2 MB，请拆分或精简配置");
+          if (file.size > 4 * 1024 * 1024) throw new Error("文件超过 4 MB，请拆分或精简配置");
           const payload = JSON.parse(await file.text());
           if (!payload || typeof payload !== "object" || typeof payload.slides !== "object" || Array.isArray(payload.slides)) throw new Error("缺少 slides 对象");
           const sourceStage = payload.stage && typeof payload.stage === "object" ? payload.stage : this.stageSize;
@@ -2493,6 +2571,10 @@
             this.shortcuts.presenterFocus = this.presentation.presenterFocus.shortcut;
             this.presenterFocusShortcut.value = this.shortcuts.presenterFocus;
           }
+          if (payload.branding?.logo && typeof payload.branding.logo === "object") {
+            this.branding.logo = this.presentation.globalLogo.setConfig(payload.branding.logo);
+            this.refreshLogoPanel();
+          }
           this.applyAll();
           this.saveLocal();
           this.refreshPanel();
@@ -2533,15 +2615,17 @@
 {{PRESENTER_FOCUS_RUNTIME}}
 {{FOOTER_CHAPTER_NAVIGATION_RUNTIME}}
 {{CITATIONS_RUNTIME}}
+{{GLOBAL_LOGO_RUNTIME}}
 
     /* ===========================================
        PRESENTATION CONTROLLER
        =========================================== */
     class SlidePresentation {
-      constructor(widgetManager, layoutEditor, presenterFocus) {
+      constructor(widgetManager, layoutEditor, presenterFocus, globalLogo) {
         this.widgetManager = widgetManager;
         this.layoutEditor = layoutEditor;
         this.presenterFocus = presenterFocus;
+        this.globalLogo = globalLogo;
         this.slides = [...document.querySelectorAll(".slide")];
         this.stage = document.getElementById("deckStage");
         this.current = Math.max(0, Math.min(this.slides.length - 1, (parseInt(location.hash.slice(1), 10) || 1) - 1));
@@ -2702,12 +2786,14 @@
     const visualWidgetManager = new SlideVisualWidgetManager();
     const layoutEditor = new SlideLayoutEditor(embeddedEditorConfig);
     const presenterFocus = new PresenterFocus(layoutEditor.shortcuts.presenterFocus);
+    const globalLogo = new GlobalLogo(layoutEditor.branding.logo);
     const citations = new Citations();
-    const presentation = new SlidePresentation(visualWidgetManager, layoutEditor, presenterFocus);
+    const presentation = new SlidePresentation(visualWidgetManager, layoutEditor, presenterFocus, globalLogo);
     const footerChapterNavigation = new FooterChapterNavigation(presentation);
     window.__SLIDE_LAYOUT_EDITOR__ = layoutEditor;
     window.__SLIDE_PRESENTER_FOCUS__ = presenterFocus;
     window.__SLIDE_CITATIONS__ = citations;
+    window.__SLIDE_GLOBAL_LOGO__ = globalLogo;
     window.__SLIDE_PRESENTATION__ = presentation;
     window.__SLIDE_FOOTER_CHAPTER_NAVIGATION__ = footerChapterNavigation;
     document.querySelectorAll("[data-media-tabs]").forEach(shell => new MediaTabs(shell));

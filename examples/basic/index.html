@@ -410,6 +410,75 @@
     @media (prefers-reduced-motion: reduce) {
       .section-footer-menu { transition: none; }
     }
+    /* Global Logo owns the shared upper-right brand mark on every slide. */
+    .global-logo {
+      --global-logo-width: 190px;
+      --global-logo-height: 72px;
+      position: absolute;
+      top: calc(125px - var(--global-logo-height) / 2);
+      right: 110px;
+      z-index: 32;
+      width: var(--global-logo-width);
+      height: var(--global-logo-height);
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border: 2px dashed color-mix(in srgb, var(--accent) 42%, transparent);
+      border-radius: 14px;
+      color: var(--accent-strong);
+      background: color-mix(in srgb, var(--accent-soft) 72%, white);
+      font-family: var(--font-sans);
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: .16em;
+    }
+    .global-logo[hidden] { display: none; }
+    .global-logo.has-image {
+      border-color: transparent;
+      background: transparent;
+    }
+    .global-logo img {
+      width: 100%;
+      height: 100%;
+      display: block;
+      object-fit: contain;
+    }
+    .global-logo img[hidden],
+    .global-logo.has-image .global-logo-placeholder { display: none; }
+    .slide.global-logo-enabled .slide-header h1,
+    .slide.global-logo-enabled .slide-header .subtitle { max-width: 1430px; }
+    body.editor-open .slide.active .global-logo:not([hidden]) {
+      z-index: 140;
+      outline: 3px solid rgba(111,96,229,.42);
+      outline-offset: 5px;
+    }
+    .global-logo-resize-handle {
+      position: absolute;
+      left: -12px;
+      bottom: -12px;
+      z-index: 2;
+      width: 26px;
+      height: 26px;
+      display: none;
+      padding: 0;
+      border: 3px solid #fff;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+      cursor: nesw-resize;
+      touch-action: none;
+    }
+    body.editor-open .slide.active .global-logo:not([hidden]) {
+      overflow: visible;
+    }
+    body.editor-open .slide.active .global-logo:not([hidden]) .global-logo-resize-handle {
+      display: block;
+      pointer-events: auto;
+    }
+
+    @media print {
+      .global-logo { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    }
 
     /* ===========================================
        COVER AND SECTION PLACEHOLDERS
@@ -1532,6 +1601,19 @@
         <p class="editor-help" id="editorPresenterFocusShortcutHelp">点击输入框，再按新的单键或组合键。用于开启或关闭悬浮聚焦；键位会应用于整份演示文稿。</p>
       </section>
       <section class="editor-group">
+        <div class="editor-toggle-row">
+          <div><div class="editor-label">全局 Logo <span>所有页面</span></div><p class="editor-help">显示在页面右上角，与内容页标题区对齐。</p></div>
+          <button type="button" class="editor-button" id="editorLogoEnabled" aria-pressed="false">已关闭</button>
+        </div>
+        <div class="editor-button-row">
+          <button type="button" class="editor-button primary" id="editorUploadLogo">上传 Logo</button>
+          <button type="button" class="editor-button" id="editorClearLogo">使用占位符</button>
+        </div>
+        <button type="button" class="editor-button" id="editorResetLogoSize" style="width:100%;margin-top:8px">恢复尺寸 190×72</button>
+        <input id="editorLogoFile" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" hidden>
+        <p class="editor-help" id="editorLogoStatus">尚未上传；打开后显示 LOGO 占位符。打开编辑器后可拖动 Logo 左下角手柄调整尺寸。</p>
+      </section>
+      <section class="editor-group">
         <div class="editor-label">交给生成器</div>
         <div class="editor-button-row">
           <button type="button" class="editor-button primary" id="editorExport">导出布局 JSON</button>
@@ -1554,7 +1636,7 @@
     </div>
   </aside>
   <div class="editor-toast" id="editorToast" role="status"></div>
-  <script id="deckEditorConfig" type="application/json">{"schemaVersion":"1.0","stage":{"width":1920,"height":1080},"deckTitle":"通用 Markdown Slides 工程模板","source":"slides.md","shortcuts":{"presenterFocus":"H"},"slides":{"square-image":{"layout":"split","regions":{"content":{"x":110,"y":214,"width":1700,"height":716},"visual":{"x":110,"y":214,"width":650,"height":716},"copy":{"x":790,"y":214,"width":1020,"height":716}},"typography":{"lineHeight":1.45,"color":"#222222","bold":false},"animation":{"mode":"custom","order":["header","visual","block-1","block-2"],"stepMs":120},"title":"接近 1:1 的图片自动进入左右布局","sourcePage":"P3"}}}</script>
+  <script id="deckEditorConfig" type="application/json">{"schemaVersion":"1.0","stage":{"width":1920,"height":1080},"deckTitle":"通用 Markdown Slides 工程模板","source":"slides.md","shortcuts":{"presenterFocus":"H"},"branding":{"logo":{"enabled":false,"src":"","width":190,"height":72}},"slides":{"square-image":{"layout":"split","regions":{"content":{"x":110,"y":214,"width":1700,"height":716},"visual":{"x":110,"y":214,"width":650,"height":716},"copy":{"x":790,"y":214,"width":1020,"height":716}},"typography":{"lineHeight":1.45,"color":"#222222","bold":false},"animation":{"mode":"custom","order":["header","visual","block-1","block-2"],"stepMs":120},"title":"接近 1:1 的图片自动进入左右布局","sourcePage":"P3"}}}</script>
   <script>
     /* ===========================================
        STANDARD IMAGE / CHART / TABLE VIEWER
@@ -1891,6 +1973,12 @@
         this.shortcuts = {
           presenterFocus: typeof embeddedShortcuts?.presenterFocus === "string" ? embeddedShortcuts.presenterFocus : "H"
         };
+        const embeddedLogo = embeddedConfig?.branding?.logo;
+        this.branding = {
+          logo: embeddedLogo && typeof embeddedLogo === "object"
+            ? {enabled: embeddedLogo.enabled === true, src: typeof embeddedLogo.src === "string" ? embeddedLogo.src : "", width: embeddedLogo.width, height: embeddedLogo.height}
+            : {enabled: false, src: "", width: 190, height: 72}
+        };
         this.presentation = null;
         this.active = false;
         this.textMode = false;
@@ -1911,6 +1999,8 @@
         this.bodyColor = document.getElementById("editorBodyColor");
         this.bodyBold = document.getElementById("editorBodyBold");
         this.presenterFocusShortcut = document.getElementById("editorPresenterFocusShortcut");
+        this.logoEnabled = document.getElementById("editorLogoEnabled");
+        this.logoStatus = document.getElementById("editorLogoStatus");
         this.status = document.getElementById("editorStatus");
         this.toastNode = document.getElementById("editorToast");
         this.fields = {
@@ -1924,6 +2014,7 @@
       }
       attach(presentation) {
         this.presentation = presentation;
+        this.presentation.globalLogo.attach(this.presentation.slides, () => this.persistLogo());
         if (!this.presentation.presenterFocus.setShortcut(this.shortcuts.presenterFocus)) this.presentation.presenterFocus.setShortcut("H");
         this.shortcuts.presenterFocus = this.presentation.presenterFocus.shortcut;
         this.presenterFocusShortcut.value = this.shortcuts.presenterFocus;
@@ -1934,6 +2025,7 @@
           this.ensureAnimationOverlay(slide);
         });
         this.applyAll();
+        this.refreshLogoPanel();
         this.refreshPanel();
       }
       storageKey() { return `slides-template-layouts:${location.pathname}:${this.deckTitle}`; }
@@ -1966,6 +2058,14 @@
           if (typeof saved?.shortcuts?.presenterFocus === "string") {
             this.shortcuts.presenterFocus = saved.shortcuts.presenterFocus;
           }
+          if (saved?.branding?.logo && typeof saved.branding.logo === "object") {
+            this.branding.logo = {
+              enabled: saved.branding.logo.enabled === true,
+              src: typeof saved.branding.logo.src === "string" ? saved.branding.logo.src : "",
+              width: saved.branding.logo.width,
+              height: saved.branding.logo.height
+            };
+          }
         } catch (_) {
           this.storageWarning = "浏览器无法读取之前的本地布局；当前仍可编辑并导出 JSON。";
         }
@@ -1995,6 +2095,7 @@
           deckTitle: this.deckTitle,
           source: this.source,
           shortcuts: this.clone(this.shortcuts),
+          branding: this.clone(this.branding),
           slides: this.clone(this.entries)
         };
       }
@@ -2184,6 +2285,11 @@
         this.presenterFocusShortcut.addEventListener("focus", () => this.presenterFocusShortcut.select());
         this.presenterFocusShortcut.addEventListener("keydown", event => this.capturePresenterFocusShortcut(event));
         document.getElementById("editorResetPresenterFocusShortcut").addEventListener("click", () => this.setPresenterFocusShortcut("H"));
+        this.logoEnabled.addEventListener("click", () => this.setLogoEnabled(this.logoEnabled.getAttribute("aria-pressed") !== "true"));
+        document.getElementById("editorUploadLogo").addEventListener("click", () => document.getElementById("editorLogoFile").click());
+        document.getElementById("editorLogoFile").addEventListener("change", event => this.uploadLogo(event.target.files?.[0]));
+        document.getElementById("editorClearLogo").addEventListener("click", () => this.clearLogo());
+        document.getElementById("editorResetLogoSize").addEventListener("click", () => this.resetLogoSize());
         document.getElementById("editorExport").addEventListener("click", () => this.downloadJSON());
         document.getElementById("editorImport").addEventListener("click", () => document.getElementById("editorImportFile").click());
         document.getElementById("editorImportFile").addEventListener("change", event => this.importJSON(event.target.files?.[0]));
@@ -2220,6 +2326,46 @@
         this.saveLocal();
         this.toast(`悬浮聚焦快捷键已设为 ${feature.shortcut}`);
         return true;
+      }
+      refreshLogoPanel() {
+        const logo = this.presentation?.globalLogo?.config() || this.branding.logo;
+        this.logoEnabled.setAttribute("aria-pressed", String(logo.enabled));
+        this.logoEnabled.textContent = logo.enabled ? "已打开" : "已关闭";
+        const sourceStatus = logo.src ? "已内嵌全局 Logo" : "当前使用 LOGO 占位符";
+        this.logoStatus.textContent = `${sourceStatus}；尺寸 ${logo.width}×${logo.height}。拖动页面中 Logo 左下角手柄可微调。`;
+      }
+      persistLogo() {
+        this.branding.logo = this.presentation.globalLogo.config();
+        this.refreshLogoPanel();
+        this.saveLocal();
+      }
+      setLogoEnabled(enabled) {
+        this.presentation.globalLogo.setEnabled(enabled);
+        this.persistLogo();
+        this.toast(enabled ? "已在所有页面显示全局 Logo" : "已在所有页面隐藏全局 Logo");
+      }
+      async uploadLogo(file) {
+        if (!file) return;
+        try {
+          const source = await this.presentation.globalLogo.sourceFromFile(file);
+          this.presentation.globalLogo.setSource(source);
+          this.persistLogo();
+          this.toast("全局 Logo 已上传并应用到所有页面");
+        } catch (error) {
+          this.toast(`上传失败：${error.message}`);
+        } finally {
+          document.getElementById("editorLogoFile").value = "";
+        }
+      }
+      clearLogo() {
+        this.presentation.globalLogo.clearSource();
+        this.persistLogo();
+        this.toast("已恢复全局 Logo 占位符");
+      }
+      resetLogoSize() {
+        this.presentation.globalLogo.resetSize();
+        this.persistLogo();
+        this.toast("全局 Logo 尺寸已恢复为 190×72");
       }
       ensureOverlay(slide) {
         let overlay = slide.querySelector(":scope > .layout-editor-overlay");
@@ -2859,7 +3005,7 @@
       async importJSON(file) {
         if (!file) return;
         try {
-          if (file.size > 2 * 1024 * 1024) throw new Error("文件超过 2 MB，请拆分或精简配置");
+          if (file.size > 4 * 1024 * 1024) throw new Error("文件超过 4 MB，请拆分或精简配置");
           const payload = JSON.parse(await file.text());
           if (!payload || typeof payload !== "object" || typeof payload.slides !== "object" || Array.isArray(payload.slides)) throw new Error("缺少 slides 对象");
           const sourceStage = payload.stage && typeof payload.stage === "object" ? payload.stage : this.stageSize;
@@ -2907,6 +3053,10 @@
               this.presentation.presenterFocus.setShortcut(payload.shortcuts.presenterFocus)) {
             this.shortcuts.presenterFocus = this.presentation.presenterFocus.shortcut;
             this.presenterFocusShortcut.value = this.shortcuts.presenterFocus;
+          }
+          if (payload.branding?.logo && typeof payload.branding.logo === "object") {
+            this.branding.logo = this.presentation.globalLogo.setConfig(payload.branding.logo);
+            this.refreshLogoPanel();
           }
           this.applyAll();
           this.saveLocal();
@@ -3269,15 +3419,138 @@
         if (returnFocus && previous && document.activeElement === this.tooltip.querySelector("a")) previous.focus();
       }
     }
+    class GlobalLogo {
+      constructor(config = {}) {
+        this.maxFileSize = 2 * 1024 * 1024;
+        this.allowedTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
+        this.state = this.normalize(config);
+        this.nodes = [];
+        this.onResizeCommit = null;
+      }
+      normalize(config) {
+        const enabled = config?.enabled === true;
+        const src = typeof config?.src === "string" &&
+          /^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(config.src) ? config.src : "";
+        const widthValue = Number(config?.width);
+        const heightValue = Number(config?.height);
+        const width = Number.isFinite(widthValue) ? Math.max(80, Math.min(420, Math.round(widthValue))) : 190;
+        const height = Number.isFinite(heightValue) ? Math.max(36, Math.min(180, Math.round(heightValue))) : 72;
+        return {enabled, src, width, height};
+      }
+      attach(slides, onResizeCommit = null) {
+        this.onResizeCommit = typeof onResizeCommit === "function" ? onResizeCommit : null;
+        this.nodes = [...slides].map(slide => this.ensureNode(slide));
+        this.apply();
+      }
+      ensureNode(slide) {
+        let node = slide.querySelector(":scope > [data-global-logo]");
+        if (node) {
+          this.bindResize(node.querySelector(".global-logo-resize-handle"));
+          return node;
+        }
+        node = document.createElement("div");
+        node.className = "global-logo";
+        node.dataset.globalLogo = "";
+        node.setAttribute("role", "img");
+        node.setAttribute("aria-label", "演示文稿 Logo 占位符");
+        node.innerHTML = '<img alt="演示文稿 Logo" draggable="false" hidden><span class="global-logo-placeholder" aria-hidden="true">LOGO</span><button type="button" class="global-logo-resize-handle" aria-label="拖动调整全局 Logo 尺寸"></button>';
+        this.bindResize(node.querySelector(".global-logo-resize-handle"));
+        slide.appendChild(node);
+        return node;
+      }
+      bindResize(handle) {
+        if (!handle || handle.dataset.resizeBound === "true") return;
+        handle.dataset.resizeBound = "true";
+        handle.addEventListener("pointerdown", event => {
+          if (!document.body.classList.contains("editor-open")) return;
+          event.preventDefault();
+          event.stopPropagation();
+          handle.setPointerCapture(event.pointerId);
+          const start = {x: event.clientX, y: event.clientY, width: this.state.width, height: this.state.height};
+          const move = moveEvent => {
+            const scale = Number(document.getElementById("deckStage")?.dataset.scale) || 1;
+            this.setSize(start.width - (moveEvent.clientX - start.x) / scale, start.height + (moveEvent.clientY - start.y) / scale);
+          };
+          const end = () => {
+            handle.removeEventListener("pointermove", move);
+            handle.removeEventListener("pointerup", end);
+            handle.removeEventListener("pointercancel", end);
+            this.onResizeCommit?.(this.config());
+          };
+          handle.addEventListener("pointermove", move);
+          handle.addEventListener("pointerup", end);
+          handle.addEventListener("pointercancel", end);
+        });
+      }
+      apply() {
+        this.nodes.forEach(node => {
+          const slide = node.closest(".slide");
+          const image = node.querySelector("img");
+          node.hidden = !this.state.enabled;
+          node.classList.toggle("has-image", Boolean(this.state.src));
+          node.setAttribute("aria-label", this.state.src ? "演示文稿 Logo" : "演示文稿 Logo 占位符");
+          node.style.setProperty("--global-logo-width", `${this.state.width}px`);
+          node.style.setProperty("--global-logo-height", `${this.state.height}px`);
+          slide?.classList.toggle("global-logo-enabled", this.state.enabled);
+          if (this.state.src) {
+            image.src = this.state.src;
+            image.hidden = false;
+          } else {
+            image.removeAttribute("src");
+            image.hidden = true;
+          }
+        });
+      }
+      setEnabled(enabled) {
+        this.state.enabled = enabled === true;
+        this.apply();
+      }
+      setConfig(config) {
+        this.state = this.normalize(config);
+        this.apply();
+        return this.config();
+      }
+      setSource(src) {
+        this.state.src = this.normalize({enabled: true, src}).src;
+        this.state.enabled = true;
+        this.apply();
+        return Boolean(this.state.src);
+      }
+      clearSource() {
+        this.state.src = "";
+        this.apply();
+      }
+      setSize(width, height) {
+        this.state.width = Math.max(80, Math.min(420, Math.round(Number(width) || 190)));
+        this.state.height = Math.max(36, Math.min(180, Math.round(Number(height) || 72)));
+        this.apply();
+      }
+      resetSize() { this.setSize(190, 72); }
+      config() { return {...this.state}; }
+      async sourceFromFile(file) {
+        if (!file) throw new Error("未选择图片");
+        if (!this.allowedTypes.has(file.type)) throw new Error("仅支持 PNG、JPEG 或 WebP");
+        if (file.size > this.maxFileSize) throw new Error("Logo 文件不能超过 2 MB");
+        const source = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.addEventListener("load", () => resolve(String(reader.result || "")), {once: true});
+          reader.addEventListener("error", () => reject(new Error("无法读取 Logo 文件")), {once: true});
+          reader.readAsDataURL(file);
+        });
+        if (!this.normalize({enabled: true, src: source}).src) throw new Error("Logo 图片编码无效");
+        return source;
+      }
+    }
 
     /* ===========================================
        PRESENTATION CONTROLLER
        =========================================== */
     class SlidePresentation {
-      constructor(widgetManager, layoutEditor, presenterFocus) {
+      constructor(widgetManager, layoutEditor, presenterFocus, globalLogo) {
         this.widgetManager = widgetManager;
         this.layoutEditor = layoutEditor;
         this.presenterFocus = presenterFocus;
+        this.globalLogo = globalLogo;
         this.slides = [...document.querySelectorAll(".slide")];
         this.stage = document.getElementById("deckStage");
         this.current = Math.max(0, Math.min(this.slides.length - 1, (parseInt(location.hash.slice(1), 10) || 1) - 1));
@@ -3438,12 +3711,14 @@
     const visualWidgetManager = new SlideVisualWidgetManager();
     const layoutEditor = new SlideLayoutEditor(embeddedEditorConfig);
     const presenterFocus = new PresenterFocus(layoutEditor.shortcuts.presenterFocus);
+    const globalLogo = new GlobalLogo(layoutEditor.branding.logo);
     const citations = new Citations();
-    const presentation = new SlidePresentation(visualWidgetManager, layoutEditor, presenterFocus);
+    const presentation = new SlidePresentation(visualWidgetManager, layoutEditor, presenterFocus, globalLogo);
     const footerChapterNavigation = new FooterChapterNavigation(presentation);
     window.__SLIDE_LAYOUT_EDITOR__ = layoutEditor;
     window.__SLIDE_PRESENTER_FOCUS__ = presenterFocus;
     window.__SLIDE_CITATIONS__ = citations;
+    window.__SLIDE_GLOBAL_LOGO__ = globalLogo;
     window.__SLIDE_PRESENTATION__ = presentation;
     window.__SLIDE_FOOTER_CHAPTER_NAVIGATION__ = footerChapterNavigation;
     document.querySelectorAll("[data-media-tabs]").forEach(shell => new MediaTabs(shell));

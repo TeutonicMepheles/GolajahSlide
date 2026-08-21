@@ -403,6 +403,7 @@ flowchart LR
                 "schemaVersion": "1.0",
                 "stage": {"width": 1920, "height": 1080},
                 "shortcuts": {"presenterFocus": "Ctrl+K"},
+                "branding": {"logo": {"enabled": True, "src": "data:image/png;base64,iVBORw0KGgo=", "width": 236, "height": 88}},
                 "slides": {
                     "wide-image": {
                         "layout": "split",
@@ -428,6 +429,7 @@ flowchart LR
             self.assertIn('"order":["header","block-1","visual"]', source)
             self.assertIn('"stepMs":160', source)
             self.assertIn('"presenterFocus":"Ctrl+K"', source)
+            self.assertIn('"branding":{"logo":{"enabled":true,"src":"data:image/png;base64,iVBORw0KGgo=","width":236,"height":88}}', source)
             self.assertEqual(report["layoutOverrides"]["appliedSlides"], ["wide-image"])
 
     def test_editor_sidecar_is_auto_loaded_and_scaled(self):
@@ -592,7 +594,7 @@ Second page.
         self.assertIn('event.key === "Escape" && this.layoutEditor.active', template)
         self.assertIn("Math.abs(dx) > Math.abs(dy) * 1.25", template)
         self.assertIn("if (this.layoutEditor.active || event.target.closest", template)
-        self.assertIn("file.size > 2 * 1024 * 1024", template)
+        self.assertIn("file.size > 4 * 1024 * 1024", template)
         self.assertIn('["ArrowLeft", "ArrowRight", "Home", "End"]', template)
 
     def test_presenter_focus_marks_semantic_text_containers(self):
@@ -703,6 +705,26 @@ Second page.
         self.assertIn("color-mix(in srgb, var(--accent)", style)
         self.assertIn("overflow: visible", style)
         self.assertIn("@media (prefers-reduced-motion: reduce)", template)
+
+    def test_global_logo_feature_is_composed_and_defaults_off(self):
+        template = build_slides.TEMPLATE_PATH.read_text(encoding="utf-8")
+        style = build_slides.TEMPLATE_FRAGMENT_PATHS["{{GLOBAL_LOGO_CSS}}"].read_text(encoding="utf-8")
+        runtime = build_slides.TEMPLATE_FRAGMENT_PATHS["{{GLOBAL_LOGO_RUNTIME}}"].read_text(encoding="utf-8")
+        self.assertIn("{{GLOBAL_LOGO_CSS}}", template)
+        self.assertIn("{{GLOBAL_LOGO_RUNTIME}}", template)
+        self.assertIn('id="editorLogoEnabled"', template)
+        self.assertIn('id="editorLogoFile"', template)
+        self.assertIn("class GlobalLogo", runtime)
+        self.assertIn("sourceFromFile", runtime)
+        self.assertIn(".global-logo", style)
+
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "index.html"
+            self.assertEqual(build_slides.build(SAMPLE_SOURCE, output), 0)
+            rendered = output.read_text(encoding="utf-8")
+            self.assertIn('"branding":{"logo":{"enabled":false,"src":"","width":190,"height":72}}', rendered)
+            self.assertNotIn("{{GLOBAL_LOGO_CSS}}", rendered)
+            self.assertNotIn("{{GLOBAL_LOGO_RUNTIME}}", rendered)
 
     def test_footer_chapters_group_repeated_names_and_fall_back_to_titles(self):
         slides = [
