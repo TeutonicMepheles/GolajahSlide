@@ -4,6 +4,9 @@
 
 | Plan | Status | Scope | Summary | Last verified |
 |---|---|---|---|---|
+| [Global Logo — Per-slide Visibility Exceptions](2026-08-22-global-logo-page-visibility.md) | Implemented | Per-slide visibility metadata for the existing global logo | 全局 Logo 保持统一配置，指定页可显式单独隐藏 | 2026-08-24 |
+| [Native Media Playback](2026-08-22-media-playback.md) | Implemented | Self-contained native video and tab-aware autoplay | 本地视频内嵌为单 HTML，并只在可见页面或 Tab 内播放 | 2026-08-24 |
+| [Slide Authoring Controls](2026-08-22-slide-authoring-controls.md) | Implemented | Pure-image structural slides, named Gallery tabs, Callout titles and heading citations | 提供显式、向后兼容的页面创作控制 | 2026-08-24 |
 | [Global Logo — Editor Upload and Global Visibility](2026-08-21-global-logo.md) | Implemented | Global upper-right logo, editor upload/toggle/resize, persistence, Harness and browser validation | 页面右上角提供可全局开关、上传和调整尺寸的自包含 Logo | 2026-08-21 |
 | [Footer Chapter Navigation](2026-08-14-footer-chapter-navigation.md) | Implemented | Section/Chapter metadata, footer popover, keyboard navigation, Harness and browser validation | 悬浮页脚 Section 向上展开纵向子章节列表，点击跳转到子章节首个 Page | 2026-08-14 |
 | [Content Typography and Divider](2026-08-21-plain-content-typography.md) | Implemented | Non-heading content typography and textual-container separators | 非主副标题内容统一宋体粗标题与黑体正文，文本块使用底部细分隔线 | 2026-08-21 |

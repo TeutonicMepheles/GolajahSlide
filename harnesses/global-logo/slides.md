@@ -26,7 +26,8 @@ id: logo-second
 type: content
 layout: text
 footer: false
+global-logo: hidden
 -->
-# 第二页同步展示
+# 第二页单独隐藏
 
-全局 Logo 应保持相同内容与位置。
+全局 Logo 开启后，本页仍应隐藏 Logo。

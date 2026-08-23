@@ -65,12 +65,14 @@
         this.nodes.forEach(node => {
           const slide = node.closest(".slide");
           const image = node.querySelector("img");
-          node.hidden = !this.state.enabled;
+          const hiddenOnSlide = slide?.dataset.globalLogoVisibility === "hidden";
+          const visible = this.state.enabled && !hiddenOnSlide;
+          node.hidden = !visible;
           node.classList.toggle("has-image", Boolean(this.state.src));
           node.setAttribute("aria-label", this.state.src ? "演示文稿 Logo" : "演示文稿 Logo 占位符");
           node.style.setProperty("--global-logo-width", `${this.state.width}px`);
           node.style.setProperty("--global-logo-height", `${this.state.height}px`);
-          slide?.classList.toggle("global-logo-enabled", this.state.enabled);
+          slide?.classList.toggle("global-logo-enabled", visible);
           if (this.state.src) {
             image.src = this.state.src;
             image.hidden = false;
