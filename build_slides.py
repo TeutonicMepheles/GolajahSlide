@@ -4,13 +4,14 @@
 The core compiler intentionally uses only the Python standard library. Optional
 Mermaid and Excalidraw asset generation is delegated to the pinned Node build
 toolchain, while the final deck keeps deterministic, dependency-free inline SVG.
-The Markdown dialect supports headings, lists, tables, callouts, code, images,
+The Markdown dialect supports headings, lists, tables, callouts, code, images, video,
 lightweight charts and build-time diagrams.
 """
 
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import html
 import json
@@ -41,6 +42,8 @@ TEMPLATE_FRAGMENT_PATHS = {
     "{{FOOTER_CHAPTER_NAVIGATION_RUNTIME}}": WEB_FEATURE_ROOT / "footer-chapter-navigation" / "runtime.js",
     "{{GLOBAL_LOGO_CSS}}": WEB_FEATURE_ROOT / "global-logo" / "style.css",
     "{{GLOBAL_LOGO_RUNTIME}}": WEB_FEATURE_ROOT / "global-logo" / "runtime.js",
+    "{{MEDIA_PLAYBACK_CSS}}": WEB_FEATURE_ROOT / "media-playback" / "style.css",
+    "{{MEDIA_PLAYBACK_RUNTIME}}": WEB_FEATURE_ROOT / "media-playback" / "runtime.js",
 }
 STAGE_WIDTH = 1920
 STAGE_HEIGHT = 1080
@@ -53,6 +56,7 @@ DIRECTIVE_RE = re.compile(r"<!--\s*slide\s*(.*?)-->", re.I | re.S)
 TABLE_DIVIDER_RE = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$")
 LIST_RE = re.compile(r"^\s*([-*+] |\d+[.)] )(.*)$")
 INLINE_TOKEN_RE = re.compile(r"(`[^`]+`|\*\*[^*]+\*\*|==[^=\n]+==|\[\^[0-9A-Za-z_-]{1,64}\]|\[[^\]]+\]\([^)]+\))")
+CITATION_REFERENCE_RE = re.compile(r"\[\^[0-9A-Za-z_-]{1,64}\]")
 CITATION_DEFINITION_RE = re.compile(r"^\s*\[\^([0-9A-Za-z_-]{1,64})\]:\s*(.*?)\s*$")
 CITATION_MARKDOWN_LINK_RE = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)\s*$", re.I)
 CITATION_BARE_URL_RE = re.compile(r"(https?://\S+)\s*$", re.I)
@@ -62,6 +66,8 @@ ARCHSCRIBE_FENCE_RE = re.compile(r"(?ms)^```archscribe[ \t]*\n(.*?)^```[ \t]*$")
 MERMAID_FENCE_RE = re.compile(r"(?ms)^```mermaid[ \t]*\n(.*?)^```[ \t]*$")
 EXCALIDRAW_FENCE_RE = re.compile(r"(?ms)^```excalidraw[ \t]*\n(.*?)^```[ \t]*$")
 REMOTE_ASSET_PREFIXES = ("http://", "https://", "data:")
+VIDEO_MIME_TYPES = {".mp4": "video/mp4", ".webm": "video/webm"}
+IMAGE_MIME_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
 DIAGRAM_BLOCK_KINDS = {"chart", "mermaid", "excalidraw", "archscribe"}
 SVG_NS = "http://www.w3.org/2000/svg"
 XLINK_NS = "http://www.w3.org/1999/xlink"
@@ -79,6 +85,8 @@ class Media:
     caption: str
     width: int | None = None
     height: int | None = None
+    kind: str = "image"
+    poster_source: str = ""
 
     @property
     def ratio(self) -> float:
@@ -232,6 +240,10 @@ def relative_asset_href(path: Path, output_dir: Path) -> str:
         return Path(os.path.relpath(path, output_dir)).as_posix()
     except ValueError:
         return path.as_uri()
+
+
+def local_data_uri(path: Path, mime_type: str) -> str:
+    return f"data:{mime_type};base64,{base64.b64encode(path.read_bytes()).decode('ascii')}"
 
 
 def format_report_path(path: Path) -> str:
@@ -654,21 +666,34 @@ def extract_media(body: str, source_dir: Path, output_dir: Path, messages: Build
             kept.append(line)
             continue
         alt, raw_source, caption = match.groups()
+        suffix = Path(urlsplit(raw_source).path).suffix.lower()
+        kind = "video" if suffix in VIDEO_MIME_TYPES else "image"
+        poster_source = ""
         if raw_source.startswith(("http://", "https://", "data:")):
             output_source = raw_source
             size = None
-            messages.warn(slide_no, f"远程图片无法在构建期读取比例，将按 16:9 处理：{raw_source}")
+            if kind == "image":
+                messages.warn(slide_no, f"远程图片无法在构建期读取比例，将按 16:9 处理：{raw_source}")
         else:
             absolute = (source_dir / raw_source).resolve()
             if not absolute.exists():
-                messages.error(slide_no, f"图片不存在：{raw_source}")
+                messages.error(slide_no, f"媒体不存在：{raw_source}")
                 size = None
+                output_source = relative_asset_href(absolute, output_dir)
+            elif kind == "video":
+                size = None
+                output_source = local_data_uri(absolute, VIDEO_MIME_TYPES[suffix])
+                for poster_suffix in (".png", ".jpg", ".jpeg", ".webp"):
+                    poster_path = absolute.with_suffix(poster_suffix)
+                    if poster_path.is_file():
+                        poster_source = local_data_uri(poster_path, IMAGE_MIME_TYPES[poster_suffix])
+                        break
             else:
                 size = image_size(absolute)
                 if not size:
                     messages.warn(slide_no, f"无法读取图片尺寸，将按 16:9 处理：{raw_source}")
-            output_source = relative_asset_href(absolute, output_dir)
-        media.append(Media(raw_source, output_source, alt or "演示图片", caption or alt or "", *(size or (None, None))))
+                output_source = relative_asset_href(absolute, output_dir)
+        media.append(Media(raw_source, output_source, alt or ("演示视频" if kind == "video" else "演示图片"), caption or alt or "", *(size or (None, None)), kind, poster_source))
     return media, "\n".join(kept).strip()
 
 
@@ -1270,11 +1295,13 @@ def parse_blocks(
                 i += 1
             label = "关键结论"
             callout_kind = "note"
-            if quoted and re.fullmatch(r"\[![A-Za-z]+\]", quoted[0]):
-                callout_kind = quoted.pop(0)[2:-1].lower()
-                label = {"tip": "方法提示", "note": "补充说明", "warning": "风险提示", "quote": "关键结论", "question": "思考问题"}.get(callout_kind, "关键结论")
+            marker = re.fullmatch(r"\[!([A-Za-z]+)\](?:\s+(.+))?", quoted[0]) if quoted else None
+            if marker:
+                quoted.pop(0)
+                callout_kind = marker.group(1).lower()
+                label = marker.group(2) or {"tip": "方法提示", "note": "补充说明", "warning": "风险提示", "quote": "关键结论", "question": "思考问题"}.get(callout_kind, "关键结论")
             quote_text = " ".join(quoted)
-            blocks.append(Block("callout", f'<article class="card soft text-card callout-card callout-{html.escape(callout_kind)}" data-presenter-focus><strong>{label}</strong><p>{render_inline(quote_text, citations, slide_no)}</p></article>', quote_text))
+            blocks.append(Block("callout", f'<article class="card soft text-card callout-card callout-{html.escape(callout_kind)}" data-presenter-focus><strong>{render_inline(label, citations, slide_no)}</strong><p>{render_inline(quote_text, citations, slide_no)}</p></article>', quote_text))
             continue
         list_match = LIST_RE.match(line)
         if list_match:
@@ -1388,6 +1415,17 @@ def parse_slide(chunk: str, number: int, deck: dict[str, object], source_dir: Pa
         messages.error(number, "页面缺少一级标题（# 标题）")
         title = f"未命名页面 {number}"
     media, body_without_media = extract_media(body, source_dir, output_dir, messages, number)
+    pure_image = bool_config(config, "pure-image", False)
+    if pure_image and kind not in {"cover", "section"}:
+        messages.warn(number, "pure-image 只适用于 cover / section 页面，已忽略")
+        config["pure-image"] = "false"
+        pure_image = False
+    if pure_image and not media:
+        messages.error(number, "pure-image 页面必须提供一张本地或远程图片")
+    if pure_image and len(media) > 1:
+        messages.warn(number, "pure-image 页面只使用第一张图片")
+    if pure_image and media and media[0].kind != "image":
+        messages.error(number, "pure-image 页面只支持图片；视频请使用 content 页面")
     fullstage = not bool_config(config, "footer", True)
     diagram_stage_size = (DIAGRAM_STAGE_WIDTH, DIAGRAM_STAGE_HEIGHT) if fullstage else (1700, 716)
     blocks = parse_blocks(body_without_media, source_dir, output_dir, messages, number, citations, diagram_stage_size)
@@ -1649,10 +1687,35 @@ def apply_layout_overrides(slides: list[Slide], payload: dict[str, object], mess
     return applied
 
 
-def visual_media(media: Media, fit: str = "contain", active: bool = True, panel_index: int | None = None) -> str:
+def visual_media(
+    media: Media,
+    fit: str = "contain",
+    active: bool = True,
+    panel_index: int | None = None,
+    video_playback: str = "manual",
+) -> str:
     panel = f' data-media-panel="{panel_index}"' if panel_index is not None else ""
     active_class = " active" if active else ""
     caption = f"<figcaption>{html.escape(media.caption)}</figcaption>" if media.caption else ""
+    if media.kind == "video":
+        mime_type = VIDEO_MIME_TYPES.get(Path(urlsplit(media.source).path).suffix.lower(), "video/mp4")
+        poster = f' poster="{html.escape(media.poster_source, quote=True)}"' if media.poster_source else ""
+        playback = video_playback.strip().lower()
+        video_attributes = (
+            'autoplay loop muted playsinline preload="auto" data-slide-video data-video-autoplay'
+            if playback == "autoplay-loop"
+            else 'controls playsinline preload="metadata" data-slide-video'
+        )
+        return (
+            f'<figure class="card media-figure video-media{active_class}" data-slide-video-shell tabindex="0"{panel}>'
+            '<div class="video-media-content">'
+            f'<video {video_attributes} aria-label="{html.escape(media.alt, quote=True)}"{poster} '
+            f'style="object-fit:{html.escape(fit)}">'
+            f'<source src="{html.escape(media.output_source, quote=True)}" type="{html.escape(mime_type, quote=True)}">'
+            '当前浏览器无法播放此视频。'
+            '</video>'
+            f'</div>{caption}</figure>'
+        )
     return (
         f'<figure class="card media-figure visual-widget{active_class}" data-visual-widget="image" tabindex="0"{panel}>'
         '<div class="visual-widget-content" data-visual-content>'
@@ -1744,30 +1807,59 @@ def render_placeholder(label: str) -> str:
     )
 
 
-def render_hero(slide: Slide, deck: dict[str, object]) -> str:
+def render_hero(slide: Slide, deck: dict[str, object], citations: CitationRegistry | None = None) -> str:
+    if bool_config(slide.config, "pure-image", False):
+        if not slide.media:
+            return '<div class="pure-image-shell pure-image-missing" aria-label="纯图页面缺少图片"></div>'
+        media = slide.media[0]
+        fit = slide.config.get("image-fit", "cover")
+        return (
+            '<figure class="pure-image-shell reveal">'
+            f'<img src="{html.escape(media.output_source, quote=True)}" alt="{html.escape(media.alt, quote=True)}" '
+            f'style="object-fit:{html.escape(fit, quote=True)}" draggable="false">'
+            '</figure>'
+        )
     kicker = str(deck.get("kicker", "")) if slide.kind == "cover" else (slide.section or "SECTION")
     meta_parts = [str(deck.get(key, "")) for key in ("author", "date") if deck.get(key)]
     meta = " · ".join(meta_parts)
     if slide.media:
-        visual = visual_media(slide.media[0], slide.config.get("image-fit", "cover"))
+        visual = visual_media(
+            slide.media[0],
+            slide.config.get("image-fit", "cover"),
+            video_playback=slide.config.get("video-playback", "manual"),
+        )
     else:
         visual = render_placeholder("封面图占位" if slide.kind == "cover" else "章节图占位")
     return (
         f'<div class="hero-shell hero-{slide.kind} hero-layout-{slide.layout_resolved}"><div class="hero-copy reveal" data-presenter-focus>'
-        f'<p class="hero-kicker">{html.escape(kicker)}</p><h1>{render_inline(slide.title)}</h1>'
-        f'<p class="hero-subtitle">{render_inline(slide.subtitle)}</p>'
+        f'<p class="hero-kicker">{html.escape(kicker)}</p><h1>{render_inline(slide.title, citations, slide.number)}</h1>'
+        f'<p class="hero-subtitle">{render_inline(slide.subtitle, citations, slide.number)}</p>'
         f'<p class="hero-meta">{html.escape(meta)}</p></div><div class="hero-visual reveal">{visual}</div></div>'
     )
 
 
 def render_gallery(slide: Slide) -> str:
     fit = slide.config.get("image-fit", "contain")
-    if len(slide.media) >= 3:
-        buttons = "".join(f'<button type="button" class="{"active" if index == 0 else ""}" data-media-target="{index}" aria-label="查看图片 {index + 1}">{index + 1}</button>' for index in range(len(slide.media)))
-        panels = "".join(visual_media(media, fit, index == 0, index) for index, media in enumerate(slide.media))
-        gallery = f'<div class="media-tabs" data-media-tabs>{panels}<div class="media-tab-list">{buttons}</div></div>'
+    tabbed = slide.config.get("gallery-display", "").strip().lower() == "tabs"
+    if len(slide.media) >= 3 or (tabbed and len(slide.media) >= 2):
+        authored_labels = [label.strip() for label in slide.config.get("tab-labels", "").split("|") if label.strip()]
+        labels = authored_labels if len(authored_labels) == len(slide.media) else [str(index + 1) for index in range(len(slide.media))]
+        named_class = " named-tabs" if authored_labels and len(authored_labels) == len(slide.media) else ""
+        buttons = "".join(
+            f'<button type="button" class="{"active" if index == 0 else ""}" data-media-target="{index}" '
+            f'aria-label="查看{html.escape(label, quote=True)}">{html.escape(label)}</button>'
+            for index, label in enumerate(labels)
+        )
+        panels = "".join(
+            visual_media(media, fit, index == 0, index, slide.config.get("video-playback", "manual"))
+            for index, media in enumerate(slide.media)
+        )
+        gallery = f'<div class="media-tabs" data-media-tabs>{panels}<div class="media-tab-list{named_class}">{buttons}</div></div>'
     else:
-        gallery = '<div class="media-grid count-2">' + "".join(visual_media(media, fit) for media in slide.media) + "</div>"
+        gallery = '<div class="media-grid count-2">' + "".join(
+            visual_media(media, fit, video_playback=slide.config.get("video-playback", "manual"))
+            for media in slide.media
+        ) + "</div>"
     if slide.blocks:
         return f'<div class="gallery-layout"><div class="gallery-stage">{gallery}</div>{render_copy(slide.blocks, "gallery-copy")}</div>'
     return f'<div class="gallery-layout gallery-only"><div class="gallery-stage">{gallery}</div></div>'
@@ -1787,10 +1879,16 @@ def render_content(slide: Slide) -> str:
     if slide.layout_resolved == "gallery":
         return render_gallery(slide)
     if slide.layout_resolved == "media":
-        media_html = visual_media(slide.media[0], fit) if slide.media else render_placeholder("内容图片占位")
+        media_html = (
+            visual_media(slide.media[0], fit, video_playback=slide.config.get("video-playback", "manual"))
+            if slide.media else render_placeholder("内容图片占位")
+        )
         caption = render_copy(slide.blocks, "wide-copy")
         return f'<div class="wide-media-layout"><div class="wide-media-stage">{media_html}</div>{caption}</div>'
-    media_html = visual_media(slide.media[0], fit) if slide.media else render_placeholder("内容图片占位")
+    media_html = (
+        visual_media(slide.media[0], fit, video_playback=slide.config.get("video-playback", "manual"))
+        if slide.media else render_placeholder("内容图片占位")
+    )
     copy_html = render_copy(slide.blocks, "split-copy")
     reverse = " media-right" if position == "right" else ""
     ratio = slide.media[0].ratio if slide.media else 1.0
@@ -1803,16 +1901,19 @@ def render_slide(
     deck: dict[str, object],
     sections: list[str],
     section_chapters: dict[str, list[dict[str, object]]] | None = None,
+    citations: CitationRegistry | None = None,
 ) -> str:
     has_diagram = any(block.kind in {"mermaid", "excalidraw", "archscribe"} for block in slide.blocks)
     diagram_class = " has-diagram diagram-fullstage" if has_diagram and not bool_config(slide.config, "footer", True) else (" has-diagram" if has_diagram else "")
-    classes = f"slide {slide.kind}-slide layout-{slide.layout_resolved} density-{slide.config.get('density', str(deck.get('density', 'reading')))}{diagram_class}"
+    pure_image_class = " pure-image-slide" if slide.kind in {"cover", "section"} and bool_config(slide.config, "pure-image", False) else ""
+    classes = f"slide {slide.kind}-slide layout-{slide.layout_resolved} density-{slide.config.get('density', str(deck.get('density', 'reading')))}{diagram_class}{pure_image_class}"
     if slide.kind in {"cover", "section"}:
-        inner = render_hero(slide, deck)
+        inner = render_hero(slide, deck, citations)
     else:
-        subtitle = f'<p class="subtitle">{render_inline(slide.subtitle)}</p>' if slide.subtitle else ""
+        title = render_inline(slide.title, citations, slide.number)
+        subtitle = f'<p class="subtitle">{render_inline(slide.subtitle, citations, slide.number)}</p>' if slide.subtitle else ""
         inner = (
-            f'<header class="slide-header reveal" data-presenter-focus><h1>{render_inline(slide.title)}</h1>{subtitle}</header>'
+            f'<header class="slide-header reveal" data-presenter-focus><h1>{title}</h1>{subtitle}</header>'
             f'<div class="content">{render_content(slide)}</div>{render_footer(slide, sections, section_chapters)}'
         )
     return (
@@ -1825,6 +1926,7 @@ def render_slide(
         f'data-has-diagram="{str(has_diagram).lower()}" '
         f'data-layout-requested="{html.escape(slide.layout_requested)}" '
         f'data-layout-resolved="{html.escape(slide.layout_resolved)}" '
+        f'data-global-logo-visibility="{"hidden" if str(slide.config.get("global-logo", "visible")).strip().lower() == "hidden" else "visible"}" '
         f'data-section="{html.escape(slide.section, quote=True)}" '
         f'data-chapter="{html.escape(slide.chapter, quote=True)}">{inner}</section>'
     )
@@ -1835,9 +1937,11 @@ def validate_slide(slide: Slide, density: str, messages: BuildMessages) -> None:
     length = body_text_length(slide.blocks)
     if length > limit:
         messages.warn(slide.number, f"正文约 {length} 字，超过 {density} 模式建议上限 {limit}；建议拆页")
-    if len(slide.title) > 28:
+    title_text = CITATION_REFERENCE_RE.sub("", slide.title)
+    subtitle_text = CITATION_REFERENCE_RE.sub("", slide.subtitle)
+    if len(title_text) > 28:
         messages.warn(slide.number, "标题偏长，建议控制在 28 个中英文字符以内")
-    if len(slide.subtitle) > 38:
+    if len(subtitle_text) > 38:
         messages.warn(slide.number, "副标题偏长，建议控制在一行（约 38 字）")
     svg_diagrams = [block for block in slide.blocks if block.kind in {"mermaid", "excalidraw"}]
     if len(svg_diagrams) > 1:
@@ -2509,7 +2613,7 @@ def build(
         validate_slide(slide, slide.config.get("density", density), messages)
     sections = collect_sections(deck, slides, messages)
     section_chapters = collect_section_chapters(sections, slides)
-    rendered = "\n".join(render_slide(slide, deck, sections, section_chapters) for slide in slides)
+    rendered = "\n".join(render_slide(slide, deck, sections, section_chapters, citations) for slide in slides)
     title = str(deck.get("title", slides[0].title))
     embedded_editor_config = {
         "schemaVersion": EDITOR_SCHEMA_VERSION,

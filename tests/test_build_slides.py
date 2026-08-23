@@ -556,6 +556,103 @@ Second page.
         self.assertIn(".text-grid.focus-grid :is(.text-card h3, .callout-card > strong) { font-size: 44px; }", template)
         self.assertIn(".density-speaking :is(.text-card h3, .callout-card > strong) { font-size: 38px; }", template)
 
+    def test_callout_accepts_an_explicit_title_and_preserves_defaults(self):
+        explicit = build_slides.parse_blocks(
+            "> [!WARNING] Notice\n> 这是风险说明。",
+            build_slides.ROOT,
+            build_slides.ROOT,
+            self.messages,
+            1,
+        )
+        default = build_slides.parse_blocks(
+            "> [!WARNING]\n> 这是风险说明。",
+            build_slides.ROOT,
+            build_slides.ROOT,
+            self.messages,
+            2,
+        )
+        self.assertIn("<strong>Notice</strong>", explicit[0].html)
+        self.assertIn("callout-warning", explicit[0].html)
+        self.assertIn("<strong>风险提示</strong>", default[0].html)
+
+    def test_pure_image_structural_slide_has_no_hero_copy(self):
+        media = build_slides.Media("cover.png", "assets/cover.png", "课程封面", "", 1920, 1080)
+        slide = build_slides.Slide(
+            number=1,
+            slide_id="cover",
+            kind="cover",
+            title="课程标题",
+            subtitle="课程副标题",
+            section="",
+            layout_requested="hero-full",
+            layout_resolved="hero-full",
+            config={"pure-image": "true", "image-fit": "cover"},
+            media=[media],
+            blocks=[],
+            raw_body="",
+        )
+        source = build_slides.render_slide(slide, {"density": "speaking"}, [])
+        self.assertIn("pure-image-slide", source)
+        self.assertIn('class="pure-image-shell reveal"', source)
+        self.assertIn('src="assets/cover.png"', source)
+        self.assertNotIn("hero-copy", source)
+        self.assertNotIn("课程标题</h1>", source)
+
+    def test_gallery_uses_authored_tab_labels_and_falls_back_safely(self):
+        media = [
+            build_slides.Media(f"{index}.png", f"assets/{index}.png", f"图 {index}", "", 1600, 900)
+            for index in range(1, 4)
+        ]
+        slide = build_slides.Slide(
+            number=1,
+            slide_id="tabs",
+            kind="content",
+            title="命名 Tab",
+            subtitle="",
+            section="前言",
+            layout_requested="gallery",
+            layout_resolved="gallery",
+            config={"tab-labels": "接近性 | 局部露出 | 控件选择"},
+            media=media,
+            blocks=[],
+            raw_body="",
+        )
+        named = build_slides.render_gallery(slide)
+        self.assertIn("media-tab-list named-tabs", named)
+        self.assertIn(">接近性</button>", named)
+        slide.config["tab-labels"] = "数量不匹配 | 回退"
+        fallback = build_slides.render_gallery(slide)
+        self.assertNotIn("named-tabs", fallback)
+        self.assertIn(">1</button>", fallback)
+
+    def test_two_image_gallery_can_opt_into_tabs(self):
+        media = [
+            build_slides.Media(f"{index}.png", f"assets/{index}.png", f"图 {index}", "", 1600, 900)
+            for index in range(1, 3)
+        ]
+        slide = build_slides.Slide(
+            number=1,
+            slide_id="two-image-tabs",
+            kind="content",
+            title="双图 Tab",
+            subtitle="",
+            section="前言",
+            layout_requested="gallery",
+            layout_resolved="gallery",
+            config={"gallery-display": "tabs", "tab-labels": "模型参数文件 | FineWeb 数据管线"},
+            media=media,
+            blocks=[],
+            raw_body="",
+        )
+        rendered = build_slides.render_gallery(slide)
+        self.assertIn("media-tabs", rendered)
+        self.assertIn("media-tab-list named-tabs", rendered)
+        self.assertNotIn("media-grid count-2", rendered)
+
+        slide.config = {}
+        side_by_side = build_slides.render_gallery(slide)
+        self.assertIn("media-grid count-2", side_by_side)
+
     def test_non_heading_content_uses_editorial_type_and_text_dividers(self):
         template = build_slides.TEMPLATE_PATH.read_text(encoding="utf-8")
 
@@ -640,6 +737,24 @@ Second page.
         self.assertNotIn("[^kimi]:", source)
         self.assertEqual(messages.errors, [])
 
+    def test_citations_render_in_slide_title_and_subtitle(self):
+        messages = build_slides.BuildMessages()
+        _, definitions = build_slides.extract_citations(
+            "[^title]: 标题来源 — https://example.com/title\n[^subtitle]: 副标题来源 — https://example.com/subtitle",
+            messages,
+        )
+        registry = build_slides.CitationRegistry(definitions, messages)
+        slide = build_slides.Slide(
+            1, "heading-citations", "content", "标题[^title]", "副标题[^subtitle]", "测试", "text", "text", {}, [], [], ""
+        )
+        rendered = build_slides.render_slide(slide, {}, ["测试"], citations=registry)
+        header = rendered.split("<header", 1)[1].split("</header>", 1)[0]
+        self.assertNotIn("[^title]", header)
+        self.assertNotIn("[^subtitle]", header)
+        self.assertIn('href="https://example.com/title"', rendered)
+        self.assertIn('href="https://example.com/subtitle"', rendered)
+        self.assertEqual(messages.errors, [])
+
     def test_citation_definition_accepts_trailing_markdown_link(self):
         messages = build_slides.BuildMessages()
         _, definitions = build_slides.extract_citations(
@@ -716,6 +831,7 @@ Second page.
         self.assertIn('id="editorLogoFile"', template)
         self.assertIn("class GlobalLogo", runtime)
         self.assertIn("sourceFromFile", runtime)
+        self.assertIn('dataset.globalLogoVisibility === "hidden"', runtime)
         self.assertIn(".global-logo", style)
 
         with tempfile.TemporaryDirectory() as directory:
@@ -725,6 +841,18 @@ Second page.
             self.assertIn('"branding":{"logo":{"enabled":false,"src":"","width":190,"height":72}}', rendered)
             self.assertNotIn("{{GLOBAL_LOGO_CSS}}", rendered)
             self.assertNotIn("{{GLOBAL_LOGO_RUNTIME}}", rendered)
+
+        source = """---\ntitle: Logo visibility\n---\n\n<!-- slide\nid: shown\ntype: content\nlayout: text\n-->\n# Shown\n\n---\n\n<!-- slide\nid: hidden\ntype: content\nlayout: text\nglobal-logo: hidden\n-->\n# Hidden\n"""
+        with tempfile.TemporaryDirectory() as directory:
+            source_path = Path(directory) / "slides.md"
+            output = Path(directory) / "index.html"
+            source_path.write_text(source, encoding="utf-8")
+            self.assertEqual(build_slides.build(source_path, output), 0)
+            rendered = output.read_text(encoding="utf-8")
+            self.assertIn('data-slide-id="shown"', rendered)
+            self.assertIn('data-global-logo-visibility="visible"', rendered)
+            self.assertIn('data-slide-id="hidden"', rendered)
+            self.assertIn('data-global-logo-visibility="hidden"', rendered)
 
     def test_footer_chapters_group_repeated_names_and_fall_back_to_titles(self):
         slides = [
@@ -758,6 +886,75 @@ Second page.
         self.assertIn("body.editor-open .section-footer-menu", style)
         self.assertIn("@media print", style)
         self.assertIn("new FooterChapterNavigation(presentation)", template)
+
+    def test_local_video_renders_native_media_and_composes_playback_feature(self):
+        template = build_slides.TEMPLATE_PATH.read_text(encoding="utf-8")
+        style = build_slides.TEMPLATE_FRAGMENT_PATHS["{{MEDIA_PLAYBACK_CSS}}"].read_text(encoding="utf-8")
+        runtime = build_slides.TEMPLATE_FRAGMENT_PATHS["{{MEDIA_PLAYBACK_RUNTIME}}"].read_text(encoding="utf-8")
+        self.assertIn("{{MEDIA_PLAYBACK_CSS}}", template)
+        self.assertIn("{{MEDIA_PLAYBACK_RUNTIME}}", template)
+        self.assertIn("class MediaPlayback", runtime)
+        self.assertIn(".video-media", style)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            assets = root / "assets"
+            assets.mkdir()
+            (assets / "demo.mp4").write_bytes(b"\x00\x00\x00\x18ftypmp42")
+            (assets / "demo.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"\0" * 16)
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            markdown.write_text("""<!-- slide
+id: video
+type: content
+layout: media
+footer: false
+-->
+# 视频演示
+
+![机械臂演示](assets/demo.mp4 "原始演示视频")
+""", encoding="utf-8")
+
+            self.assertEqual(build_slides.build(markdown, output, strict=True), 0)
+            rendered = output.read_text(encoding="utf-8")
+            report = json.loads(output.with_suffix(".build.json").read_text(encoding="utf-8"))
+            self.assertIn('<video controls playsinline preload="metadata" data-slide-video', rendered)
+            self.assertRegex(rendered, r'<source src="data:video/mp4;base64,[^"]+" type="video/mp4">')
+            self.assertRegex(rendered, r'poster="data:image/png;base64,[^"]+"')
+            self.assertIn('data-slide-video-shell', rendered)
+            self.assertNotIn("{{MEDIA_PLAYBACK_CSS}}", rendered)
+            self.assertNotIn("{{MEDIA_PLAYBACK_RUNTIME}}", rendered)
+            self.assertEqual(report["warnings"], [])
+            self.assertEqual(report["errors"], [])
+
+    def test_video_autoplay_loop_is_scoped_by_slide_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            assets = root / "assets"
+            assets.mkdir()
+            (assets / "demo.mp4").write_bytes(b"\x00\x00\x00\x18ftypmp42")
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            markdown.write_text("""<!-- slide
+id: loop
+type: content
+layout: split
+video-playback: autoplay-loop
+footer: false
+-->
+# 循环视频
+
+![会话间消息传递](assets/demo.mp4 "自动循环演示")
+
+### 说明
+
+只在这一页自动播放。
+""", encoding="utf-8")
+
+            self.assertEqual(build_slides.build(markdown, output, strict=True), 0)
+            rendered = output.read_text(encoding="utf-8")
+            self.assertIn('<video autoplay loop muted playsinline preload="auto" data-slide-video data-video-autoplay', rendered)
+            self.assertNotIn('<video controls', rendered)
 
     def test_atomic_writer_replaces_content_without_temp_files(self):
         with tempfile.TemporaryDirectory() as directory:

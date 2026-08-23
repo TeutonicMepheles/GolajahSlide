@@ -19,7 +19,7 @@
   },
   "diagrams": {
     "detected": 2,
-    "renderRequested": false,
+    "renderRequested": true,
     "mermaid": {
       "detected": 0,
       "rendered": [],
@@ -28,12 +28,16 @@
     "diagramDesign": {
       "detected": 1,
       "rendered": [],
-      "cached": []
+      "cached": [
+        "assets/mermaid-build-flow.svg"
+      ]
     },
     "excalidraw": {
       "detected": 1,
       "rendered": [],
-      "cached": []
+      "cached": [
+        "assets/editable-diagram.svg"
+      ]
     },
     "quality": {
       "mermaid-svg-flow": [

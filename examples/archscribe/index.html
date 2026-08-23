@@ -479,6 +479,36 @@
     @media print {
       .global-logo { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
     }
+    /* Media Playback owns native video presentation inside image-shaped layouts. */
+    .video-media {
+      overflow: hidden;
+      background: #07090d;
+      border-color: rgba(17,17,17,.16);
+    }
+    .video-media-content {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(circle at 50% 45%, rgba(111,96,229,.18), transparent 48%),
+        #07090d;
+    }
+    .video-media video {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-position: center;
+      background: #07090d;
+    }
+    .video-media:focus-visible {
+      outline: 4px solid rgba(111,96,229,.7);
+      outline-offset: 3px;
+    }
+    @media print {
+      .video-media video { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+    }
 
     /* ===========================================
        COVER AND SECTION PLACEHOLDERS
@@ -541,6 +571,18 @@
       background: rgba(255,255,255,.86);
       backdrop-filter: blur(12px);
     }
+    .pure-image-slide { background: #000; }
+    .pure-image-shell {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #000;
+    }
+    .pure-image-shell img { display: block; width: 100%; height: 100%; }
     .visual-placeholder {
       position: relative;
       width: 100%;
@@ -832,6 +874,15 @@
       cursor: pointer;
     }
     .media-tab-list button.active { color: #fff; background: var(--accent); font-weight: 700; }
+    .media-tab-list.named-tabs { gap: 4px; }
+    .media-tab-list.named-tabs button {
+      width: auto;
+      min-width: 108px;
+      padding: 0 18px;
+      border-radius: 999px;
+      font-size: 18px;
+      white-space: nowrap;
+    }
 
     /* ===========================================
        CHART LAYOUT
@@ -1515,7 +1566,7 @@
 <body>
   <div class="deck-viewport">
     <main class="deck-stage" id="deckStage" aria-label="Archscribe 动态中文流程图示例">
-<section class="slide content-slide layout-chart density-speaking has-diagram diagram-fullstage" data-title="动态流程图必须服从 Slide 的字号与安全区" data-slide-id="archscribe-build-flow" data-source-page="P1" data-slide-kind="content" data-media-count="0" data-block-count="1" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="true" data-layout-requested="chart" data-layout-resolved="chart" data-section="流程图" data-chapter=""><header class="slide-header reveal" data-presenter-focus><h1>动态流程图必须服从 Slide 的字号与安全区</h1><p class="subtitle">标题由 Slide 排版，Archscribe 专注呈现流程主体</p></header><div class="content"><div class="chart-layout"><div class="chart-stage"><figure class="card chart-card diagram-card" data-visual-widget="image" data-diagram-engine="archscribe" tabindex="0" aria-label="GolajahSlide 动态流程图"><div class="visual-widget-content chart-content diagram-content" data-visual-content><picture><source media="(prefers-reduced-motion: reduce)" srcset="assets/slide-build-flow.png"><img src="assets/slide-build-flow.gif" alt="演示内容分别生成内置图表与动态流程图，检查失败时返回动态流程重新生成" draggable="false"></picture></div></figure></div><div class="empty-copy" aria-hidden="true"></div></div></div></section>
+<section class="slide content-slide layout-chart density-speaking has-diagram diagram-fullstage" data-title="动态流程图必须服从 Slide 的字号与安全区" data-slide-id="archscribe-build-flow" data-source-page="P1" data-slide-kind="content" data-media-count="0" data-block-count="1" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="true" data-layout-requested="chart" data-layout-resolved="chart" data-global-logo-visibility="visible" data-section="流程图" data-chapter=""><header class="slide-header reveal" data-presenter-focus><h1>动态流程图必须服从 Slide 的字号与安全区</h1><p class="subtitle">标题由 Slide 排版，Archscribe 专注呈现流程主体</p></header><div class="content"><div class="chart-layout"><div class="chart-stage"><figure class="card chart-card diagram-card" data-visual-widget="image" data-diagram-engine="archscribe" tabindex="0" aria-label="GolajahSlide 动态流程图"><div class="visual-widget-content chart-content diagram-content" data-visual-content><picture><source media="(prefers-reduced-motion: reduce)" srcset="assets/slide-build-flow.png"><img src="assets/slide-build-flow.gif" alt="演示内容分别生成内置图表与动态流程图，检查失败时返回动态流程重新生成" draggable="false"></picture></div></figure></div><div class="empty-copy" aria-hidden="true"></div></div></div></section>
     </main>
   </div>
   <div class="control-hotzone" aria-hidden="true"></div>
@@ -3479,12 +3530,14 @@
         this.nodes.forEach(node => {
           const slide = node.closest(".slide");
           const image = node.querySelector("img");
-          node.hidden = !this.state.enabled;
+          const hiddenOnSlide = slide?.dataset.globalLogoVisibility === "hidden";
+          const visible = this.state.enabled && !hiddenOnSlide;
+          node.hidden = !visible;
           node.classList.toggle("has-image", Boolean(this.state.src));
           node.setAttribute("aria-label", this.state.src ? "演示文稿 Logo" : "演示文稿 Logo 占位符");
           node.style.setProperty("--global-logo-width", `${this.state.width}px`);
           node.style.setProperty("--global-logo-height", `${this.state.height}px`);
-          slide?.classList.toggle("global-logo-enabled", this.state.enabled);
+          slide?.classList.toggle("global-logo-enabled", visible);
           if (this.state.src) {
             image.src = this.state.src;
             image.hidden = false;
@@ -3532,6 +3585,41 @@
         });
         if (!this.normalize({enabled: true, src: source}).src) throw new Error("Logo 图片编码无效");
         return source;
+      }
+    }
+    class MediaPlayback {
+      constructor() {
+        this.videos = [...document.querySelectorAll("[data-slide-video]")];
+        this.stage = document.getElementById("deckStage");
+        this.bind();
+        this.sync();
+      }
+      bind() {
+        this.videos.forEach(video => {
+          ["click", "dblclick", "pointerdown", "touchstart", "touchend", "wheel"].forEach(type => {
+            video.addEventListener(type, event => event.stopPropagation(), {passive: type !== "wheel"});
+          });
+        });
+        this.observer = new MutationObserver(records => {
+          if (records.some(record => (
+            record.target.classList?.contains("slide") || record.target.hasAttribute?.("data-media-panel")
+          ))) this.sync();
+        });
+        if (this.stage) this.observer.observe(this.stage, {subtree: true, attributes: true, attributeFilter: ["class"]});
+      }
+      sync() {
+        this.videos.forEach(video => {
+          const mediaPanel = video.closest("[data-media-panel]");
+          const panelIsActive = !mediaPanel || mediaPanel.classList.contains("active");
+          if (!video.closest(".slide.active") || !panelIsActive) {
+            if (!video.paused) video.pause();
+            return;
+          }
+          if (video.hasAttribute("data-video-autoplay") && video.paused) {
+            const playPromise = video.play();
+            if (playPromise?.catch) playPromise.catch(() => {});
+          }
+        });
       }
     }
 
@@ -3640,7 +3728,7 @@
           setTimeout(() => this.locked = false, 420);
         }, {passive: true});
         let touchStart = null;
-        const interactive = "[data-visual-widget],.layout-editor-panel,.deck-controls,button,input,textarea,select,a,[contenteditable=true]";
+        const interactive = "[data-visual-widget],[data-slide-video-shell],.layout-editor-panel,.deck-controls,button,input,textarea,select,a,[contenteditable=true]";
         addEventListener("touchstart", event => {
           const touch = event.changedTouches[0];
           touchStart = !this.layoutEditor.active && event.touches.length === 1 && !event.target.closest?.(interactive)
@@ -3707,11 +3795,13 @@
     const globalLogo = new GlobalLogo(layoutEditor.branding.logo);
     const citations = new Citations();
     const presentation = new SlidePresentation(visualWidgetManager, layoutEditor, presenterFocus, globalLogo);
+    const mediaPlayback = new MediaPlayback();
     const footerChapterNavigation = new FooterChapterNavigation(presentation);
     window.__SLIDE_LAYOUT_EDITOR__ = layoutEditor;
     window.__SLIDE_PRESENTER_FOCUS__ = presenterFocus;
     window.__SLIDE_CITATIONS__ = citations;
     window.__SLIDE_GLOBAL_LOGO__ = globalLogo;
+    window.__SLIDE_MEDIA_PLAYBACK__ = mediaPlayback;
     window.__SLIDE_PRESENTATION__ = presentation;
     window.__SLIDE_FOOTER_CHAPTER_NAVIGATION__ = footerChapterNavigation;
     document.querySelectorAll("[data-media-tabs]").forEach(shell => new MediaTabs(shell));

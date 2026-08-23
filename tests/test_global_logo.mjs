@@ -42,7 +42,9 @@ try {
   await page.$eval("#editorLogoEnabled", node => node.scrollIntoView({block: "center"}));
   await page.$eval("#editorLogoEnabled", node => node.click());
   assert.equal(await page.$eval("#editorLogoEnabled", node => node.getAttribute("aria-pressed")), "true");
-  assert.equal(await page.$$eval("[data-global-logo]", nodes => nodes.every(node => !node.hidden && !node.classList.contains("has-image"))), true);
+  assert.deepEqual(await page.$$eval("[data-global-logo]", nodes => nodes.map(node => node.hidden)), [false, true]);
+  assert.equal(await page.$eval('[data-slide-id="logo-content"]', node => node.classList.contains("global-logo-enabled")), true);
+  assert.equal(await page.$eval('[data-slide-id="logo-second"]', node => node.classList.contains("global-logo-enabled")), false);
 
   const resizeHandle = await page.$(".slide.active .global-logo-resize-handle");
   const handleBox = await resizeHandle.boundingBox();
@@ -83,10 +85,14 @@ try {
 
   await page.evaluate(() => window.__SLIDE_PRESENTATION__.show(1, false));
   assert.equal(await page.$eval(".slide.active [data-global-logo]", node => node.classList.contains("has-image")), true);
+  assert.equal(await page.$eval(".slide.active [data-global-logo]", node => node.hidden), true);
 
   await page.reload({waitUntil: "load"});
   assert.equal(await page.$eval("#editorLogoEnabled", node => node.getAttribute("aria-pressed")), "true");
   assert.equal(await page.$eval(".slide.active [data-global-logo] img", node => node.src.startsWith("data:image/png;base64,")), true);
+  assert.equal(await page.$eval(".slide.active [data-global-logo]", node => node.hidden), false);
+  await page.evaluate(() => window.__SLIDE_PRESENTATION__.show(1, false));
+  assert.equal(await page.$eval(".slide.active [data-global-logo]", node => node.hidden), true);
 
   const invalidMessage = await page.evaluate(async () => {
     try {

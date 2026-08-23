@@ -81,6 +81,11 @@ footer: true
 | `image-position` | `left` | `left` / `right` | 左右图文页的图片位置 |
 | `image-fit` | `contain` | `contain` / `cover` | 图片完整显示或裁切填充 |
 | `footer` | 内容页为 `true` | `true` / `false` | 是否显示章节页脚 |
+| `pure-image` | `false` | `true` / `false` | 仅用于 `cover` / `section`；第一张图片铺满舞台，不显示标题或页面 UI |
+| `gallery-display` | 自动 | `tabs` | 让双图 Gallery 使用 Tab 切换；未声明时仍并列显示 |
+| `tab-labels` | 空 | 用 `|` 分隔的标签 | Gallery Tab 名称，数量必须与媒体数量一致 |
+| `video-playback` | `manual` | `manual` / `autoplay-loop` | 自动循环模式只在所属页面与 Gallery 面板可见时静音播放 |
+| `global-logo` | `visible` | `visible` / `hidden` | 仅隐藏本页的全局 Logo，不改变共享 Logo 配置 |
 
 `layout: auto` 是推荐用法；手动指定布局只用于表达特殊叙事意图。构建报告会同时记录 requested 和 resolved layout，方便排查自动回退。
 
@@ -104,7 +109,9 @@ footer: true
 
 封面页和章节页没有图片时自动显示中性视觉占位框；在相应页面加入项目自己的图片引用即可替换占位。
 
-## 6. 图片写法与自动布局
+需要让封面或章节首页完全由已经排版好的 1920×1080 图片承担时，使用 `pure-image: true`。该模式不渲染标题、kicker、元信息、卡片、页脚或图片控件；标题仍须写在 Markdown 中，供导航、可访问性与编辑器识别。
+
+## 6. 图片、视频与自动布局
 
 图片必须独占一行：
 
@@ -116,6 +123,19 @@ footer: true
 - 引号中的 `caption` 可选，应说明来源、数据范围或阅读方式，不要重复页面标题。
 - 本地路径相对于 Markdown 文件所在目录解析；输出 HTML 会自动改写为相对于输出文件的路径。
 - 支持 PNG、JPEG、GIF、WebP、SVG 的尺寸识别。远程图片无法在构建期读取尺寸，会按 16:9 处理并给出警告。
+
+本地 MP4 / WebM 使用相同的独占行语法：
+
+```markdown
+![视频内容说明](assets/demo.mp4 "视频来源或阅读提示")
+```
+
+- 构建结果使用浏览器原生 `<video controls playsinline>`；本地视频以 data URI 写入最终 HTML，不依赖第三方播放器或旁置运行文件。
+- 视频默认按 16:9 参与 `split`、`media` 与 `gallery` 布局；建议显式使用 `layout: media` 或 `layout: split`。
+- 播放默认由用户触发；切换离开当前页时会自动暂停，但保留播放位置。
+- 使用 `video-playback: autoplay-loop` 时，视频带 `autoplay loop muted playsinline`，且只在所属页面与 Gallery 面板可见时播放。
+- 如视频旁存在同名 `.png`、`.jpg`、`.jpeg` 或 `.webp`，构建器会把它作为原生 `poster` 首帧预览。
+- `pure-image` 只接受图片，不能用于视频。
 
 ### 自动布局决策表
 
@@ -130,6 +150,18 @@ footer: true
 | 3 张及以上 | — | `gallery` 单图舞台 + 切换按钮 | 避免缩成不可读缩略图 |
 
 这些阈值以内容区而不是文件像素数为依据。像素尺寸只用于计算比例；清晰度仍需要作者自己保证。
+
+三张及以上图片可在页面配置中声明命名 Tab；双图默认并列，如需切换式 Gallery，可增加 `gallery-display: tabs`：
+
+```markdown
+<!-- slide
+layout: gallery
+gallery-display: tabs
+tab-labels: 接近性 | 局部露出 | 图形—背景 | 控件选择
+-->
+```
+
+标签数量与图片数量不一致时会回退为数字标签。
 
 ### 何时手动指定布局
 
@@ -190,11 +222,14 @@ Callout 内的行内代码使用深色半透明底、白色半粗文字和浅色
 
 > [!WARNING]
 > 这是风险提示。
+
+> [!WARNING] Notice
+> 这是使用显式英文标题的风险提示。
 ```
 
-支持 `TIP`、`NOTE`、`WARNING`、`QUOTE`、`QUESTION`。标签会转为中文，字号低于同级卡片标题，避免提示语抢夺层级。
+支持 `TIP`、`NOTE`、`WARNING`、`QUOTE`、`QUESTION`。未写显式标题时，标签会转为中文；在类型标记后追加标题可覆盖显示文字，同时保留 Callout 类型与样式语义。
 
-正文引用使用标准脚注标记；引用定义在整份演示中全局有效，不会成为页面正文：
+标题、副标题与正文引用都使用标准脚注标记；引用定义在整份演示中全局有效，不会成为页面正文：
 
 ```markdown
 选择 AI Agent 框架时需要综合比较编排能力和工具生态[^kimi-agent-frameworks]。
