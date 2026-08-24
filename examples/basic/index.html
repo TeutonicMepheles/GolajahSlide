@@ -1247,6 +1247,320 @@
       .citation-tooltip { display: none !important; }
       .citation-ref { color: var(--ink); background: transparent; outline: 0; }
     }
+    .content-authoring-panel {
+      position: relative;
+    }
+
+    .content-authoring-heading {
+      align-items: flex-start;
+    }
+
+    .content-authoring-heading .editor-label {
+      margin-bottom: 0;
+    }
+
+    .content-authoring-heading > button {
+      flex: 0 0 auto;
+    }
+
+    .content-authoring-add-row {
+      margin-top: 14px;
+    }
+
+    .content-authoring-upload {
+      width: 100%;
+      margin-top: 8px;
+    }
+
+    .content-authoring-gallery {
+      min-width: 0;
+      margin: 14px 0 0;
+      padding: 0;
+      border: 0;
+    }
+
+    .content-authoring-gallery legend {
+      margin-bottom: 7px;
+      color: rgba(255,255,255,.58);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+    }
+
+    .content-authoring-segmented {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 12px;
+      background: rgba(255,255,255,.055);
+    }
+
+    .content-authoring-segmented button {
+      min-height: 34px;
+      border: 0;
+      border-radius: 8px;
+      color: rgba(255,255,255,.65);
+      background: transparent;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .content-authoring-segmented button[aria-pressed="true"] {
+      color: #fff;
+      background: #6F60E5;
+      box-shadow: 0 3px 12px rgba(0,0,0,.2);
+    }
+
+    .content-authoring-order {
+      display: grid;
+      gap: 7px;
+      margin: 14px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .content-authoring-order > li {
+      position: relative;
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 6px;
+      min-height: 42px;
+      padding: 4px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 10px;
+      background: rgba(255,255,255,.045);
+    }
+
+    .content-authoring-order > li.is-selected {
+      border-color: #9B8EFF;
+      background: rgba(111,96,229,.22);
+    }
+
+    .content-authoring-order > li.is-dragging {
+      opacity: .42;
+    }
+
+    .content-authoring-order > li.drop-before::before,
+    .content-authoring-order > li.drop-after::after {
+      content: "";
+      position: absolute;
+      right: 3px;
+      left: 3px;
+      height: 3px;
+      border-radius: 999px;
+      background: #A99EFF;
+      box-shadow: 0 0 0 1px rgba(17,17,17,.45);
+    }
+
+    .content-authoring-order > li.drop-before::before { top: -6px; }
+    .content-authoring-order > li.drop-after::after { bottom: -6px; }
+
+    .content-authoring-drag-handle,
+    .content-authoring-order-label,
+    .content-authoring-order-controls button {
+      min-width: 0;
+      border: 0;
+      color: rgba(255,255,255,.76);
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .content-authoring-drag-handle {
+      height: 32px;
+      border-radius: 7px;
+      color: rgba(255,255,255,.42);
+      cursor: grab;
+      font-size: 16px;
+      letter-spacing: -3px;
+    }
+
+    .content-authoring-drag-handle:active { cursor: grabbing; }
+
+    .content-authoring-order-label {
+      overflow: hidden;
+      padding: 7px 4px;
+      text-align: left;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .content-authoring-order-controls {
+      display: flex;
+      gap: 2px;
+    }
+
+    .content-authoring-order-controls button {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+    }
+
+    .content-authoring-order-controls button:hover:not(:disabled),
+    .content-authoring-drag-handle:hover,
+    .content-authoring-order-label:hover {
+      color: #fff;
+      background: rgba(255,255,255,.1);
+    }
+
+    .content-authoring-order-controls button:disabled {
+      cursor: default;
+      opacity: .25;
+    }
+
+    .content-authoring-selection {
+      margin-top: 14px;
+      padding: 12px;
+      border: 1px solid rgba(155,142,255,.4);
+      border-radius: 12px;
+      background: rgba(111,96,229,.1);
+    }
+
+    .content-authoring-field {
+      display: block;
+      margin-top: 9px;
+      color: rgba(255,255,255,.58);
+      font-size: 11px;
+    }
+
+    .content-authoring-field > span {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .content-authoring-field input,
+    .content-authoring-field textarea {
+      box-sizing: border-box;
+      width: 100%;
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 9px;
+      color: #fff;
+      background: rgba(255,255,255,.075);
+      outline: none;
+      font: inherit;
+    }
+
+    .content-authoring-field input {
+      height: 38px;
+      padding: 0 10px;
+    }
+
+    .content-authoring-field textarea {
+      min-height: 88px;
+      padding: 9px 10px;
+      resize: vertical;
+      line-height: 1.45;
+    }
+
+    .content-authoring-field :is(input,textarea):focus {
+      border-color: #9B8EFF;
+      box-shadow: 0 0 0 3px rgba(111,96,229,.24);
+    }
+
+    .content-authoring-save {
+      width: 100%;
+      margin-top: 14px;
+    }
+
+    .content-authoring-status {
+      min-height: 34px;
+      margin: 8px 0 0;
+      padding: 8px 10px;
+      border-radius: 9px;
+      color: rgba(255,255,255,.58);
+      background: rgba(255,255,255,.045);
+      font-size: 11px;
+      line-height: 1.45;
+    }
+
+    .content-authoring-status[data-state="dirty"],
+    .content-authoring-status[data-state="saving"] {
+      color: #D7D1FF;
+      background: rgba(111,96,229,.16);
+    }
+
+    .content-authoring-status[data-state="saved"] {
+      color: #B9F3DA;
+      background: rgba(25,169,116,.16);
+    }
+
+    .content-authoring-status[data-state="warning"],
+    .content-authoring-status[data-state="exported"] {
+      color: #FFD2A6;
+      background: rgba(214,112,32,.18);
+    }
+
+    body.content-authoring-active .slide.active [data-author-item-id][data-author-item-kind] {
+      cursor: pointer;
+      outline: 3px solid transparent;
+      outline-offset: 3px;
+      transition: outline-color .14s ease, box-shadow .14s ease;
+    }
+
+    body.content-authoring-active .slide.active [data-author-item-id][data-author-item-kind]:hover {
+      outline-color: rgba(155,142,255,.72);
+    }
+
+    body.content-authoring-active .slide.active [data-author-item-id].is-author-selected {
+      z-index: 118;
+      outline: 5px solid #7B68EE;
+      outline-offset: 4px;
+      box-shadow: 0 0 0 2px #fff, 0 14px 42px rgba(49,36,137,.24);
+    }
+
+    body.content-authoring-active .layout-editor-overlay,
+    body.content-authoring-active .animation-editor-overlay {
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+
+    body.content-authoring-active [data-author-field][contenteditable] {
+      cursor: text;
+      outline: 2px dashed rgba(111,96,229,.45);
+      outline-offset: 2px;
+    }
+
+    body.content-authoring-active [data-author-field][contenteditable]:focus {
+      outline-color: #6F60E5;
+      background: rgba(255,255,255,.12);
+    }
+
+    @media (max-width: 420px) {
+      .content-authoring-heading {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+      }
+
+      .content-authoring-heading > button,
+      .content-authoring-add-row > button {
+        width: 100%;
+      }
+
+      .content-authoring-add-row,
+      .content-authoring-selection .editor-button-row {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .content-authoring-order > li {
+        grid-template-columns: 30px minmax(0, 1fr) auto;
+        gap: 3px;
+      }
+
+      .content-authoring-selection {
+        padding: 10px;
+      }
+    }
+
+    @media print {
+      .content-authoring-panel { display: none !important; }
+      [data-author-item-id].is-author-selected { outline: 0 !important; box-shadow: none !important; }
+    }
     .slide[data-editor-typography="true"] :is(.text-card p, .text-card li, .code-card code, .data-table td) {
       line-height: var(--editor-body-line-height) !important;
       color: var(--editor-body-color) !important;
@@ -1566,14 +1880,14 @@
 <body>
   <div class="deck-viewport">
     <main class="deck-stage" id="deckStage" aria-label="通用 Markdown Slides 工程模板">
-<section class="slide cover-slide layout-hero-split density-reading" data-title="通用 Markdown Slides 工程模板" data-slide-id="cover" data-source-page="P1" data-slide-kind="cover" data-media-count="0" data-block-count="0" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="hero-split" data-global-logo-visibility="visible" data-section="" data-chapter=""><div class="hero-shell hero-cover hero-layout-hero-split"><div class="hero-copy reveal" data-presenter-focus><p class="hero-kicker">PRESENTATION TEMPLATE</p><h1>通用 Markdown Slides 工程模板</h1><p class="hero-subtitle">固定 16:9、智能图片布局、中文排版与可复用图表控件</p><p class="hero-meta">Your Name · 2026-08</p></div><div class="hero-visual reveal"><figure class="visual-placeholder" aria-label="空白图片占位"><span class="placeholder-mark" aria-hidden="true"></span><figcaption>封面图占位<small>替换为项目自己的视觉素材</small></figcaption></figure></div></div></section>
-<section class="slide section-slide layout-hero-split density-reading" data-title="让内容决定版式" data-slide-id="layout-section" data-source-page="P2" data-slide-kind="section" data-media-count="0" data-block-count="0" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="hero-split" data-global-logo-visibility="visible" data-section="自动布局" data-chapter="布局原则"><div class="hero-shell hero-section hero-layout-hero-split"><div class="hero-copy reveal" data-presenter-focus><p class="hero-kicker">自动布局</p><h1>让内容决定版式</h1><p class="hero-subtitle">图片比例、文本密度与语义结构共同参与布局选择</p><p class="hero-meta">Your Name · 2026-08</p></div><div class="hero-visual reveal"><figure class="visual-placeholder" aria-label="空白图片占位"><span class="placeholder-mark" aria-hidden="true"></span><figcaption>章节图占位<small>替换为项目自己的视觉素材</small></figcaption></figure></div></div></section>
-<section class="slide content-slide layout-split density-reading" data-title="接近 1:1 的图片自动进入左右布局" data-slide-id="square-image" data-source-page="P3" data-slide-kind="content" data-media-count="1" data-block-count="2" data-text-length="84" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="split" data-layout-resolved="split" data-global-logo-visibility="visible" data-section="自动布局" data-chapter="图片布局"><header class="slide-header reveal" data-presenter-focus><h1>接近 1:1 的图片自动进入左右布局</h1><p class="subtitle">视觉与解释并列，避免图片缩成难以阅读的小图</p></header><div class="content"><div class="split-layout square"><div class="split-media"><figure class="card media-figure visual-widget active" data-visual-widget="image" tabindex="0"><div class="visual-widget-content" data-visual-content><img src="assets/demo-square.svg" alt="正方形布局示意" style="object-fit:contain" draggable="false"></div><figcaption>正方形视觉素材</figcaption></figure></div><div class="split-copy count-2"><article class="card text-card section-card" data-presenter-focus><h3>自动判断</h3><ul><li>图片宽高比在 <code>0.72–1.35</code> 之间时，<mark data-presenter-text="inline">优先使用图文左右布局</mark></li><li>竖图使用更窄的图片栏，横图使用更宽的图片栏</li></ul></article><article class="card text-card section-card" data-presenter-focus><h3>手动控制</h3><p>需要改变阅读顺序时，可设置 <code>image-position: right</code>。</p></article></div></div></div><footer class="section-footer" style="--section-count:4" aria-label="章节导航"><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">开始</button><div class="section-footer-menu" role="menu" aria-label="开始 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>开始</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="0" data-page-number="1"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">通用 Markdown Slides 工程模板</span><span class="section-footer-chapter-page">P.1</span></button></div></div></div><div class="section-footer-item active" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">自动布局</button><div class="section-footer-menu" role="menu" aria-label="自动布局 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>自动布局</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="1" data-page-number="2"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">布局原则</span><span class="section-footer-chapter-page">P.2</span></button><button type="button" class="section-footer-chapter is-current" role="menuitem" aria-current="location" data-slide-target="2" data-page-number="3"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">图片布局</span><span class="section-footer-chapter-page">P.3</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">内容组件</button><div class="section-footer-menu" role="menu" aria-label="内容组件 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>内容组件</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="4" data-page-number="5"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">文本内容</span><span class="section-footer-chapter-page">P.5</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="5" data-page-number="6"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">数据内容</span><span class="section-footer-chapter-page">P.6</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">交付检查</button><div class="section-footer-menu" role="menu" aria-label="交付检查 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>交付检查</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="7" data-page-number="8"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">交付检查</span><span class="section-footer-chapter-page">P.8</span></button></div></div></div></footer></section>
-<section class="slide content-slide layout-media density-reading" data-title="接近 16:9 的图片优先占满展示区域" data-slide-id="wide-image" data-source-page="P4" data-slide-kind="content" data-media-count="1" data-block-count="1" data-text-length="46" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="media" data-global-logo-visibility="visible" data-section="自动布局" data-chapter="图片布局"><header class="slide-header reveal" data-presenter-focus><h1>接近 16:9 的图片优先占满展示区域</h1><p class="subtitle">图片下方只保留简短说明，建议不超过两行</p></header><div class="content"><div class="wide-media-layout"><div class="wide-media-stage"><figure class="card media-figure visual-widget active" data-visual-widget="image" tabindex="0"><div class="visual-widget-content" data-visual-content><img src="assets/demo-wide.svg" alt="十六比九布局示意" style="object-fit:contain" draggable="false"></div><figcaption>接近屏幕比例的图片自动采用通栏展示</figcaption></figure></div><div class="wide-copy count-1 focus-grid"><article class="card text-card section-card" data-presenter-focus><p>这类页面让视觉成为主角；如果说明文字超过两行容量，构建器会自动回退为图文左右布局并给出提示。</p></article></div></div></div><footer class="section-footer" style="--section-count:4" aria-label="章节导航"><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">开始</button><div class="section-footer-menu" role="menu" aria-label="开始 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>开始</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="0" data-page-number="1"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">通用 Markdown Slides 工程模板</span><span class="section-footer-chapter-page">P.1</span></button></div></div></div><div class="section-footer-item active" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">自动布局</button><div class="section-footer-menu" role="menu" aria-label="自动布局 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>自动布局</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="1" data-page-number="2"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">布局原则</span><span class="section-footer-chapter-page">P.2</span></button><button type="button" class="section-footer-chapter is-current" role="menuitem" aria-current="location" data-slide-target="2" data-page-number="3"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">图片布局</span><span class="section-footer-chapter-page">P.3</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">内容组件</button><div class="section-footer-menu" role="menu" aria-label="内容组件 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>内容组件</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="4" data-page-number="5"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">文本内容</span><span class="section-footer-chapter-page">P.5</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="5" data-page-number="6"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">数据内容</span><span class="section-footer-chapter-page">P.6</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">交付检查</button><div class="section-footer-menu" role="menu" aria-label="交付检查 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>交付检查</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="7" data-page-number="8"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">交付检查</span><span class="section-footer-chapter-page">P.8</span></button></div></div></div></footer></section>
-<section class="slide content-slide layout-text density-reading" data-title="中文内容页强调层级与呼吸感" data-slide-id="chinese-layout" data-source-page="P5" data-slide-kind="content" data-media-count="0" data-block-count="4" data-text-length="191" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="text" data-global-logo-visibility="visible" data-section="内容组件" data-chapter="文本内容"><header class="slide-header reveal" data-presenter-focus><h1>中文内容页强调层级与呼吸感</h1><p class="subtitle">标题、副标题保持同一高度，统一左对齐</p></header><div class="content"><div class="text-grid count-4"><article class="card text-card section-card" data-presenter-focus><h3>一页一个核心结论</h3><p>正文先写结论，再补充证据。涉及 AI Agent 框架选型时，可将外部调研结论标为可追溯角标<sup class="citation"><a class="citation-ref" href="https://www.kimi.ai/zh-hant/resources/best-ai-agent-frameworks" target="_blank" rel="noreferrer" data-citation-id="kimi-agent-frameworks" data-citation-number="1" data-citation-text="Kimi：2025 年最佳 AI Agent 框架" data-citation-url="www.kimi.ai/zh-hant/resources/best-ai-agent-frameworks" aria-label="引用 1：Kimi：2025 年最佳 AI Agent 框架">1</a></sup>。演讲型页面尽量控制在 1–3 个要点；阅读型页面可以使用更完整的结构，但仍应优先拆页。</p></article><article class="card text-card section-card" data-presenter-focus><h3>使用稳定的字号台阶</h3><p>页面标题、卡片标题、正文、标签和图注各自保持清晰层级，避免所有文字挤在同一字号。</p></article><article class="card text-card section-card" data-presenter-focus><h3>避免中文孤字</h3><p>模板使用更适合中文的断行策略；表格不再允许任意位置切断英文标识符。</p></article><article class="card soft text-card callout-card callout-tip" data-presenter-focus><strong>方法提示</strong><p>内容不足时会扩大单卡片的视觉权重；内容过多时构建报告会建议拆页。</p></article></div></div><footer class="section-footer" style="--section-count:4" aria-label="章节导航"><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">开始</button><div class="section-footer-menu" role="menu" aria-label="开始 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>开始</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="0" data-page-number="1"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">通用 Markdown Slides 工程模板</span><span class="section-footer-chapter-page">P.1</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">自动布局</button><div class="section-footer-menu" role="menu" aria-label="自动布局 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>自动布局</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="1" data-page-number="2"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">布局原则</span><span class="section-footer-chapter-page">P.2</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="2" data-page-number="3"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">图片布局</span><span class="section-footer-chapter-page">P.3</span></button></div></div></div><div class="section-footer-item active" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">内容组件</button><div class="section-footer-menu" role="menu" aria-label="内容组件 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>内容组件</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter is-current" role="menuitem" aria-current="location" data-slide-target="4" data-page-number="5"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">文本内容</span><span class="section-footer-chapter-page">P.5</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="5" data-page-number="6"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">数据内容</span><span class="section-footer-chapter-page">P.6</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">交付检查</button><div class="section-footer-menu" role="menu" aria-label="交付检查 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>交付检查</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="7" data-page-number="8"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">交付检查</span><span class="section-footer-chapter-page">P.8</span></button></div></div></div></footer></section>
-<section class="slide content-slide layout-table density-reading" data-title="表格沿用现有视觉控件" data-slide-id="table-controls" data-source-page="P6" data-slide-kind="content" data-media-count="0" data-block-count="1" data-text-length="136" data-has-table="true" data-has-chart="false" data-has-diagram="false" data-layout-requested="table" data-layout-resolved="table" data-global-logo-visibility="visible" data-section="内容组件" data-chapter="数据内容"><header class="slide-header reveal" data-presenter-focus><h1>表格沿用现有视觉控件</h1><p class="subtitle">悬停后可缩放、全屏与临时标注</p></header><div class="content"><div class="table-layout"><article class="card table-card" data-presenter-focus data-visual-widget="table" tabindex="0"><div class="visual-widget-content" data-visual-content><table class="data-table" data-columns="3" data-rows="5"><thead><tr><th>页面元素</th><th>Markdown 写法</th><th>默认行为</th></tr></thead><tbody><tr><td>标题 / 副标题</td><td><code>#</code> / <code>##</code></td><td>内容页左对齐</td></tr><tr><td>内容卡片</td><td><code>###</code> + 正文</td><td>依据数量自动排成 1–3 列</td></tr><tr><td>表格</td><td>GFM Table</td><td>自动列宽、避免任意断词</td></tr><tr><td>图片</td><td><code>![alt](path &quot;caption&quot;)</code></td><td>读取宽高比后选择布局</td></tr><tr><td>提示</td><td><code>&gt; [!TIP]</code></td><td>转换为强调卡片</td></tr></tbody></table></div></article></div></div><footer class="section-footer" style="--section-count:4" aria-label="章节导航"><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">开始</button><div class="section-footer-menu" role="menu" aria-label="开始 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>开始</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="0" data-page-number="1"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">通用 Markdown Slides 工程模板</span><span class="section-footer-chapter-page">P.1</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">自动布局</button><div class="section-footer-menu" role="menu" aria-label="自动布局 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>自动布局</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="1" data-page-number="2"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">布局原则</span><span class="section-footer-chapter-page">P.2</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="2" data-page-number="3"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">图片布局</span><span class="section-footer-chapter-page">P.3</span></button></div></div></div><div class="section-footer-item active" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">内容组件</button><div class="section-footer-menu" role="menu" aria-label="内容组件 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>内容组件</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="4" data-page-number="5"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">文本内容</span><span class="section-footer-chapter-page">P.5</span></button><button type="button" class="section-footer-chapter is-current" role="menuitem" aria-current="location" data-slide-target="5" data-page-number="6"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">数据内容</span><span class="section-footer-chapter-page">P.6</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">交付检查</button><div class="section-footer-menu" role="menu" aria-label="交付检查 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>交付检查</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="7" data-page-number="8"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">交付检查</span><span class="section-footer-chapter-page">P.8</span></button></div></div></div></footer></section>
-<section class="slide content-slide layout-chart density-reading" data-title="轻量图表直接写在 Markdown 中" data-slide-id="chart-controls" data-source-page="P7" data-slide-kind="content" data-media-count="0" data-block-count="2" data-text-length="46" data-has-table="false" data-has-chart="true" data-has-diagram="false" data-layout-requested="chart" data-layout-resolved="chart" data-global-logo-visibility="visible" data-section="内容组件" data-chapter="数据内容"><header class="slide-header reveal" data-presenter-focus><h1>轻量图表直接写在 Markdown 中</h1><p class="subtitle">图表也复用缩放、全屏和标注控件</p></header><div class="content"><div class="chart-layout"><div class="chart-stage"><figure class="card chart-card" data-visual-widget="image" tabindex="0"><div class="visual-widget-content chart-content" data-visual-content><svg class="chart-svg" viewBox="0 0 1600 610" role="img" aria-label="各阶段投入占比"><text x="80" y="70" font-size="34" font-weight="700" fill="#111">各阶段投入占比</text><line x1="120" y1="480.0" x2="1480" y2="480.0" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="489.0" text-anchor="end" font-size="22" fill="#777">0</text><line x1="120" y1="392.5" x2="1480" y2="392.5" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="401.5" text-anchor="end" font-size="22" fill="#777">7.75</text><line x1="120" y1="305.0" x2="1480" y2="305.0" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="314.0" text-anchor="end" font-size="22" fill="#777">15.5</text><line x1="120" y1="217.5" x2="1480" y2="217.5" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="226.5" text-anchor="end" font-size="22" fill="#777">23.25</text><line x1="120" y1="130.0" x2="1480" y2="130.0" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="139.0" text-anchor="end" font-size="22" fill="#777">31</text><text x="290.0" y="528" text-anchor="middle" font-size="24" fill="#555">调研</text><rect x="224.0" y="231.6" width="132.0" height="248.4" rx="14" fill="#6F60E5"/><text x="290.0" y="215.6" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">22%</text><text x="630.0" y="528" text-anchor="middle" font-size="24" fill="#555">设计</text><rect x="564.0" y="130.0" width="132.0" height="350.0" rx="14" fill="#6F60E5"/><text x="630.0" y="114.0" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">31%</text><text x="970.0" y="528" text-anchor="middle" font-size="24" fill="#555">开发</text><rect x="904.0" y="163.9" width="132.0" height="316.1" rx="14" fill="#6F60E5"/><text x="970.0" y="147.9" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">28%</text><text x="1310.0" y="528" text-anchor="middle" font-size="24" fill="#555">验证</text><rect x="1244.0" y="265.5" width="132.0" height="214.5" rx="14" fill="#6F60E5"/><text x="1310.0" y="249.5" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">19%</text></svg></div><figcaption>各阶段投入占比</figcaption></figure></div><div class="chart-copy count-1 focus-grid"><article class="card soft text-card callout-card callout-note" data-presenter-focus><strong>补充说明</strong><p>内置 <code>bar</code>、<code>line</code>、<code>donut</code> 三种图表；复杂图表建议导出为 SVG 后按图片引用。</p></article></div></div></div><footer class="section-footer" style="--section-count:4" aria-label="章节导航"><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">开始</button><div class="section-footer-menu" role="menu" aria-label="开始 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>开始</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="0" data-page-number="1"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">通用 Markdown Slides 工程模板</span><span class="section-footer-chapter-page">P.1</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">自动布局</button><div class="section-footer-menu" role="menu" aria-label="自动布局 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>自动布局</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="1" data-page-number="2"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">布局原则</span><span class="section-footer-chapter-page">P.2</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="2" data-page-number="3"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">图片布局</span><span class="section-footer-chapter-page">P.3</span></button></div></div></div><div class="section-footer-item active" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">内容组件</button><div class="section-footer-menu" role="menu" aria-label="内容组件 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>内容组件</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="4" data-page-number="5"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">文本内容</span><span class="section-footer-chapter-page">P.5</span></button><button type="button" class="section-footer-chapter is-current" role="menuitem" aria-current="location" data-slide-target="5" data-page-number="6"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">数据内容</span><span class="section-footer-chapter-page">P.6</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">交付检查</button><div class="section-footer-menu" role="menu" aria-label="交付检查 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>交付检查</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="7" data-page-number="8"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">交付检查</span><span class="section-footer-chapter-page">P.8</span></button></div></div></div></footer></section>
-<section class="slide content-slide layout-text density-reading" data-title="构建报告让问题在交付前暴露" data-slide-id="delivery-check" data-source-page="P8" data-slide-kind="content" data-media-count="0" data-block-count="2" data-text-length="151" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="text" data-global-logo-visibility="visible" data-section="交付检查" data-chapter="交付检查"><header class="slide-header reveal" data-presenter-focus><h1>构建报告让问题在交付前暴露</h1><p class="subtitle">版式选择可追踪，风险不会静默被裁掉</p></header><div class="content"><div class="text-grid count-2"><article class="card text-card section-card" data-presenter-focus><h3>构建期检查</h3><ul><li>缺失图片、图表字段错误直接报错</li><li>标题过长、内容过密、表格行数过多给出警告</li><li><code>index.build.json</code> 记录每页最终采用的布局</li></ul></article><article class="card text-card section-card" data-presenter-focus><h3>浏览器检查</h3><ul><li><code>window._<wbr>_<wbr>SLIDE_<wbr>DIAGNOSTICS_<wbr>_<wbr></code> 暴露运行时溢出结果</li><li>加 <code>?debug=1</code> 会在页面上标出发生溢出的容器</li><li>固定 1920×1080 舞台在宽屏、投影和手机上只做等比缩放</li></ul></article></div></div><footer class="section-footer" style="--section-count:4" aria-label="章节导航"><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">开始</button><div class="section-footer-menu" role="menu" aria-label="开始 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>开始</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="0" data-page-number="1"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">通用 Markdown Slides 工程模板</span><span class="section-footer-chapter-page">P.1</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">自动布局</button><div class="section-footer-menu" role="menu" aria-label="自动布局 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>自动布局</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="1" data-page-number="2"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">布局原则</span><span class="section-footer-chapter-page">P.2</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="2" data-page-number="3"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">图片布局</span><span class="section-footer-chapter-page">P.3</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">内容组件</button><div class="section-footer-menu" role="menu" aria-label="内容组件 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>内容组件</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="4" data-page-number="5"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">文本内容</span><span class="section-footer-chapter-page">P.5</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="5" data-page-number="6"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">数据内容</span><span class="section-footer-chapter-page">P.6</span></button></div></div></div><div class="section-footer-item active" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">交付检查</button><div class="section-footer-menu" role="menu" aria-label="交付检查 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>交付检查</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter is-current" role="menuitem" aria-current="location" data-slide-target="7" data-page-number="8"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">交付检查</span><span class="section-footer-chapter-page">P.8</span></button></div></div></div></footer></section>
+<section class="slide cover-slide layout-hero-split density-reading" data-title="通用 Markdown Slides 工程模板" data-slide-id="cover" data-source-page="P1" data-author-base-hash="9b2d3fddb3a244e4ed2c0376cb1ac13432b7ee9438968ceb3a37fb8d3cdcbda9" data-slide-kind="cover" data-media-count="0" data-block-count="0" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="hero-split" data-global-logo-visibility="visible" data-section="" data-chapter=""><div class="hero-shell hero-cover hero-layout-hero-split"><div class="hero-copy reveal" data-presenter-focus><p class="hero-kicker">PRESENTATION TEMPLATE</p><h1 data-author-field="slide-title">通用 Markdown Slides 工程模板</h1><p class="hero-subtitle" data-author-field="slide-subtitle">固定 16:9、智能图片布局、中文排版与可复用图表控件</p><p class="hero-meta">Your Name · 2026-08</p></div><div class="hero-visual reveal"><figure class="visual-placeholder" aria-label="空白图片占位"><span class="placeholder-mark" aria-hidden="true"></span><figcaption>封面图占位<small>替换为项目自己的视觉素材</small></figcaption></figure></div></div></section>
+<section class="slide section-slide layout-hero-split density-reading" data-title="让内容决定版式" data-slide-id="layout-section" data-source-page="P2" data-author-base-hash="5c05f06231a41459547872f47a1347e1d331f3d582ad815b70347f75d1e0f632" data-slide-kind="section" data-media-count="0" data-block-count="0" data-text-length="0" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="hero-split" data-global-logo-visibility="visible" data-section="自动布局" data-chapter="布局原则"><div class="hero-shell hero-section hero-layout-hero-split"><div class="hero-copy reveal" data-presenter-focus><p class="hero-kicker">自动布局</p><h1 data-author-field="slide-title">让内容决定版式</h1><p class="hero-subtitle" data-author-field="slide-subtitle">图片比例、文本密度与语义结构共同参与布局选择</p><p class="hero-meta">Your Name · 2026-08</p></div><div class="hero-visual reveal"><figure class="visual-placeholder" aria-label="空白图片占位"><span class="placeholder-mark" aria-hidden="true"></span><figcaption>章节图占位<small>替换为项目自己的视觉素材</small></figcaption></figure></div></div></section>
+<section class="slide content-slide layout-split density-reading" data-title="接近 1:1 的图片自动进入左右布局" data-slide-id="square-image" data-source-page="P3" data-author-base-hash="3012dc027809d59031e9aa1c0dd111a3532a11ed12a50167c5e2007758a7c983" data-slide-kind="content" data-media-count="1" data-block-count="2" data-text-length="84" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="split" data-layout-resolved="split" data-global-logo-visibility="visible" data-section="自动布局" data-chapter="图片布局"><header class="slide-header reveal" data-presenter-focus><h1 data-author-field="slide-title">接近 1:1 的图片自动进入左右布局</h1><p class="subtitle" data-author-field="slide-subtitle">视觉与解释并列，避免图片缩成难以阅读的小图</p></header><div class="content"><div class="split-layout square"><div class="split-media"><figure class="card media-figure visual-widget active" data-visual-widget="image" tabindex="0" data-author-item-id="square-image-image-f75a59605142" data-author-item-kind="image" data-author-base-hash="f75a59605142161d77851ee1d28b4d7e4de20508bae4315df7b677e5bbd38b1b"><div class="visual-widget-content" data-visual-content><img src="assets/demo-square.svg" alt="正方形布局示意" style="object-fit:contain" draggable="false"></div><figcaption data-author-field="caption">正方形视觉素材</figcaption></figure></div><div class="split-copy count-2"><article data-author-item-id="square-image-text-aba0271e873f" data-author-item-kind="text" data-author-base-hash="aba0271e873f241706b1e43ec4bf356fd26aeab3fa60dcaff62dd697d1ce2532" class="card text-card section-card" data-presenter-focus><h3 data-author-field="title">自动判断</h3><div data-author-field="body"><ul><li>图片宽高比在 <code>0.72–1.35</code> 之间时，<mark data-presenter-text="inline">优先使用图文左右布局</mark></li><li>竖图使用更窄的图片栏，横图使用更宽的图片栏</li></ul></div></article><article data-author-item-id="square-image-text-6beab7d176f7" data-author-item-kind="text" data-author-base-hash="6beab7d176f72e9840ccfd9d429163de9cef916f511afedd2a448eebd0dc759c" class="card text-card section-card" data-presenter-focus><h3 data-author-field="title">手动控制</h3><div data-author-field="body"><p>需要改变阅读顺序时，可设置 <code>image-position: right</code>。</p></div></article></div></div></div><footer class="section-footer" style="--section-count:4" aria-label="章节导航"><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">开始</button><div class="section-footer-menu" role="menu" aria-label="开始 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>开始</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="0" data-page-number="1"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">通用 Markdown Slides 工程模板</span><span class="section-footer-chapter-page">P.1</span></button></div></div></div><div class="section-footer-item active" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">自动布局</button><div class="section-footer-menu" role="menu" aria-label="自动布局 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>自动布局</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="1" data-page-number="2"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">布局原则</span><span class="section-footer-chapter-page">P.2</span></button><button type="button" class="section-footer-chapter is-current" role="menuitem" aria-current="location" data-slide-target="2" data-page-number="3"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">图片布局</span><span class="section-footer-chapter-page">P.3</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">内容组件</button><div class="section-footer-menu" role="menu" aria-label="内容组件 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>内容组件</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="4" data-page-number="5"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">文本内容</span><span class="section-footer-chapter-page">P.5</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="5" data-page-number="6"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">数据内容</span><span class="section-footer-chapter-page">P.6</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">交付检查</button><div class="section-footer-menu" role="menu" aria-label="交付检查 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>交付检查</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="7" data-page-number="8"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">交付检查</span><span class="section-footer-chapter-page">P.8</span></button></div></div></div></footer></section>
+<section class="slide content-slide layout-media density-reading" data-title="接近 16:9 的图片优先占满展示区域" data-slide-id="wide-image" data-source-page="P4" data-author-base-hash="5b69a21c32666073b7b9ed7d5ff46fa0ed4fe7c864c86d9e3818816884165d8a" data-slide-kind="content" data-media-count="1" data-block-count="1" data-text-length="46" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="media" data-global-logo-visibility="visible" data-section="自动布局" data-chapter="图片布局"><header class="slide-header reveal" data-presenter-focus><h1 data-author-field="slide-title">接近 16:9 的图片优先占满展示区域</h1><p class="subtitle" data-author-field="slide-subtitle">图片下方只保留简短说明，建议不超过两行</p></header><div class="content"><div class="wide-media-layout"><div class="wide-media-stage"><figure class="card media-figure visual-widget active" data-visual-widget="image" tabindex="0" data-author-item-id="wide-image-image-61bfd3addb65" data-author-item-kind="image" data-author-base-hash="61bfd3addb650cee3a4a1e07c80ed348d9640e917e9998040ee93875eb97932b"><div class="visual-widget-content" data-visual-content><img src="assets/demo-wide.svg" alt="十六比九布局示意" style="object-fit:contain" draggable="false"></div><figcaption data-author-field="caption">接近屏幕比例的图片自动采用通栏展示</figcaption></figure></div><div class="wide-copy count-1 focus-grid"><article data-author-item-id="wide-image-text-30117fb24de9" data-author-item-kind="text" data-author-base-hash="30117fb24de98c1485f1bf36b355f6197efe5b5bf58213357d901e7e605f2c20" class="card text-card section-card" data-presenter-focus><div data-author-field="body"><p>这类页面让视觉成为主角；如果说明文字超过两行容量，构建器会自动回退为图文左右布局并给出提示。</p></div></article></div></div></div><footer class="section-footer" style="--section-count:4" aria-label="章节导航"><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">开始</button><div class="section-footer-menu" role="menu" aria-label="开始 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>开始</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="0" data-page-number="1"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">通用 Markdown Slides 工程模板</span><span class="section-footer-chapter-page">P.1</span></button></div></div></div><div class="section-footer-item active" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">自动布局</button><div class="section-footer-menu" role="menu" aria-label="自动布局 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>自动布局</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="1" data-page-number="2"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">布局原则</span><span class="section-footer-chapter-page">P.2</span></button><button type="button" class="section-footer-chapter is-current" role="menuitem" aria-current="location" data-slide-target="2" data-page-number="3"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">图片布局</span><span class="section-footer-chapter-page">P.3</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">内容组件</button><div class="section-footer-menu" role="menu" aria-label="内容组件 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>内容组件</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="4" data-page-number="5"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">文本内容</span><span class="section-footer-chapter-page">P.5</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="5" data-page-number="6"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">数据内容</span><span class="section-footer-chapter-page">P.6</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">交付检查</button><div class="section-footer-menu" role="menu" aria-label="交付检查 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>交付检查</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="7" data-page-number="8"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">交付检查</span><span class="section-footer-chapter-page">P.8</span></button></div></div></div></footer></section>
+<section class="slide content-slide layout-text density-reading" data-title="中文内容页强调层级与呼吸感" data-slide-id="chinese-layout" data-source-page="P5" data-author-base-hash="d51055dd64d6e18314ec0f1a8f78ad3327bf5494397709b7dcfb04287fbd5238" data-slide-kind="content" data-media-count="0" data-block-count="4" data-text-length="191" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="text" data-global-logo-visibility="visible" data-section="内容组件" data-chapter="文本内容"><header class="slide-header reveal" data-presenter-focus><h1 data-author-field="slide-title">中文内容页强调层级与呼吸感</h1><p class="subtitle" data-author-field="slide-subtitle">标题、副标题保持同一高度，统一左对齐</p></header><div class="content"><div class="text-grid count-4"><article data-author-item-id="chinese-layout-text-aefd6794ce5f" data-author-item-kind="text" data-author-base-hash="aefd6794ce5fa3e0ea6463189d77467e97e3f92727fb2bb84c40b4cffcf3f859" class="card text-card section-card" data-presenter-focus><h3 data-author-field="title">一页一个核心结论</h3><div data-author-field="body"><p>正文先写结论，再补充证据。涉及 AI Agent 框架选型时，可将外部调研结论标为可追溯角标<sup class="citation"><a class="citation-ref" href="https://www.kimi.ai/zh-hant/resources/best-ai-agent-frameworks" target="_blank" rel="noreferrer" data-citation-id="kimi-agent-frameworks" data-citation-number="1" data-citation-text="Kimi：2025 年最佳 AI Agent 框架" data-citation-url="www.kimi.ai/zh-hant/resources/best-ai-agent-frameworks" aria-label="引用 1：Kimi：2025 年最佳 AI Agent 框架">1</a></sup>。演讲型页面尽量控制在 1–3 个要点；阅读型页面可以使用更完整的结构，但仍应优先拆页。</p></div></article><article data-author-item-id="chinese-layout-text-a6747e653eaf" data-author-item-kind="text" data-author-base-hash="a6747e653eaf49d2779a43ee0616fee3812f64ab82205bff33ff81fdfd2cefb3" class="card text-card section-card" data-presenter-focus><h3 data-author-field="title">使用稳定的字号台阶</h3><div data-author-field="body"><p>页面标题、卡片标题、正文、标签和图注各自保持清晰层级，避免所有文字挤在同一字号。</p></div></article><article data-author-item-id="chinese-layout-text-b5386ff0c4de" data-author-item-kind="text" data-author-base-hash="b5386ff0c4de08ca0d0dc728b1832a643b2345ec1596dde1d0c3b6c63910f94f" class="card text-card section-card" data-presenter-focus><h3 data-author-field="title">避免中文孤字</h3><div data-author-field="body"><p>模板使用更适合中文的断行策略；表格不再允许任意位置切断英文标识符。</p></div></article><article data-author-item-id="chinese-layout-callout-77e0ef33747c" data-author-item-kind="callout" data-author-base-hash="77e0ef33747c5e81d756ade076acef0142fb8415661c87c64a26e662982ecdb9" class="card soft text-card callout-card callout-tip" data-presenter-focus><strong data-author-field="title">方法提示</strong><p data-author-field="body">内容不足时会扩大单卡片的视觉权重；内容过多时构建报告会建议拆页。</p></article></div></div><footer class="section-footer" style="--section-count:4" aria-label="章节导航"><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">开始</button><div class="section-footer-menu" role="menu" aria-label="开始 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>开始</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="0" data-page-number="1"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">通用 Markdown Slides 工程模板</span><span class="section-footer-chapter-page">P.1</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">自动布局</button><div class="section-footer-menu" role="menu" aria-label="自动布局 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>自动布局</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="1" data-page-number="2"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">布局原则</span><span class="section-footer-chapter-page">P.2</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="2" data-page-number="3"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">图片布局</span><span class="section-footer-chapter-page">P.3</span></button></div></div></div><div class="section-footer-item active" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">内容组件</button><div class="section-footer-menu" role="menu" aria-label="内容组件 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>内容组件</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter is-current" role="menuitem" aria-current="location" data-slide-target="4" data-page-number="5"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">文本内容</span><span class="section-footer-chapter-page">P.5</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="5" data-page-number="6"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">数据内容</span><span class="section-footer-chapter-page">P.6</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">交付检查</button><div class="section-footer-menu" role="menu" aria-label="交付检查 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>交付检查</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="7" data-page-number="8"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">交付检查</span><span class="section-footer-chapter-page">P.8</span></button></div></div></div></footer></section>
+<section class="slide content-slide layout-table density-reading" data-title="表格沿用现有视觉控件" data-slide-id="table-controls" data-source-page="P6" data-author-base-hash="85cb04dc1e9cf7b3c6c2a47d42cd90ec6f111860a5cdec8399c66bd07c1e8126" data-slide-kind="content" data-media-count="0" data-block-count="1" data-text-length="136" data-has-table="true" data-has-chart="false" data-has-diagram="false" data-layout-requested="table" data-layout-resolved="table" data-global-logo-visibility="visible" data-section="内容组件" data-chapter="数据内容"><header class="slide-header reveal" data-presenter-focus><h1 data-author-field="slide-title">表格沿用现有视觉控件</h1><p class="subtitle" data-author-field="slide-subtitle">悬停后可缩放、全屏与临时标注</p></header><div class="content"><div class="table-layout"><article data-author-item-id="table-controls-table-8814c9a5ef3b" data-author-item-kind="table" data-author-base-hash="8814c9a5ef3b4acd9994d2a490caecc33d4fe4447ded0d1d48fa82fdf07543d9" class="card table-card" data-presenter-focus data-visual-widget="table" tabindex="0"><div class="visual-widget-content" data-visual-content><table class="data-table" data-columns="3" data-rows="5"><thead><tr><th>页面元素</th><th>Markdown 写法</th><th>默认行为</th></tr></thead><tbody><tr><td>标题 / 副标题</td><td><code>#</code> / <code>##</code></td><td>内容页左对齐</td></tr><tr><td>内容卡片</td><td><code>###</code> + 正文</td><td>依据数量自动排成 1–3 列</td></tr><tr><td>表格</td><td>GFM Table</td><td>自动列宽、避免任意断词</td></tr><tr><td>图片</td><td><code>![alt](path &quot;caption&quot;)</code></td><td>读取宽高比后选择布局</td></tr><tr><td>提示</td><td><code>&gt; [!TIP]</code></td><td>转换为强调卡片</td></tr></tbody></table></div></article></div></div><footer class="section-footer" style="--section-count:4" aria-label="章节导航"><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">开始</button><div class="section-footer-menu" role="menu" aria-label="开始 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>开始</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="0" data-page-number="1"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">通用 Markdown Slides 工程模板</span><span class="section-footer-chapter-page">P.1</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">自动布局</button><div class="section-footer-menu" role="menu" aria-label="自动布局 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>自动布局</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="1" data-page-number="2"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">布局原则</span><span class="section-footer-chapter-page">P.2</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="2" data-page-number="3"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">图片布局</span><span class="section-footer-chapter-page">P.3</span></button></div></div></div><div class="section-footer-item active" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">内容组件</button><div class="section-footer-menu" role="menu" aria-label="内容组件 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>内容组件</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="4" data-page-number="5"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">文本内容</span><span class="section-footer-chapter-page">P.5</span></button><button type="button" class="section-footer-chapter is-current" role="menuitem" aria-current="location" data-slide-target="5" data-page-number="6"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">数据内容</span><span class="section-footer-chapter-page">P.6</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">交付检查</button><div class="section-footer-menu" role="menu" aria-label="交付检查 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>交付检查</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="7" data-page-number="8"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">交付检查</span><span class="section-footer-chapter-page">P.8</span></button></div></div></div></footer></section>
+<section class="slide content-slide layout-chart density-reading" data-title="轻量图表直接写在 Markdown 中" data-slide-id="chart-controls" data-source-page="P7" data-author-base-hash="f00eea2c2711694cd3ef0349a03e36c93a8927ba9782d925bb4a52e546eb592a" data-slide-kind="content" data-media-count="0" data-block-count="2" data-text-length="46" data-has-table="false" data-has-chart="true" data-has-diagram="false" data-layout-requested="chart" data-layout-resolved="chart" data-global-logo-visibility="visible" data-section="内容组件" data-chapter="数据内容"><header class="slide-header reveal" data-presenter-focus><h1 data-author-field="slide-title">轻量图表直接写在 Markdown 中</h1><p class="subtitle" data-author-field="slide-subtitle">图表也复用缩放、全屏和标注控件</p></header><div class="content"><div class="chart-layout"><div class="chart-stage"><figure class="card chart-card" data-visual-widget="image" tabindex="0"><div class="visual-widget-content chart-content" data-visual-content><svg class="chart-svg" viewBox="0 0 1600 610" role="img" aria-label="各阶段投入占比"><text x="80" y="70" font-size="34" font-weight="700" fill="#111">各阶段投入占比</text><line x1="120" y1="480.0" x2="1480" y2="480.0" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="489.0" text-anchor="end" font-size="22" fill="#777">0</text><line x1="120" y1="392.5" x2="1480" y2="392.5" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="401.5" text-anchor="end" font-size="22" fill="#777">7.75</text><line x1="120" y1="305.0" x2="1480" y2="305.0" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="314.0" text-anchor="end" font-size="22" fill="#777">15.5</text><line x1="120" y1="217.5" x2="1480" y2="217.5" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="226.5" text-anchor="end" font-size="22" fill="#777">23.25</text><line x1="120" y1="130.0" x2="1480" y2="130.0" stroke="#E1E0E7" stroke-width="2"/><text x="96" y="139.0" text-anchor="end" font-size="22" fill="#777">31</text><text x="290.0" y="528" text-anchor="middle" font-size="24" fill="#555">调研</text><rect x="224.0" y="231.6" width="132.0" height="248.4" rx="14" fill="#6F60E5"/><text x="290.0" y="215.6" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">22%</text><text x="630.0" y="528" text-anchor="middle" font-size="24" fill="#555">设计</text><rect x="564.0" y="130.0" width="132.0" height="350.0" rx="14" fill="#6F60E5"/><text x="630.0" y="114.0" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">31%</text><text x="970.0" y="528" text-anchor="middle" font-size="24" fill="#555">开发</text><rect x="904.0" y="163.9" width="132.0" height="316.1" rx="14" fill="#6F60E5"/><text x="970.0" y="147.9" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">28%</text><text x="1310.0" y="528" text-anchor="middle" font-size="24" fill="#555">验证</text><rect x="1244.0" y="265.5" width="132.0" height="214.5" rx="14" fill="#6F60E5"/><text x="1310.0" y="249.5" text-anchor="middle" font-size="25" font-weight="700" fill="#4C3BC6">19%</text></svg></div><figcaption>各阶段投入占比</figcaption></figure></div><div class="chart-copy count-1 focus-grid"><article data-author-item-id="chart-controls-callout-9d7387bfe44a" data-author-item-kind="callout" data-author-base-hash="9d7387bfe44ac4f9e48700613942e869e994bf4fc14608406adae1e6e318292f" class="card soft text-card callout-card callout-note" data-presenter-focus><strong data-author-field="title">补充说明</strong><p data-author-field="body">内置 <code>bar</code>、<code>line</code>、<code>donut</code> 三种图表；复杂图表建议导出为 SVG 后按图片引用。</p></article></div></div></div><footer class="section-footer" style="--section-count:4" aria-label="章节导航"><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">开始</button><div class="section-footer-menu" role="menu" aria-label="开始 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>开始</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="0" data-page-number="1"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">通用 Markdown Slides 工程模板</span><span class="section-footer-chapter-page">P.1</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">自动布局</button><div class="section-footer-menu" role="menu" aria-label="自动布局 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>自动布局</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="1" data-page-number="2"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">布局原则</span><span class="section-footer-chapter-page">P.2</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="2" data-page-number="3"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">图片布局</span><span class="section-footer-chapter-page">P.3</span></button></div></div></div><div class="section-footer-item active" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">内容组件</button><div class="section-footer-menu" role="menu" aria-label="内容组件 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>内容组件</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="4" data-page-number="5"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">文本内容</span><span class="section-footer-chapter-page">P.5</span></button><button type="button" class="section-footer-chapter is-current" role="menuitem" aria-current="location" data-slide-target="5" data-page-number="6"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">数据内容</span><span class="section-footer-chapter-page">P.6</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">交付检查</button><div class="section-footer-menu" role="menu" aria-label="交付检查 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>交付检查</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="7" data-page-number="8"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">交付检查</span><span class="section-footer-chapter-page">P.8</span></button></div></div></div></footer></section>
+<section class="slide content-slide layout-text density-reading" data-title="构建报告让问题在交付前暴露" data-slide-id="delivery-check" data-source-page="P8" data-author-base-hash="1016acc945765d4b3208e88b689d055bcd97435e9f60c96f3859755889fe601b" data-slide-kind="content" data-media-count="0" data-block-count="2" data-text-length="151" data-has-table="false" data-has-chart="false" data-has-diagram="false" data-layout-requested="auto" data-layout-resolved="text" data-global-logo-visibility="visible" data-section="交付检查" data-chapter="交付检查"><header class="slide-header reveal" data-presenter-focus><h1 data-author-field="slide-title">构建报告让问题在交付前暴露</h1><p class="subtitle" data-author-field="slide-subtitle">版式选择可追踪，风险不会静默被裁掉</p></header><div class="content"><div class="text-grid count-2"><article data-author-item-id="delivery-check-text-8c5ff7d14bc9" data-author-item-kind="text" data-author-base-hash="8c5ff7d14bc9bd05024f7b443dc70f7ba2c68e056f5e32f989794e2b249e528e" class="card text-card section-card" data-presenter-focus><h3 data-author-field="title">构建期检查</h3><div data-author-field="body"><ul><li>缺失图片、图表字段错误直接报错</li><li>标题过长、内容过密、表格行数过多给出警告</li><li><code>index.build.json</code> 记录每页最终采用的布局</li></ul></div></article><article data-author-item-id="delivery-check-text-508feb54852a" data-author-item-kind="text" data-author-base-hash="508feb54852a597241ada12beb085b622859e493e338cbc410bf2ee31255a2ba" class="card text-card section-card" data-presenter-focus><h3 data-author-field="title">浏览器检查</h3><div data-author-field="body"><ul><li><code>window._<wbr>_<wbr>SLIDE_<wbr>DIAGNOSTICS_<wbr>_<wbr></code> 暴露运行时溢出结果</li><li>加 <code>?debug=1</code> 会在页面上标出发生溢出的容器</li><li>固定 1920×1080 舞台在宽屏、投影和手机上只做等比缩放</li></ul></div></article></div></div><footer class="section-footer" style="--section-count:4" aria-label="章节导航"><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">开始</button><div class="section-footer-menu" role="menu" aria-label="开始 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>开始</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="0" data-page-number="1"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">通用 Markdown Slides 工程模板</span><span class="section-footer-chapter-page">P.1</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">自动布局</button><div class="section-footer-menu" role="menu" aria-label="自动布局 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>自动布局</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="1" data-page-number="2"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">布局原则</span><span class="section-footer-chapter-page">P.2</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="2" data-page-number="3"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">图片布局</span><span class="section-footer-chapter-page">P.3</span></button></div></div></div><div class="section-footer-item" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">内容组件</button><div class="section-footer-menu" role="menu" aria-label="内容组件 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>内容组件</strong><span>2 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="4" data-page-number="5"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">文本内容</span><span class="section-footer-chapter-page">P.5</span></button><button type="button" class="section-footer-chapter" role="menuitem" data-slide-target="5" data-page-number="6"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">数据内容</span><span class="section-footer-chapter-page">P.6</span></button></div></div></div><div class="section-footer-item active" data-section-nav-item><button type="button" class="section-footer-trigger" data-section-nav-trigger aria-haspopup="menu" aria-expanded="false">交付检查</button><div class="section-footer-menu" role="menu" aria-label="交付检查 子章节" aria-hidden="true" inert><div class="section-footer-menu-header" role="presentation"><strong>交付检查</strong><span>1 个子章节</span></div><div class="section-footer-menu-list" role="presentation"><button type="button" class="section-footer-chapter is-current" role="menuitem" aria-current="location" data-slide-target="7" data-page-number="8"><span class="section-footer-chapter-dot" aria-hidden="true"></span><span class="section-footer-chapter-label">交付检查</span><span class="section-footer-chapter-page">P.8</span></button></div></div></div></footer></section>
     </main>
   </div>
   <div class="control-hotzone" aria-hidden="true"></div>
@@ -1615,12 +1929,13 @@
         </div>
         <p class="editor-help">拖动矩形框调整位置；拖动四角圆点改变尺寸。调整“内容”时，图像和文字区域会等比跟随。</p>
       </section>
-      <section class="editor-group">
+      <section class="editor-group" hidden>
         <div class="editor-toggle-row">
           <div><div class="editor-label">文字内容</div><p class="editor-help">开启后直接点击标题或正文修改。</p></div>
           <button type="button" class="editor-button" id="editorTextMode" aria-pressed="false">文字编辑</button>
         </div>
       </section>
+      <div id="editorContentAuthoringMount"></div>
       <section class="editor-group">
         <div class="editor-label">正文排版 <span>当前页</span></div>
         <div class="editor-coordinate-grid">
@@ -1687,7 +2002,8 @@
     </div>
   </aside>
   <div class="editor-toast" id="editorToast" role="status"></div>
-  <script id="deckEditorConfig" type="application/json">{"schemaVersion":"1.0","stage":{"width":1920,"height":1080},"deckTitle":"通用 Markdown Slides 工程模板","source":"slides.md","shortcuts":{"presenterFocus":"H"},"branding":{"logo":{"enabled":false,"src":"","width":190,"height":72}},"slides":{"square-image":{"layout":"split","regions":{"content":{"x":110,"y":214,"width":1700,"height":716},"visual":{"x":110,"y":214,"width":650,"height":716},"copy":{"x":790,"y":214,"width":1020,"height":716}},"typography":{"lineHeight":1.45,"color":"#222222","bold":false},"animation":{"mode":"custom","order":["header","visual","block-1","block-2"],"stepMs":120},"title":"接近 1:1 的图片自动进入左右布局","sourcePage":"P3"}}}</script>
+  <script id="deckEditorConfig" type="application/json">{"schemaVersion":"1.0","stage":{"width":1920,"height":1080},"deckTitle":"通用 Markdown Slides 工程模板","source":"slides.md","sourceHash":"289b7e23b83a97e688b86de0b8719aa5603b7d1686a0f306de22fe1d9c2706a4","shortcuts":{"presenterFocus":"H"},"branding":{"logo":{"enabled":false,"src":"","width":190,"height":72}},"slides":{"square-image":{"layout":"split","regions":{"content":{"x":110,"y":214,"width":1700,"height":716},"visual":{"x":110,"y":214,"width":650,"height":716},"copy":{"x":790,"y":214,"width":1020,"height":716}},"typography":{"lineHeight":1.45,"color":"#222222","bold":false},"animation":{"mode":"custom","order":["header","visual","block-1","block-2"],"stepMs":120},"title":"接近 1:1 的图片自动进入左右布局","sourcePage":"P3"}}}</script>
+  <script id="deckAuthoringModel" type="application/json">{"schemaVersion":"1.0","source":{"name":"slides.md","sha256":"289b7e23b83a97e688b86de0b8719aa5603b7d1686a0f306de22fe1d9c2706a4","text":"---\ntitle: 通用 Markdown Slides 工程模板\nsubtitle: 从结构化内容到可演示 HTML\nauthor: Your Name\ndate: 2026-08\nlang: zh-CN\ndensity: reading\nkicker: PRESENTATION TEMPLATE\nsections: [\"开始\", \"自动布局\", \"内容组件\", \"交付检查\"]\n---\n\n\u003c!-- slide\nid: cover\ntype: cover\nlayout: auto\n-->\n# 通用 Markdown Slides 工程模板\n## 固定 16:9、智能图片布局、中文排版与可复用图表控件\n\n---\n\n\u003c!-- slide\nid: layout-section\ntype: section\nsection: 自动布局\nchapter: 布局原则\n-->\n# 让内容决定版式\n## 图片比例、文本密度与语义结构共同参与布局选择\n\n---\n\n\u003c!-- slide\nid: square-image\ntype: content\nlayout: auto\nsection: 自动布局\nchapter: 图片布局\nimage-position: left\nimage-fit: contain\n-->\n# 接近 1:1 的图片自动进入左右布局\n## 视觉与解释并列，避免图片缩成难以阅读的小图\n\n![正方形布局示意](assets/demo-square.svg \"正方形视觉素材\")\n\n### 自动判断\n\n- 图片宽高比在 `0.72–1.35` 之间时，==优先使用图文左右布局==\n- 竖图使用更窄的图片栏，横图使用更宽的图片栏\n\n### 手动控制\n\n需要改变阅读顺序时，可设置 `image-position: right`。\n\n---\n\n\u003c!-- slide\nid: wide-image\ntype: content\nlayout: auto\nsection: 自动布局\nchapter: 图片布局\nimage-fit: contain\n-->\n# 接近 16:9 的图片优先占满展示区域\n## 图片下方只保留简短说明，建议不超过两行\n\n![十六比九布局示意](assets/demo-wide.svg \"接近屏幕比例的图片自动采用通栏展示\")\n\n这类页面让视觉成为主角；如果说明文字超过两行容量，构建器会自动回退为图文左右布局并给出提示。\n\n---\n\n\u003c!-- slide\nid: chinese-layout\ntype: content\nlayout: auto\nsection: 内容组件\nchapter: 文本内容\n-->\n# 中文内容页强调层级与呼吸感\n## 标题、副标题保持同一高度，统一左对齐\n\n### 一页一个核心结论\n\n正文先写结论，再补充证据。涉及 AI Agent 框架选型时，可将外部调研结论标为可追溯角标[^kimi-agent-frameworks]。演讲型页面尽量控制在 1–3 个要点；阅读型页面可以使用更完整的结构，但仍应优先拆页。\n\n### 使用稳定的字号台阶\n\n页面标题、卡片标题、正文、标签和图注各自保持清晰层级，避免所有文字挤在同一字号。\n\n### 避免中文孤字\n\n模板使用更适合中文的断行策略；表格不再允许任意位置切断英文标识符。\n\n> [!TIP]\n> 内容不足时会扩大单卡片的视觉权重；内容过多时构建报告会建议拆页。\n\n---\n\n\u003c!-- slide\nid: table-controls\ntype: content\nlayout: table\nsection: 内容组件\nchapter: 数据内容\n-->\n# 表格沿用现有视觉控件\n## 悬停后可缩放、全屏与临时标注\n\n| 页面元素 | Markdown 写法 | 默认行为 |\n|---|---|---|\n| 标题 / 副标题 | `#` / `##` | 内容页左对齐 |\n| 内容卡片 | `###` + 正文 | 依据数量自动排成 1–3 列 |\n| 表格 | GFM Table | 自动列宽、避免任意断词 |\n| 图片 | `![alt](path \"caption\")` | 读取宽高比后选择布局 |\n| 提示 | `> [!TIP]` | 转换为强调卡片 |\n\n---\n\n\u003c!-- slide\nid: chart-controls\ntype: content\nlayout: chart\nsection: 内容组件\nchapter: 数据内容\n-->\n# 轻量图表直接写在 Markdown 中\n## 图表也复用缩放、全屏和标注控件\n\n```chart\ntype: bar\ntitle: 各阶段投入占比\nlabels: 调研 | 设计 | 开发 | 验证\nvalues: 22 | 31 | 28 | 19\nunit: %\n```\n\n> [!NOTE]\n> 内置 `bar`、`line`、`donut` 三种图表；复杂图表建议导出为 SVG 后按图片引用。\n\n---\n\n\u003c!-- slide\nid: delivery-check\ntype: content\nlayout: auto\nsection: 交付检查\nchapter: 交付检查\n-->\n# 构建报告让问题在交付前暴露\n## 版式选择可追踪，风险不会静默被裁掉\n\n### 构建期检查\n\n- 缺失图片、图表字段错误直接报错\n- 标题过长、内容过密、表格行数过多给出警告\n- `index.build.json` 记录每页最终采用的布局\n\n### 浏览器检查\n\n- `window.__SLIDE_DIAGNOSTICS__` 暴露运行时溢出结果\n- 加 `?debug=1` 会在页面上标出发生溢出的容器\n- 固定 1920×1080 舞台在宽屏、投影和手机上只做等比缩放\n\n[^kimi-agent-frameworks]: Kimi：2025 年最佳 AI Agent 框架 — https://www.kimi.ai/zh-hant/resources/best-ai-agent-frameworks\n","newline":"\n","bom":false,"offsetEncoding":"utf-16","prefix":"---\ntitle: 通用 Markdown Slides 工程模板\nsubtitle: 从结构化内容到可演示 HTML\nauthor: Your Name\ndate: 2026-08\nlang: zh-CN\ndensity: reading\nkicker: PRESENTATION TEMPLATE\nsections: [\"开始\", \"自动布局\", \"内容组件\", \"交付检查\"]\n---\n","suffix":"","separators":["---\n","---\n","---\n","---\n","---\n","---\n","---\n"],"frontmatterRange":{"start":0,"end":197},"layoutName":"slides.layout.json","layoutSha256":"f320400b2a7e82ab345c9e6bb2b6f5afed1d5401751fd6d1e7eabd084ad38862"},"slides":[{"id":"cover","number":1,"baseHash":"9b2d3fddb3a244e4ed2c0376cb1ac13432b7ee9438968ceb3a37fb8d3cdcbda9","title":"通用 Markdown Slides 工程模板","subtitle":"固定 16:9、智能图片布局、中文排版与可复用图表控件","galleryDisplay":"grid","source":"\n\u003c!-- slide\nid: cover\ntype: cover\nlayout: auto\n-->\n# 通用 Markdown Slides 工程模板\n## 固定 16:9、智能图片布局、中文排版与可复用图表控件\n\n","sourceRange":{"start":197,"end":306},"titleRange":{"start":250,"end":273},"subtitleRange":{"start":277,"end":304},"directiveRange":{"start":198,"end":247},"config":{"id":"cover","type":"cover","layout":"auto"},"items":[]},{"id":"layout-section","number":2,"baseHash":"5c05f06231a41459547872f47a1347e1d331f3d582ad815b70347f75d1e0f632","title":"让内容决定版式","subtitle":"图片比例、文本密度与语义结构共同参与布局选择","galleryDisplay":"grid","source":"\n\u003c!-- slide\nid: layout-section\ntype: section\nsection: 自动布局\nchapter: 布局原则\n-->\n# 让内容决定版式\n## 图片比例、文本密度与语义结构共同参与布局选择\n\n","sourceRange":{"start":310,"end":424},"titleRange":{"start":389,"end":396},"subtitleRange":{"start":400,"end":422},"directiveRange":{"start":311,"end":386},"config":{"id":"layout-section","type":"section","section":"自动布局","chapter":"布局原则"},"items":[]},{"id":"square-image","number":3,"baseHash":"3012dc027809d59031e9aa1c0dd111a3532a11ed12a50167c5e2007758a7c983","title":"接近 1:1 的图片自动进入左右布局","subtitle":"视觉与解释并列，避免图片缩成难以阅读的小图","galleryDisplay":"grid","source":"\n\u003c!-- slide\nid: square-image\ntype: content\nlayout: auto\nsection: 自动布局\nchapter: 图片布局\nimage-position: left\nimage-fit: contain\n-->\n# 接近 1:1 的图片自动进入左右布局\n## 视觉与解释并列，避免图片缩成难以阅读的小图\n\n![正方形布局示意](assets/demo-square.svg \"正方形视觉素材\")\n\n### 自动判断\n\n- 图片宽高比在 `0.72–1.35` 之间时，==优先使用图文左右布局==\n- 竖图使用更窄的图片栏，横图使用更宽的图片栏\n\n### 手动控制\n\n需要改变阅读顺序时，可设置 `image-position: right`。\n\n","sourceRange":{"start":428,"end":774},"titleRange":{"start":558,"end":576},"subtitleRange":{"start":580,"end":601},"directiveRange":{"start":429,"end":555},"config":{"id":"square-image","type":"content","layout":"auto","section":"自动布局","chapter":"图片布局","image-position":"left","image-fit":"contain"},"items":[{"id":"square-image-image-f75a59605142","kind":"image","alt":"正方形布局示意","source":"assets/demo-square.svg","caption":"正方形视觉素材","markdown":"![正方形布局示意](assets/demo-square.svg \"正方形视觉素材\")\n","baseHash":"f75a59605142161d77851ee1d28b4d7e4de20508bae4315df7b677e5bbd38b1b","movable":true,"sourceRange":{"start":603,"end":648},"fieldRanges":{"caption":{"start":638,"end":645}}},{"id":"square-image-text-aba0271e873f","kind":"text","title":"自动判断","body":"- 图片宽高比在 `0.72–1.35` 之间时，==优先使用图文左右布局==\n- 竖图使用更窄的图片栏，横图使用更宽的图片栏","markdown":"### 自动判断\n\n- 图片宽高比在 `0.72–1.35` 之间时，==优先使用图文左右布局==\n- 竖图使用更窄的图片栏，横图使用更宽的图片栏\n\n","baseHash":"aba0271e873f241706b1e43ec4bf356fd26aeab3fa60dcaff62dd697d1ce2532","movable":true,"sourceRange":{"start":649,"end":724},"fieldRanges":{"title":{"start":653,"end":657},"body":{"start":659,"end":722}}},{"id":"square-image-text-6beab7d176f7","kind":"text","title":"手动控制","body":"需要改变阅读顺序时，可设置 `image-position: right`。","markdown":"### 手动控制\n\n需要改变阅读顺序时，可设置 `image-position: right`。\n\n","baseHash":"6beab7d176f72e9840ccfd9d429163de9cef916f511afedd2a448eebd0dc759c","movable":true,"sourceRange":{"start":724,"end":774},"fieldRanges":{"title":{"start":728,"end":732},"body":{"start":734,"end":772}}}]},{"id":"wide-image","number":4,"baseHash":"5b69a21c32666073b7b9ed7d5ff46fa0ed4fe7c864c86d9e3818816884165d8a","title":"接近 16:9 的图片优先占满展示区域","subtitle":"图片下方只保留简短说明，建议不超过两行","galleryDisplay":"grid","source":"\n\u003c!-- slide\nid: wide-image\ntype: content\nlayout: auto\nsection: 自动布局\nchapter: 图片布局\nimage-fit: contain\n-->\n# 接近 16:9 的图片优先占满展示区域\n## 图片下方只保留简短说明，建议不超过两行\n\n![十六比九布局示意](assets/demo-wide.svg \"接近屏幕比例的图片自动采用通栏展示\")\n\n这类页面让视觉成为主角；如果说明文字超过两行容量，构建器会自动回退为图文左右布局并给出提示。\n\n","sourceRange":{"start":778,"end":1032},"titleRange":{"start":885,"end":904},"subtitleRange":{"start":908,"end":927},"directiveRange":{"start":779,"end":882},"config":{"id":"wide-image","type":"content","layout":"auto","section":"自动布局","chapter":"图片布局","image-fit":"contain"},"items":[{"id":"wide-image-image-61bfd3addb65","kind":"image","alt":"十六比九布局示意","source":"assets/demo-wide.svg","caption":"接近屏幕比例的图片自动采用通栏展示","markdown":"![十六比九布局示意](assets/demo-wide.svg \"接近屏幕比例的图片自动采用通栏展示\")\n","baseHash":"61bfd3addb650cee3a4a1e07c80ed348d9640e917e9998040ee93875eb97932b","movable":true,"sourceRange":{"start":929,"end":983},"fieldRanges":{"caption":{"start":963,"end":980}}},{"id":"wide-image-text-30117fb24de9","kind":"text","body":"这类页面让视觉成为主角；如果说明文字超过两行容量，构建器会自动回退为图文左右布局并给出提示。","markdown":"这类页面让视觉成为主角；如果说明文字超过两行容量，构建器会自动回退为图文左右布局并给出提示。\n\n","baseHash":"30117fb24de98c1485f1bf36b355f6197efe5b5bf58213357d901e7e605f2c20","movable":true,"sourceRange":{"start":984,"end":1032},"fieldRanges":{"body":{"start":984,"end":1030}}}]},{"id":"chinese-layout","number":5,"baseHash":"d51055dd64d6e18314ec0f1a8f78ad3327bf5494397709b7dcfb04287fbd5238","title":"中文内容页强调层级与呼吸感","subtitle":"标题、副标题保持同一高度，统一左对齐","galleryDisplay":"grid","source":"\n\u003c!-- slide\nid: chinese-layout\ntype: content\nlayout: auto\nsection: 内容组件\nchapter: 文本内容\n-->\n# 中文内容页强调层级与呼吸感\n## 标题、副标题保持同一高度，统一左对齐\n\n### 一页一个核心结论\n\n正文先写结论，再补充证据。涉及 AI Agent 框架选型时，可将外部调研结论标为可追溯角标[^kimi-agent-frameworks]。演讲型页面尽量控制在 1–3 个要点；阅读型页面可以使用更完整的结构，但仍应优先拆页。\n\n### 使用稳定的字号台阶\n\n页面标题、卡片标题、正文、标签和图注各自保持清晰层级，避免所有文字挤在同一字号。\n\n### 避免中文孤字\n\n模板使用更适合中文的断行策略；表格不再允许任意位置切断英文标识符。\n\n> [!TIP]\n> 内容不足时会扩大单卡片的视觉权重；内容过多时构建报告会建议拆页。\n\n","sourceRange":{"start":1036,"end":1444},"titleRange":{"start":1128,"end":1141},"subtitleRange":{"start":1145,"end":1163},"directiveRange":{"start":1037,"end":1125},"config":{"id":"chinese-layout","type":"content","layout":"auto","section":"内容组件","chapter":"文本内容"},"items":[{"id":"chinese-layout-text-aefd6794ce5f","kind":"text","title":"一页一个核心结论","body":"正文先写结论，再补充证据。涉及 AI Agent 框架选型时，可将外部调研结论标为可追溯角标[^kimi-agent-frameworks]。演讲型页面尽量控制在 1–3 个要点；阅读型页面可以使用更完整的结构，但仍应优先拆页。","markdown":"### 一页一个核心结论\n\n正文先写结论，再补充证据。涉及 AI Agent 框架选型时，可将外部调研结论标为可追溯角标[^kimi-agent-frameworks]。演讲型页面尽量控制在 1–3 个要点；阅读型页面可以使用更完整的结构，但仍应优先拆页。\n\n","baseHash":"aefd6794ce5fa3e0ea6463189d77467e97e3f92727fb2bb84c40b4cffcf3f859","movable":true,"sourceRange":{"start":1165,"end":1295},"fieldRanges":{"title":{"start":1169,"end":1177},"body":{"start":1179,"end":1293}}},{"id":"chinese-layout-text-a6747e653eaf","kind":"text","title":"使用稳定的字号台阶","body":"页面标题、卡片标题、正文、标签和图注各自保持清晰层级，避免所有文字挤在同一字号。","markdown":"### 使用稳定的字号台阶\n\n页面标题、卡片标题、正文、标签和图注各自保持清晰层级，避免所有文字挤在同一字号。\n\n","baseHash":"a6747e653eaf49d2779a43ee0616fee3812f64ab82205bff33ff81fdfd2cefb3","movable":true,"sourceRange":{"start":1295,"end":1352},"fieldRanges":{"title":{"start":1299,"end":1308},"body":{"start":1310,"end":1350}}},{"id":"chinese-layout-text-b5386ff0c4de","kind":"text","title":"避免中文孤字","body":"模板使用更适合中文的断行策略；表格不再允许任意位置切断英文标识符。","markdown":"### 避免中文孤字\n\n模板使用更适合中文的断行策略；表格不再允许任意位置切断英文标识符。\n\n","baseHash":"b5386ff0c4de08ca0d0dc728b1832a643b2345ec1596dde1d0c3b6c63910f94f","movable":true,"sourceRange":{"start":1352,"end":1399},"fieldRanges":{"title":{"start":1356,"end":1362},"body":{"start":1364,"end":1397}}},{"id":"chinese-layout-callout-77e0ef33747c","kind":"callout","title":"方法提示","body":"内容不足时会扩大单卡片的视觉权重；内容过多时构建报告会建议拆页。","callout-kind":"tip","markdown":"> [!TIP]\n> 内容不足时会扩大单卡片的视觉权重；内容过多时构建报告会建议拆页。\n","baseHash":"77e0ef33747c5e81d756ade076acef0142fb8415661c87c64a26e662982ecdb9","movable":true,"sourceRange":{"start":1399,"end":1443},"fieldRanges":{}}]},{"id":"table-controls","number":6,"baseHash":"85cb04dc1e9cf7b3c6c2a47d42cd90ec6f111860a5cdec8399c66bd07c1e8126","title":"表格沿用现有视觉控件","subtitle":"悬停后可缩放、全屏与临时标注","galleryDisplay":"grid","source":"\n\u003c!-- slide\nid: table-controls\ntype: content\nlayout: table\nsection: 内容组件\nchapter: 数据内容\n-->\n# 表格沿用现有视觉控件\n## 悬停后可缩放、全屏与临时标注\n\n| 页面元素 | Markdown 写法 | 默认行为 |\n|---|---|---|\n| 标题 / 副标题 | `#` / `##` | 内容页左对齐 |\n| 内容卡片 | `###` + 正文 | 依据数量自动排成 1–3 列 |\n| 表格 | GFM Table | 自动列宽、避免任意断词 |\n| 图片 | `![alt](path \"caption\")` | 读取宽高比后选择布局 |\n| 提示 | `> [!TIP]` | 转换为强调卡片 |\n\n","sourceRange":{"start":1448,"end":1800},"titleRange":{"start":1541,"end":1551},"subtitleRange":{"start":1555,"end":1569},"directiveRange":{"start":1449,"end":1538},"config":{"id":"table-controls","type":"content","layout":"table","section":"内容组件","chapter":"数据内容"},"items":[{"id":"table-controls-table-8814c9a5ef3b","kind":"table","markdown":"| 页面元素 | Markdown 写法 | 默认行为 |\n|---|---|---|\n| 标题 / 副标题 | `#` / `##` | 内容页左对齐 |\n| 内容卡片 | `###` + 正文 | 依据数量自动排成 1–3 列 |\n| 表格 | GFM Table | 自动列宽、避免任意断词 |\n| 图片 | `![alt](path \"caption\")` | 读取宽高比后选择布局 |\n| 提示 | `> [!TIP]` | 转换为强调卡片 |\n","baseHash":"8814c9a5ef3b4acd9994d2a490caecc33d4fe4447ded0d1d48fa82fdf07543d9","movable":false,"sourceRange":{"start":1571,"end":1799},"fieldRanges":{}}]},{"id":"chart-controls","number":7,"baseHash":"f00eea2c2711694cd3ef0349a03e36c93a8927ba9782d925bb4a52e546eb592a","title":"轻量图表直接写在 Markdown 中","subtitle":"图表也复用缩放、全屏和标注控件","galleryDisplay":"grid","source":"\n\u003c!-- slide\nid: chart-controls\ntype: content\nlayout: chart\nsection: 内容组件\nchapter: 数据内容\n-->\n# 轻量图表直接写在 Markdown 中\n## 图表也复用缩放、全屏和标注控件\n\n```chart\ntype: bar\ntitle: 各阶段投入占比\nlabels: 调研 | 设计 | 开发 | 验证\nvalues: 22 | 31 | 28 | 19\nunit: %\n```\n\n> [!NOTE]\n> 内置 `bar`、`line`、`donut` 三种图表；复杂图表建议导出为 SVG 后按图片引用。\n\n","sourceRange":{"start":1804,"end":2100},"titleRange":{"start":1897,"end":1916},"subtitleRange":{"start":1920,"end":1935},"directiveRange":{"start":1805,"end":1894},"config":{"id":"chart-controls","type":"content","layout":"chart","section":"内容组件","chapter":"数据内容"},"items":[{"id":"chart-controls-chart-7b4bfb1f0634","kind":"chart","markdown":"```chart\ntype: bar\ntitle: 各阶段投入占比\nlabels: 调研 | 设计 | 开发 | 验证\nvalues: 22 | 31 | 28 | 19\nunit: %\n```\n","baseHash":"7b4bfb1f063489d7a13e0753fdaec9ab4e6d1bfab3e15e22e6d53266231c8bf4","movable":false,"sourceRange":{"start":1937,"end":2035},"fieldRanges":{}},{"id":"chart-controls-callout-9d7387bfe44a","kind":"callout","title":"补充说明","body":"内置 `bar`、`line`、`donut` 三种图表；复杂图表建议导出为 SVG 后按图片引用。","callout-kind":"note","markdown":"> [!NOTE]\n> 内置 `bar`、`line`、`donut` 三种图表；复杂图表建议导出为 SVG 后按图片引用。\n","baseHash":"9d7387bfe44ac4f9e48700613942e869e994bf4fc14608406adae1e6e318292f","movable":true,"sourceRange":{"start":2036,"end":2099},"fieldRanges":{}}]},{"id":"delivery-check","number":8,"baseHash":"1016acc945765d4b3208e88b689d055bcd97435e9f60c96f3859755889fe601b","title":"构建报告让问题在交付前暴露","subtitle":"版式选择可追踪，风险不会静默被裁掉","galleryDisplay":"grid","source":"\n\u003c!-- slide\nid: delivery-check\ntype: content\nlayout: auto\nsection: 交付检查\nchapter: 交付检查\n-->\n# 构建报告让问题在交付前暴露\n## 版式选择可追踪，风险不会静默被裁掉\n\n### 构建期检查\n\n- 缺失图片、图表字段错误直接报错\n- 标题过长、内容过密、表格行数过多给出警告\n- `index.build.json` 记录每页最终采用的布局\n\n### 浏览器检查\n\n- `window.__SLIDE_DIAGNOSTICS__` 暴露运行时溢出结果\n- 加 `?debug=1` 会在页面上标出发生溢出的容器\n- 固定 1920×1080 舞台在宽屏、投影和手机上只做等比缩放\n\n[^kimi-agent-frameworks]: Kimi：2025 年最佳 AI Agent 框架 — https://www.kimi.ai/zh-hant/resources/best-ai-agent-frameworks\n","sourceRange":{"start":2104,"end":2554},"titleRange":{"start":2196,"end":2209},"subtitleRange":{"start":2213,"end":2230},"directiveRange":{"start":2105,"end":2193},"config":{"id":"delivery-check","type":"content","layout":"auto","section":"交付检查","chapter":"交付检查"},"items":[{"id":"delivery-check-text-8c5ff7d14bc9","kind":"text","title":"构建期检查","body":"- 缺失图片、图表字段错误直接报错\n- 标题过长、内容过密、表格行数过多给出警告\n- `index.build.json` 记录每页最终采用的布局","markdown":"### 构建期检查\n\n- 缺失图片、图表字段错误直接报错\n- 标题过长、内容过密、表格行数过多给出警告\n- `index.build.json` 记录每页最终采用的布局\n\n","baseHash":"8c5ff7d14bc9bd05024f7b443dc70f7ba2c68e056f5e32f989794e2b249e528e","movable":true,"sourceRange":{"start":2232,"end":2318},"fieldRanges":{"title":{"start":2236,"end":2241},"body":{"start":2243,"end":2316}}},{"id":"delivery-check-text-508feb54852a","kind":"text","title":"浏览器检查","body":"- `window.__SLIDE_DIAGNOSTICS__` 暴露运行时溢出结果\n- 加 `?debug=1` 会在页面上标出发生溢出的容器\n- 固定 1920×1080 舞台在宽屏、投影和手机上只做等比缩放","markdown":"### 浏览器检查\n\n- `window.__SLIDE_DIAGNOSTICS__` 暴露运行时溢出结果\n- 加 `?debug=1` 会在页面上标出发生溢出的容器\n- 固定 1920×1080 舞台在宽屏、投影和手机上只做等比缩放\n\n","baseHash":"508feb54852a597241ada12beb085b622859e493e338cbc410bf2ee31255a2ba","movable":true,"sourceRange":{"start":2318,"end":2437},"fieldRanges":{"title":{"start":2322,"end":2327},"body":{"start":2329,"end":2435}}}]}]}</script>
   <script>
     /* ===========================================
        STANDARD IMAGE / CHART / TABLE VIEWER
@@ -1980,6 +2296,23 @@
         this.widgets.forEach(widget => widget.root.classList.toggle("is-disabled", editing));
         if (editing && this.fullscreenWidget) this.exitFullscreen();
       }
+      reconcile(scope = document) {
+        this.widgets = this.widgets.filter(widget => widget.root.isConnected);
+        const known = new Set(this.widgets.map(widget => widget.root));
+        scope.querySelectorAll?.("[data-visual-widget]").forEach(root => {
+          if (known.has(root)) return;
+          const widget = new SlideVisualWidget(root, this);
+          widget.root.classList.toggle("is-disabled", this.editing);
+          this.widgets.push(widget);
+        });
+      }
+      unregister(root) {
+        const widget = this.widgets.find(candidate => candidate.root === root);
+        if (!widget) return;
+        if (this.active === widget) this.active = null;
+        if (this.fullscreenWidget === widget) this.exitFullscreen();
+        this.widgets = this.widgets.filter(candidate => candidate !== widget);
+      }
       sanitizeClone(clone) {
         clone.querySelector(".visual-widget-overlay")?.remove();
         clone.querySelectorAll(".visual-widget-tools, .visual-widget-close, .visual-widget-status, .visual-annotation-layer").forEach(node => node.remove());
@@ -2015,6 +2348,7 @@
         this.schemaVersion = "1.0";
         this.stageSize = {width: 1920, height: 1080};
         this.source = embeddedConfig?.source || "slides.md";
+        this.sourceHash = typeof embeddedConfig?.sourceHash === "string" ? embeddedConfig.sourceHash : "";
         this.outputName = "slides.layout.json";
         this.deckTitle = embeddedConfig?.deckTitle || "通用 Markdown Slides 工程模板";
         this.htmlOutputName = "index.html";
@@ -2103,7 +2437,8 @@
       restoreLocal() {
         try {
           const saved = JSON.parse(localStorage.getItem(this.storageKey()) || "{}");
-          if (saved && typeof saved === "object" && saved.slides && typeof saved.slides === "object" && !Array.isArray(saved.slides)) {
+          const matchingSource = Boolean(this.sourceHash && saved?.sourceHash === this.sourceHash);
+          if (matchingSource && saved.slides && typeof saved.slides === "object" && !Array.isArray(saved.slides)) {
             this.entries = {...this.entries, ...saved.slides};
           }
           if (typeof saved?.shortcuts?.presenterFocus === "string") {
@@ -2116,6 +2451,9 @@
               width: saved.branding.logo.width,
               height: saved.branding.logo.height
             };
+          }
+          if (!matchingSource && saved?.slides && typeof saved.slides === "object" && Object.keys(saved.slides).length) {
+            this.storageWarning = "检测到基于旧源码的本地布局，已忽略以避免页面错位。";
           }
         } catch (_) {
           this.storageWarning = "浏览器无法读取之前的本地布局；当前仍可编辑并导出 JSON。";
@@ -2145,6 +2483,7 @@
           stage: {...this.stageSize},
           deckTitle: this.deckTitle,
           source: this.source,
+          sourceHash: this.sourceHash,
           shortcuts: this.clone(this.shortcuts),
           branding: this.clone(this.branding),
           slides: this.clone(this.entries)
@@ -2975,17 +3314,19 @@
       }
       toggle() { this.setActive(!this.active); }
       setTextMode(active) {
-        if (active && this.animationMode) this.setAnimationMode(false);
-        this.textMode = active;
-        document.body.classList.toggle("editor-text-mode", active);
+        // Legacy whole-stage contentEditable used ordinal DOM keys and could
+        // replay saved HTML into the wrong title after any earlier insertion.
+        // Structured content authoring now owns all editable fields.
+        this.textMode = false;
+        document.body.classList.remove("editor-text-mode");
         if (this.presentation) {
-          this.presentation.editing = active;
-          this.presentation.stage.contentEditable = active ? "true" : "false";
-          this.presentation.widgetManager.setEditing(this.active || active);
+          this.presentation.editing = false;
+          this.presentation.stage.removeAttribute("contenteditable");
+          this.presentation.widgetManager.setEditing(this.active);
         }
         const button = document.getElementById("editorTextMode");
-        button.setAttribute("aria-pressed", String(active));
-        button.textContent = active ? "结束文字编辑" : "文字编辑";
+        button.setAttribute("aria-pressed", "false");
+        button.textContent = "文字编辑已迁移";
       }
       resetPage() {
         const slide = this.currentSlide();
@@ -3143,6 +3484,9 @@
         const config = clone.querySelector("#deckEditorConfig");
         if (config) config.textContent = JSON.stringify(this.exportPayload()).replaceAll("<", "\\u003c");
         clone.querySelectorAll("[contenteditable]").forEach(node => node.removeAttribute("contenteditable"));
+        clone.querySelectorAll("[data-author-edit-key]").forEach(node => node.removeAttribute("data-author-edit-key"));
+        clone.querySelectorAll(".is-author-selected").forEach(node => node.classList.remove("is-author-selected"));
+        clone.querySelectorAll("[aria-selected='true'][data-author-item-id]").forEach(node => node.removeAttribute("aria-selected"));
       }
     }
 
@@ -3270,6 +3614,10 @@
           ":scope > ul > li",
           ":scope > ol > li",
           ":scope > pre",
+          ":scope > [data-author-field='body'] > p",
+          ":scope > [data-author-field='body'] > ul > li",
+          ":scope > [data-author-field='body'] > ol > li",
+          ":scope > [data-author-field='body'] > pre",
           ":scope table th",
           ":scope table td"
         ].join(",");
@@ -3629,6 +3977,1843 @@
         });
       }
     }
+    class ContentAuthoring {
+      static schemaVersion = "1.0";
+      static movableKinds = new Set(["text", "callout", "image", "video"]);
+      static blockKinds = new Set(["text", "callout"]);
+      static mediaKinds = new Set(["image", "video"]);
+
+      static readEmbeddedModel(id = "deckAuthoringModel") {
+        try {
+          const payload = JSON.parse(document.getElementById(id)?.textContent || "{}");
+          return payload && typeof payload === "object" ? payload : {};
+        } catch (_) {
+          return {};
+        }
+      }
+
+      constructor(options = {}) {
+        this.stage = typeof options.stage === "string"
+          ? document.querySelector(options.stage)
+          : (options.stage || document.getElementById("deckStage"));
+        if (!this.stage) throw new Error("Content Authoring requires a deck stage");
+        this.presentation = options.presentation || null;
+        this.layoutEditor = options.layoutEditor || null;
+        this.widgetManager = options.widgetManager || null;
+        this.mediaTabsManager = options.mediaTabsManager || null;
+        this.mediaPlayback = options.mediaPlayback || null;
+        this.domBridge = options.domBridge || null;
+        this.saveAdapter = options.saveAdapter || null;
+        this.serializeBridge = typeof options.serializeMarkdown === "function" ? options.serializeMarkdown : null;
+        this.mediaImporter = options.mediaImporter || null;
+        this.manifest = this.normalizeManifest(options.manifest || ContentAuthoring.readEmbeddedModel());
+        this.source = {...this.manifest.source};
+        this.slideStates = new Map();
+        this.items = new Map();
+        this.nodes = new Map();
+        this.pendingAssets = new Map();
+        this.operations = [];
+        this.revision = 0;
+        this.selectedId = null;
+        this.active = false;
+        this.dirty = false;
+        this.needsRebuild = false;
+        this.storageWarning = "";
+        this.staleDraft = null;
+        this.fieldTimers = new Map();
+        this.abortController = new AbortController();
+        this.panelWasCreated = false;
+        this.initializeModel();
+        this.mountPanel(options.panelRoot || null);
+        this.bind();
+        this.restoreDraft();
+        this.refreshPanel();
+      }
+
+      normalizeManifest(value) {
+        const manifest = value && typeof value === "object" ? value : {};
+        const source = manifest.source && typeof manifest.source === "object" ? manifest.source : {};
+        const slides = Array.isArray(manifest.slides)
+          ? manifest.slides
+          : Object.entries(manifest.slides || {}).map(([id, slide]) => ({id, ...(slide || {})}));
+        return {
+          schemaVersion: String(manifest.schemaVersion || ContentAuthoring.schemaVersion),
+          source: {
+            name: String(source.name || source.path || "slides.md"),
+            sha256: String(source.sha256 || source.sourceSha256 || ""),
+            text: typeof source.text === "string" ? source.text : "",
+            newline: ["\n", "\r\n", "\r"].includes(source.newline) ? source.newline : "\n",
+            bom: source.bom === true,
+            offsetEncoding: String(source.offsetEncoding || "utf-16"),
+            layoutName: String(source.layoutName || ""),
+            layoutSha256: String(source.layoutSha256 || "")
+          },
+          slides: slides.filter(slide => slide && typeof slide === "object" && slide.id)
+        };
+      }
+
+      initializeModel() {
+        const manifestSlides = new Map(this.manifest.slides.map(slide => [String(slide.id), slide]));
+        const slideNodes = [...this.stage.querySelectorAll(":scope > .slide[data-slide-id]")];
+        slideNodes.forEach((element, index) => {
+          const id = String(element.dataset.slideId || "");
+          const authored = manifestSlides.get(id) || {};
+          const state = {
+            id,
+            index,
+            element,
+            kind: String(element.dataset.slideKind || authored.kind || "content"),
+            number: Number(authored.number || index + 1),
+            title: String(authored.title ?? element.dataset.title ?? ""),
+            subtitle: String(authored.subtitle || ""),
+            baseHash: String(authored.baseHash || element.dataset.authorBaseHash || ""),
+            source: typeof authored.source === "string" ? authored.source : "",
+            sourceRange: this.normalizeRange(authored.sourceRange),
+            directiveRange: this.normalizeRange(authored.directiveRange),
+            titleRange: this.normalizeRange(authored.titleRange),
+            subtitleRange: this.normalizeRange(authored.subtitleRange),
+            config: authored.config && typeof authored.config === "object" ? {...authored.config} : {},
+            layoutResolved: String(element.dataset.layoutResolved || authored.layoutResolved || authored.config?.layout || "text"),
+            layoutChanged: false,
+            galleryDisplay: authored.galleryDisplay === "tabs" ? "tabs" : "grid",
+            baseGalleryDisplay: authored.galleryDisplay === "tabs" ? "tabs" : "grid",
+            itemIds: [],
+            baseItemIds: [],
+            galleryChanged: false,
+            changed: false
+          };
+          this.slideStates.set(id, state);
+          const authoredItems = Array.isArray(authored.items) ? authored.items : [];
+          authoredItems.forEach(item => this.registerItem(state, item));
+          element.querySelectorAll("[data-author-item-id][data-author-item-kind]").forEach(node => {
+            const itemId = String(node.dataset.authorItemId || "");
+            if (!itemId || this.items.has(itemId)) {
+              if (itemId) this.nodes.set(itemId, node);
+              return;
+            }
+            this.registerItem(state, {
+              id: itemId,
+              kind: node.dataset.authorItemKind,
+              baseHash: node.dataset.authorBaseHash || "",
+              title: this.readField(node, "title"),
+              body: this.readField(node, "body"),
+              caption: this.readField(node, "caption")
+            });
+          });
+          state.baseItemIds = [...state.itemIds];
+        });
+      }
+
+      registerItem(state, source) {
+        const id = String(source?.id || "");
+        const kind = String(source?.kind || "").toLowerCase();
+        if (!id || this.items.has(id)) return null;
+        const node = [...state.element.querySelectorAll("[data-author-item-id]")]
+          .find(candidate => candidate.dataset.authorItemId === id) || null;
+        const item = {
+          id,
+          kind,
+          slideId: state.id,
+          title: String(source.title ?? this.readField(node, "title") ?? ""),
+          body: String(source.body ?? this.readField(node, "body") ?? ""),
+          caption: String(source.caption ?? this.readField(node, "caption") ?? ""),
+          alt: String(source.alt || node?.querySelector("img,video")?.getAttribute("alt") || ""),
+          calloutKind: String(source.calloutKind || source["callout-kind"] || source.variant || "note").toLowerCase(),
+          markdown: typeof source.markdown === "string" ? source.markdown : "",
+          baseHash: String(source.baseHash || node?.dataset.authorBaseHash || ""),
+          sourceRange: this.normalizeRange(source.sourceRange),
+          fieldRanges: this.normalizeFieldRanges(source.fieldRanges),
+          assetId: String(source.assetId || ""),
+          sourcePath: String(source.sourcePath || source.source || source.src || ""),
+          width: Number(source.width) || null,
+          height: Number(source.height) || null,
+          created: source.created === true,
+          dirtyFields: new Set(Array.isArray(source.dirtyFields) ? source.dirtyFields.map(String) : [])
+        };
+        this.items.set(id, item);
+        state.itemIds.push(id);
+        if (node) this.nodes.set(id, node);
+        return item;
+      }
+
+      normalizeRange(value) {
+        if (!value || typeof value !== "object") return null;
+        const start = Number(value.start);
+        const end = Number(value.end);
+        return Number.isInteger(start) && Number.isInteger(end) && start >= 0 && end >= start ? {start, end} : null;
+      }
+
+      normalizeFieldRanges(value) {
+        if (!value || typeof value !== "object") return {};
+        return Object.fromEntries(Object.entries(value)
+          .map(([name, range]) => [name, this.normalizeRange(range)])
+          .filter(([, range]) => range));
+      }
+
+      readField(node, name) {
+        if (!node) return "";
+        const field = node.matches?.(`[data-author-field="${name}"]`)
+          ? node
+          : node.querySelector?.(`[data-author-field="${name}"]`);
+        return field?.innerText?.replace(/\u00a0/g, " ").trim() || "";
+      }
+
+      mountPanel(panelRoot) {
+        let root = typeof panelRoot === "string" ? document.querySelector(panelRoot) : panelRoot;
+        if (!root) root = document.querySelector("[data-content-authoring-mount]");
+        if (!root) {
+          const editorBody = document.querySelector("#layoutEditorPanel .layout-editor-body");
+          if (!editorBody) return;
+          root = document.createElement("section");
+          root.className = "editor-group content-authoring-panel";
+          root.dataset.contentAuthoringMount = "";
+          editorBody.insertBefore(root, editorBody.querySelector(".editor-status"));
+          this.panelWasCreated = true;
+        }
+        root.classList.add("content-authoring-panel");
+        root.innerHTML = `
+          <div class="editor-toggle-row content-authoring-heading">
+            <div><div class="editor-label">结构化内容 <span>当前页</span></div><p class="editor-help">选择内容后可编辑、排序或移动到相邻页。</p></div>
+            <button type="button" class="editor-button" data-author-action="toggle-mode" aria-pressed="false">内容模式</button>
+          </div>
+          <div class="editor-button-row content-authoring-add-row">
+            <button type="button" class="editor-button primary" data-author-action="add-text">＋ 文本块</button>
+            <button type="button" class="editor-button" data-author-action="add-callout">＋ Callout</button>
+          </div>
+          <button type="button" class="editor-button content-authoring-upload" data-author-action="upload-image">上传 / 替换图片</button>
+          <input type="file" data-author-image-input accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" multiple hidden>
+          <fieldset class="content-authoring-gallery" data-author-gallery hidden>
+            <legend>多图展示</legend>
+            <div class="content-authoring-segmented">
+              <button type="button" data-author-gallery-display="grid" aria-pressed="false">并列</button>
+              <button type="button" data-author-gallery-display="tabs" aria-pressed="false">Gallery</button>
+            </div>
+          </fieldset>
+          <ol class="content-authoring-order" data-author-order aria-label="文本块与 Callout 顺序"></ol>
+          <div class="content-authoring-selection" data-author-selection hidden>
+            <div class="editor-label">已选内容 <span data-author-selection-kind></span></div>
+            <label class="content-authoring-field" data-author-title-row><span>标题</span><input type="text" data-author-input="title"></label>
+            <label class="content-authoring-field" data-author-body-row><span>正文</span><textarea rows="4" data-author-input="body"></textarea></label>
+            <div class="editor-button-row">
+              <button type="button" class="editor-button" data-author-action="move-prev">移到上一页</button>
+              <button type="button" class="editor-button" data-author-action="move-next">移到下一页</button>
+            </div>
+          </div>
+          <button type="button" class="editor-button primary content-authoring-save" data-author-action="save" disabled>保存改动</button>
+          <p class="content-authoring-status" data-author-status role="status">尚无内容改动。</p>`;
+        this.panel = root;
+        this.orderList = root.querySelector("[data-author-order]");
+        this.selectionPanel = root.querySelector("[data-author-selection]");
+        this.statusNode = root.querySelector("[data-author-status]");
+        this.saveButton = root.querySelector('[data-author-action="save"]');
+        this.modeButton = root.querySelector('[data-author-action="toggle-mode"]');
+        this.imageInput = root.querySelector("[data-author-image-input]");
+      }
+
+      bind() {
+        const signal = this.abortController.signal;
+        this.stage.addEventListener("click", event => this.handleStageClick(event), {signal});
+        this.stage.addEventListener("focusin", event => this.handleFieldFocus(event), {signal});
+        this.stage.addEventListener("input", event => this.handleFieldInput(event), {signal});
+        this.stage.addEventListener("focusout", event => this.handleFieldBlur(event), {signal});
+        this.stage.addEventListener("paste", event => this.handlePaste(event), {signal});
+        this.stage.addEventListener("dragover", event => this.handleStageDragOver(event), {signal});
+        this.stage.addEventListener("drop", event => this.handleStageDrop(event), {signal});
+        addEventListener("keydown", event => {
+          if (!this.active || event.defaultPrevented) return;
+          if (event.key === "Escape" && this.selectedId) {
+            event.preventDefault();
+            this.select(null);
+          }
+        }, {capture: true, signal});
+        if (this.panel) {
+          this.panel.addEventListener("click", event => this.handlePanelClick(event), {signal});
+          this.panel.addEventListener("change", event => this.handlePanelChange(event), {signal});
+          this.orderList.addEventListener("dragstart", event => this.handleOrderDragStart(event), {signal});
+          this.orderList.addEventListener("dragover", event => this.handleOrderDragOver(event), {signal});
+          this.orderList.addEventListener("drop", event => this.handleOrderDrop(event), {signal});
+          this.orderList.addEventListener("dragend", () => this.clearOrderDrag(), {signal});
+        }
+        this.bodyObserver = new MutationObserver(() => {
+          if (!document.body.classList.contains("editor-open") && this.active) this.setActive(false);
+        });
+        this.bodyObserver.observe(document.body, {attributes: true, attributeFilter: ["class"]});
+      }
+
+      destroy() {
+        this.setActive(false);
+        this.abortController.abort();
+        this.bodyObserver?.disconnect();
+        this.fieldTimers.forEach(timer => clearTimeout(timer));
+        if (this.panelWasCreated) this.panel?.remove();
+      }
+
+      setActive(active) {
+        this.active = active === true;
+        document.body.classList.toggle("content-authoring-active", this.active);
+        this.modeButton?.setAttribute("aria-pressed", String(this.active));
+        if (this.modeButton) this.modeButton.textContent = this.active ? "结束内容模式" : "内容模式";
+        if (this.active) {
+          this.layoutEditor?.setAnimationMode?.(false);
+          this.layoutEditor?.setTextMode?.(false);
+          this.layoutEditor?.setInteractionMode?.("content");
+        } else {
+          this.layoutEditor?.setInteractionMode?.("layout");
+          this.select(null);
+        }
+        this.setFieldsEditable(this.active);
+        this.widgetManager?.setEditing?.(document.body.classList.contains("editor-open") || this.active);
+        this.dispatch("mode-change", {active: this.active});
+        this.refreshPanel();
+      }
+
+      setFieldsEditable(editable) {
+        this.stage.querySelectorAll("[data-author-item-id] [data-author-field]").forEach(field => {
+          if (editable && ContentAuthoring.movableKinds.has(field.closest("[data-author-item-kind]")?.dataset.authorItemKind)) {
+            field.setAttribute("contenteditable", "plaintext-only");
+            field.setAttribute("spellcheck", "true");
+            const itemId = field.closest("[data-author-item-id]")?.dataset.authorItemId;
+            field.dataset.authorEditKey = `${itemId}:${field.dataset.authorField}`;
+          } else {
+            field.removeAttribute("contenteditable");
+            field.removeAttribute("spellcheck");
+          }
+        });
+      }
+
+      handleStageClick(event) {
+        if (!this.active || event.target.closest("button,a,input,textarea,select")) return;
+        const node = event.target.closest("[data-author-item-id][data-author-item-kind]");
+        if (!node || !node.closest(".slide.active")) {
+          this.select(null);
+          return;
+        }
+        const item = this.items.get(node.dataset.authorItemId);
+        if (!item || !ContentAuthoring.movableKinds.has(item.kind)) return;
+        event.stopPropagation();
+        this.select(item.id);
+      }
+
+      handleFieldFocus(event) {
+        if (!this.active) return;
+        const field = event.target.closest?.("[data-author-field]");
+        const itemId = field?.closest("[data-author-item-id]")?.dataset.authorItemId;
+        if (itemId && this.items.has(itemId)) this.select(itemId, {focusPanel: false});
+      }
+
+      handleFieldInput(event) {
+        const field = event.target.closest?.("[data-author-field]");
+        if (!this.active || !field) return;
+        event.stopPropagation();
+        const itemId = field.closest("[data-author-item-id]")?.dataset.authorItemId;
+        const name = field.dataset.authorField;
+        if (!itemId || !name) return;
+        const key = `${itemId}:${name}`;
+        clearTimeout(this.fieldTimers.get(key));
+        this.fieldTimers.set(key, setTimeout(() => {
+          this.fieldTimers.delete(key);
+          this.updateField(itemId, name, this.fieldText(field), {updateDom: false, announce: false});
+        }, 240));
+      }
+
+      handleFieldBlur(event) {
+        const field = event.target.closest?.("[data-author-field]");
+        if (!field) return;
+        const itemId = field.closest("[data-author-item-id]")?.dataset.authorItemId;
+        const name = field.dataset.authorField;
+        const key = `${itemId}:${name}`;
+        if (!this.fieldTimers.has(key)) return;
+        clearTimeout(this.fieldTimers.get(key));
+        this.fieldTimers.delete(key);
+        this.updateField(itemId, name, this.fieldText(field), {updateDom: false, announce: false});
+      }
+
+      fieldText(field) {
+        return String(field.innerText || field.textContent || "").replace(/\u00a0/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+      }
+
+      handlePaste(event) {
+        if (!this.active) return;
+        const field = event.target.closest?.("[data-author-field]");
+        const files = [...(event.clipboardData?.files || [])].filter(file => file.type.startsWith("image/"));
+        if (files.length) {
+          event.preventDefault();
+          event.stopPropagation();
+          this.requestMediaImport(files, this.importContext(event.target, "paste"));
+          return;
+        }
+        if (!field) return;
+        const text = event.clipboardData?.getData("text/plain");
+        if (typeof text !== "string") return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.insertPlainText(text);
+      }
+
+      insertPlainText(text) {
+        const selection = getSelection();
+        if (!selection?.rangeCount) return;
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        const node = document.createTextNode(text);
+        range.insertNode(node);
+        range.setStartAfter(node);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        node.parentElement?.dispatchEvent(new InputEvent("input", {bubbles: true, inputType: "insertText", data: text}));
+      }
+
+      handleStageDragOver(event) {
+        if (!this.active || ![...(event.dataTransfer?.items || [])].some(item => item.kind === "file" && item.type.startsWith("image/"))) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "copy";
+      }
+
+      handleStageDrop(event) {
+        if (!this.active) return;
+        const files = [...(event.dataTransfer?.files || [])].filter(file => file.type.startsWith("image/"));
+        if (!files.length) return;
+        event.preventDefault();
+        event.stopPropagation();
+        this.requestMediaImport(files, this.importContext(event.target, "drop"));
+      }
+
+      importContext(target, source) {
+        const node = target.closest?.("[data-author-item-id]");
+        const selected = node?.dataset.authorItemId || this.selectedId;
+        const selectedItem = this.items.get(selected);
+        return {
+          source,
+          slideId: selectedItem?.slideId || this.currentSlideId(),
+          targetItemId: ContentAuthoring.mediaKinds.has(selectedItem?.kind) ? selectedItem.id : null,
+          intent: ContentAuthoring.mediaKinds.has(selectedItem?.kind) ? "replace" : "append"
+        };
+      }
+
+      requestMediaImport(files, context) {
+        const detail = {
+          files,
+          context,
+          response: null,
+          respondWith(promise) { this.response = Promise.resolve(promise); }
+        };
+        this.dispatch("media-import-request", detail, {cancelable: true});
+        const response = this.mediaImporter?.importFiles
+          ? Promise.resolve(this.mediaImporter.importFiles(files, context, this))
+          : (detail.response || this.importRasterFiles(files, context));
+        if (!response) {
+          this.setStatus("尚未连接媒体导入桥；图片没有插入文字 DOM。", "warning");
+          return;
+        }
+        response.then(result => {
+          if (Array.isArray(result?.pendingAssets)) result.pendingAssets.forEach(asset => this.registerPendingAsset(asset));
+          this.dispatch("media-imported", {context, result});
+        }).catch(error => this.reportError(error, "图片导入失败"));
+      }
+
+      async importRasterFiles(files, context = {}) {
+        const accepted = [];
+        let replaceTarget = context.intent === "replace" ? context.targetItemId : null;
+        for (const file of files) {
+          const raster = await this.validateRasterFile(file);
+          const assetId = this.createId("asset");
+          const relativePath = `assets/authoring/${this.safeAssetName(file.name, raster.mime)}`;
+          this.registerPendingAsset({assetId, blob: file, mime: raster.mime, relativePath});
+          const preview = await this.dataUrl(file);
+          if (replaceTarget && ContentAuthoring.mediaKinds.has(this.items.get(replaceTarget)?.kind)) {
+            this.replaceMediaItem(replaceTarget, {
+              assetId,
+              sourcePath: relativePath,
+              alt: this.assetLabel(file.name),
+              caption: this.items.get(replaceTarget).caption || this.assetLabel(file.name),
+              preview,
+              width: raster.width,
+              height: raster.height
+            });
+            accepted.push({itemId: replaceTarget, assetId, replacement: true});
+            replaceTarget = null;
+          } else {
+            const itemId = this.appendMediaItem(context.slideId || this.currentSlideId(), {
+              assetId,
+              sourcePath: relativePath,
+              alt: this.assetLabel(file.name),
+              caption: this.assetLabel(file.name),
+              preview,
+              width: raster.width,
+              height: raster.height
+            });
+            accepted.push({itemId, assetId, replacement: false});
+          }
+        }
+        this.setStatus(`已导入 ${accepted.length} 张图片；Blob 只保存在当前会话，建议立即保存。`, "dirty");
+        return {items: accepted, pendingAssets: []};
+      }
+
+      async validateRasterFile(file) {
+        if (!(file instanceof Blob)) throw new Error("没有可读取的图片文件");
+        if (file.size > 8 * 1024 * 1024) throw new Error("单张图片不能超过 8 MB");
+        const declared = String(file.type || "").toLowerCase();
+        const allowed = new Set(["image/png", "image/jpeg", "image/webp"]);
+        if (declared && !allowed.has(declared)) throw new Error("仅支持 PNG、JPEG 或 WebP");
+        const bytes = new Uint8Array(await file.slice(0, 16).arrayBuffer());
+        const png = bytes.length >= 8 && [0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a].every((byte, index) => bytes[index] === byte);
+        const jpeg = bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+        const webp = bytes.length >= 12 && String.fromCharCode(...bytes.slice(0, 4)) === "RIFF" && String.fromCharCode(...bytes.slice(8, 12)) === "WEBP";
+        const mime = png ? "image/png" : jpeg ? "image/jpeg" : webp ? "image/webp" : "";
+        if (!mime || (declared && declared !== mime)) throw new Error("图片内容与文件类型不匹配");
+        const dimensions = await this.decodeRasterDimensions(file);
+        if (dimensions.width > 12000 || dimensions.height > 12000 || dimensions.width * dimensions.height > 40_000_000) {
+          throw new Error("图片像素尺寸过大（上限 12000 px / 4000 万像素）");
+        }
+        return {mime, ...dimensions};
+      }
+
+      async decodeRasterDimensions(blob) {
+        if (typeof createImageBitmap === "function") {
+          let bitmap;
+          try {
+            bitmap = await createImageBitmap(blob);
+            if (!bitmap.width || !bitmap.height) throw new Error("图片尺寸无效");
+            return {width: bitmap.width, height: bitmap.height};
+          } catch (_) {
+            throw new Error("图片无法解码");
+          } finally {
+            bitmap?.close?.();
+          }
+        }
+        const url = URL.createObjectURL(blob);
+        try {
+          return await new Promise((resolve, reject) => {
+            const image = new Image();
+            image.addEventListener("load", () => resolve({width: image.naturalWidth, height: image.naturalHeight}), {once: true});
+            image.addEventListener("error", () => reject(new Error("图片无法解码")), {once: true});
+            image.src = url;
+          });
+        } finally {
+          URL.revokeObjectURL(url);
+        }
+      }
+
+      safeAssetName(name, mime) {
+        const extension = {"image/png":"png", "image/jpeg":"jpg", "image/webp":"webp"}[mime] || "bin";
+        const stem = String(name || "image").replace(/\.[^.]+$/, "").replace(/[^0-9A-Za-z._-]+/g, "-").replace(/^[-.]+|[-.]+$/g, "").slice(0, 80) || "image";
+        return `${stem}.${extension}`;
+      }
+
+      assetLabel(name) {
+        return String(name || "演示图片").replace(/\.[^.]+$/, "").trim() || "演示图片";
+      }
+
+      replaceMediaItem(itemId, values, options = {}) {
+        const item = this.items.get(itemId);
+        if (!item || !ContentAuthoring.mediaKinds.has(item.kind)) throw new Error("所选内容不是可替换媒体");
+        const oldNode = this.nodes.get(itemId);
+        item.kind = "image";
+        item.assetId = String(values.assetId || "");
+        item.sourcePath = String(values.sourcePath || "");
+        item.alt = String(values.alt || item.alt || "演示图片");
+        item.caption = String(values.caption ?? item.caption ?? "");
+        item.width = Number(values.width) || null;
+        item.height = Number(values.height) || null;
+        item.dirtyFields.add("source");
+        item.dirtyFields.add("alt");
+        item.dirtyFields.add("caption");
+        const node = this.createMediaNode(item, values.preview || "");
+        this.widgetManager?.unregister?.(oldNode);
+        oldNode?.replaceWith(node);
+        this.nodes.set(itemId, node);
+        this.slideStates.get(item.slideId).changed = true;
+        this.commitMutation({op: "replace-media", itemId, baseHash: item.baseHash, item: this.itemSnapshot(item)}, [item.slideId], options);
+        this.select(itemId, {force: true});
+        return itemId;
+      }
+
+      appendMediaItem(slideId, values, options = {}) {
+        const state = this.requireContentSlide(slideId);
+        if (this.hasSpecializedItems(state)) {
+          const error = new Error("包含表格、代码或图表的专用布局页暂不支持追加图片");
+          error.code = "UNSUPPORTED_SLIDE";
+          throw error;
+        }
+        const item = {
+          id: options.id || this.createId("image"),
+          kind: "image",
+          slideId,
+          title: "",
+          body: "",
+          caption: String(values.caption || ""),
+          alt: String(values.alt || "演示图片"),
+          calloutKind: "",
+          markdown: "",
+          baseHash: "",
+          sourceRange: null,
+          fieldRanges: {},
+          assetId: String(values.assetId || ""),
+          sourcePath: String(values.sourcePath || ""),
+          width: Number(values.width) || null,
+          height: Number(values.height) || null,
+          created: true,
+          dirtyFields: new Set(["source", "alt", "caption"])
+        };
+        this.items.set(item.id, item);
+        this.nodes.set(item.id, this.createMediaNode(item, values.preview || ""));
+        this.insertInLane(state, item.id, null);
+        state.changed = true;
+        this.commitMutation({op: "add-media", slideId, item: this.itemSnapshot(item)}, [slideId], options);
+        this.select(item.id, {force: true});
+        return item.id;
+      }
+
+      createMediaNode(item, preview) {
+        const figure = document.createElement("figure");
+        figure.className = "card media-figure visual-widget";
+        figure.dataset.authorItemId = item.id;
+        figure.dataset.authorItemKind = "image";
+        figure.dataset.authorBaseHash = item.baseHash || "";
+        figure.dataset.visualWidget = "image";
+        figure.tabIndex = 0;
+        const content = document.createElement("div");
+        content.className = "visual-widget-content";
+        content.dataset.visualContent = "";
+        const image = document.createElement("img");
+        image.src = preview;
+        image.alt = item.alt;
+        image.draggable = false;
+        image.style.objectFit = "contain";
+        content.appendChild(image);
+        figure.appendChild(content);
+        if (item.caption) {
+          const caption = document.createElement("figcaption");
+          caption.dataset.authorField = "caption";
+          caption.textContent = item.caption;
+          figure.appendChild(caption);
+        }
+        if (this.active) this.makeItemFieldsEditable(figure);
+        return figure;
+      }
+
+      handlePanelClick(event) {
+        const gallery = event.target.closest("[data-author-gallery-display]");
+        if (gallery) {
+          this.setGalleryDisplay(this.currentSlideId(), gallery.dataset.authorGalleryDisplay);
+          return;
+        }
+        const target = event.target.closest("[data-author-action]");
+        if (!target) return;
+        const action = target.dataset.authorAction;
+        if (action === "toggle-mode") this.setActive(!this.active);
+        else if (action === "add-text") this.addTextBlock(this.currentSlideId());
+        else if (action === "add-callout") this.addCallout(this.currentSlideId());
+        else if (action === "upload-image") this.imageInput?.click();
+        else if (action === "move-prev") this.moveSelected(-1);
+        else if (action === "move-next") this.moveSelected(1);
+        else if (action === "select") this.select(target.closest("[data-author-order-item]")?.dataset.authorOrderItem);
+        else if (action === "order-up") this.reorderByDelta(target.closest("[data-author-order-item]")?.dataset.authorOrderItem, -1);
+        else if (action === "order-down") this.reorderByDelta(target.closest("[data-author-order-item]")?.dataset.authorOrderItem, 1);
+        else if (action === "save") void this.save();
+      }
+
+      handlePanelChange(event) {
+        if (event.target.matches("[data-author-image-input]")) {
+          const files = [...(event.target.files || [])];
+          if (files.length) this.requestMediaImport(files, this.importContext(this.nodes.get(this.selectedId) || this.stage, "upload"));
+          event.target.value = "";
+          return;
+        }
+        const input = event.target.closest("[data-author-input]");
+        if (!input || !this.selectedId) return;
+        this.updateField(this.selectedId, input.dataset.authorInput, input.value);
+      }
+
+      handleOrderDragStart(event) {
+        const row = event.target.closest("[data-author-order-item]");
+        if (!row) return;
+        this.draggedOrderId = row.dataset.authorOrderItem;
+        row.classList.add("is-dragging");
+        event.dataTransfer.effectAllowed = "move";
+        event.dataTransfer.setData("text/plain", this.draggedOrderId);
+      }
+
+      handleOrderDragOver(event) {
+        if (!this.draggedOrderId) return;
+        const row = event.target.closest("[data-author-order-item]");
+        if (!row || row.dataset.authorOrderItem === this.draggedOrderId) return;
+        event.preventDefault();
+        const bounds = row.getBoundingClientRect();
+        const before = event.clientY < bounds.top + bounds.height / 2;
+        this.orderList.querySelectorAll(".drop-before,.drop-after").forEach(node => node.classList.remove("drop-before", "drop-after"));
+        row.classList.add(before ? "drop-before" : "drop-after");
+        this.orderDrop = {rowId: row.dataset.authorOrderItem, before};
+      }
+
+      handleOrderDrop(event) {
+        if (!this.draggedOrderId || !this.orderDrop) return;
+        event.preventDefault();
+        const state = this.slideStates.get(this.currentSlideId());
+        const lane = this.blockItemIds(state);
+        const targetIndex = lane.indexOf(this.orderDrop.rowId);
+        const beforeItemId = this.orderDrop.before ? this.orderDrop.rowId : (lane[targetIndex + 1] || null);
+        this.reorderItem(state.id, this.draggedOrderId, beforeItemId);
+        this.clearOrderDrag();
+      }
+
+      clearOrderDrag() {
+        this.orderList?.querySelectorAll(".is-dragging,.drop-before,.drop-after")
+          .forEach(node => node.classList.remove("is-dragging", "drop-before", "drop-after"));
+        this.draggedOrderId = null;
+        this.orderDrop = null;
+      }
+
+      currentSlideId() {
+        const slide = this.presentation?.slides?.[this.presentation.current] || this.stage.querySelector(".slide.active");
+        return slide?.dataset.slideId || this.slideStates.keys().next().value || null;
+      }
+
+      select(itemId, options = {}) {
+        const next = itemId && this.items.has(itemId) && ContentAuthoring.movableKinds.has(this.items.get(itemId).kind) ? itemId : null;
+        if (next === this.selectedId && !options.force) return;
+        this.nodes.get(this.selectedId)?.classList.remove("is-author-selected");
+        this.nodes.get(this.selectedId)?.removeAttribute("aria-selected");
+        this.selectedId = next;
+        const node = this.nodes.get(next);
+        node?.classList.add("is-author-selected");
+        node?.setAttribute("aria-selected", "true");
+        this.dispatch("selection-change", {item: next ? this.itemSnapshot(this.items.get(next)) : null});
+        this.refreshPanel();
+        if (options.focusPanel) this.panel?.querySelector(`[data-author-order-item="${next}"] [data-author-action="select"]`)?.focus();
+      }
+
+      addTextBlock(slideId = this.currentSlideId(), values = {}, options = {}) {
+        return this.addBlock("text", slideId, {
+          title: values.title ?? "标题",
+          body: values.body ?? "正文"
+        }, options);
+      }
+
+      addCallout(slideId = this.currentSlideId(), values = {}, options = {}) {
+        return this.addBlock("callout", slideId, {
+          title: values.title ?? "补充说明",
+          body: values.body ?? "正文",
+          calloutKind: values.calloutKind || "note"
+        }, options);
+      }
+
+      addBlock(kind, slideId, values, options = {}) {
+        const state = this.requireContentSlide(slideId);
+        const item = {
+          id: options.id || this.createId(kind),
+          kind,
+          slideId,
+          title: String(values.title || ""),
+          body: String(values.body || ""),
+          caption: "",
+          alt: "",
+          calloutKind: String(values.calloutKind || "note").toLowerCase(),
+          markdown: "",
+          baseHash: "",
+          sourceRange: null,
+          fieldRanges: {},
+          assetId: "",
+          sourcePath: "",
+          created: true,
+          dirtyFields: new Set(["title", "body"])
+        };
+        this.items.set(item.id, item);
+        const node = this.createBlockNode(item);
+        this.nodes.set(item.id, node);
+        const selected = this.items.get(this.selectedId);
+        const beforeItemId = selected?.slideId === slideId && ContentAuthoring.blockKinds.has(selected.kind)
+          ? this.nextLaneItemId(state, selected.id)
+          : null;
+        this.insertInLane(state, item.id, beforeItemId);
+        state.changed = true;
+        this.commitMutation({op: "add", slideId, beforeItemId, item: this.itemSnapshot(item)}, [slideId], options);
+        if (options.select !== false) this.select(item.id);
+        return item.id;
+      }
+
+      createBlockNode(item) {
+        const node = document.createElement("article");
+        node.dataset.authorItemId = item.id;
+        node.dataset.authorItemKind = item.kind;
+        node.dataset.authorBaseHash = "";
+        node.dataset.presenterFocus = "";
+        if (item.kind === "callout") {
+          node.className = `card soft text-card callout-card callout-${this.safeCalloutKind(item.calloutKind)}`;
+          const title = document.createElement("strong");
+          title.dataset.authorField = "title";
+          title.textContent = item.title;
+          const body = document.createElement("p");
+          body.dataset.authorField = "body";
+          body.textContent = item.body;
+          node.append(title, body);
+        } else {
+          node.className = "card text-card section-card";
+          const title = document.createElement("h3");
+          title.dataset.authorField = "title";
+          title.textContent = item.title;
+          const body = document.createElement("div");
+          body.dataset.authorField = "body";
+          const paragraph = document.createElement("p");
+          paragraph.textContent = item.body;
+          body.appendChild(paragraph);
+          node.append(title, body);
+        }
+        if (this.active) this.makeItemFieldsEditable(node);
+        return node;
+      }
+
+      safeCalloutKind(value) {
+        return ["tip", "note", "warning", "quote", "question"].includes(value) ? value : "note";
+      }
+
+      makeItemFieldsEditable(node) {
+        node.querySelectorAll("[data-author-field]").forEach(field => {
+          field.setAttribute("contenteditable", "plaintext-only");
+          field.setAttribute("spellcheck", "true");
+          field.dataset.authorEditKey = `${node.dataset.authorItemId}:${field.dataset.authorField}`;
+        });
+      }
+
+      updateField(itemId, field, value, options = {}) {
+        const item = this.items.get(itemId);
+        if (!item || !["title", "body", "caption"].includes(field)) return false;
+        const normalized = String(value ?? "").replace(/\r\n/g, "\n");
+        if (item[field] === normalized) return true;
+        item[field] = normalized;
+        item.dirtyFields.add(field);
+        this.slideStates.get(item.slideId).changed = true;
+        if (options.updateDom !== false) this.writeField(this.nodes.get(itemId), item, field, normalized);
+        this.commitMutation({op: "update-field", itemId, field, value: normalized, baseHash: item.baseHash}, [item.slideId], options);
+        return true;
+      }
+
+      writeField(node, item, field, value) {
+        const target = node?.querySelector(`[data-author-field="${field}"]`);
+        if (!target) return;
+        if (item.kind === "text" && field === "body" && target.tagName === "DIV") {
+          target.replaceChildren(Object.assign(document.createElement("p"), {textContent: value}));
+        } else target.textContent = value;
+      }
+
+      reorderItem(slideId, itemId, beforeItemId = null, options = {}) {
+        const state = this.slideStates.get(slideId);
+        const item = this.items.get(itemId);
+        if (!state || !item || item.slideId !== slideId || !ContentAuthoring.blockKinds.has(item.kind)) return false;
+        if (beforeItemId) {
+          const before = this.items.get(beforeItemId);
+          if (!before || before.slideId !== slideId || !ContentAuthoring.blockKinds.has(before.kind)) return false;
+        }
+        const previous = [...state.itemIds];
+        const lane = this.blockItemIds(state).filter(id => id !== itemId);
+        const insertion = beforeItemId ? lane.indexOf(beforeItemId) : lane.length;
+        lane.splice(insertion < 0 ? lane.length : insertion, 0, itemId);
+        let laneIndex = 0;
+        state.itemIds = state.itemIds.map(id => ContentAuthoring.blockKinds.has(this.items.get(id)?.kind)
+          ? lane[laneIndex++]
+          : id);
+        if (previous.join("\0") === state.itemIds.join("\0")) return true;
+        state.changed = true;
+        this.commitMutation({op: "reorder", slideId, itemId, beforeItemId}, [slideId], options);
+        this.select(itemId, {force: true});
+        return true;
+      }
+
+      reorderByDelta(itemId, delta) {
+        const item = this.items.get(itemId);
+        const state = this.slideStates.get(item?.slideId);
+        if (!item || !state || !ContentAuthoring.blockKinds.has(item.kind)) return false;
+        const lane = this.blockItemIds(state);
+        const index = lane.indexOf(itemId);
+        const target = index + delta;
+        if (index < 0 || target < 0 || target >= lane.length) return false;
+        const beforeItemId = delta < 0 ? lane[target] : (lane[target + 1] || null);
+        return this.reorderItem(state.id, itemId, beforeItemId);
+      }
+
+      moveSelected(delta) {
+        if (!this.selectedId || ![-1, 1].includes(delta)) return false;
+        const item = this.items.get(this.selectedId);
+        const source = this.slideStates.get(item?.slideId);
+        const slides = [...this.slideStates.values()].sort((left, right) => left.index - right.index);
+        const target = slides[source.index + delta];
+        if (!target || target.kind !== "content") return false;
+        return this.moveItem(item.id, target.id, null, {navigate: true});
+      }
+
+      moveItem(itemId, targetSlideId, beforeItemId = null, options = {}) {
+        const item = this.items.get(itemId);
+        const source = this.slideStates.get(item?.slideId);
+        const target = this.requireContentSlide(targetSlideId);
+        if (!item || !source || !ContentAuthoring.movableKinds.has(item.kind) || source.id === target.id) return false;
+        if (ContentAuthoring.mediaKinds.has(item.kind) && this.hasSpecializedItems(target)) {
+          this.setStatus("包含表格、代码或图表的专用布局页暂不接收新增图片。", "warning");
+          return false;
+        }
+        if (beforeItemId) {
+          const before = this.items.get(beforeItemId);
+          if (!before || before.slideId !== target.id || this.laneFor(before.kind) !== this.laneFor(item.kind)) return false;
+        }
+        source.itemIds = source.itemIds.filter(id => id !== itemId);
+        const fromSlideId = source.id;
+        item.slideId = target.id;
+        this.insertInLane(target, itemId, beforeItemId);
+        source.changed = true;
+        target.changed = true;
+        this.commitMutation({op: "move", itemId, fromSlideId, toSlideId: target.id, beforeItemId}, [source.id, target.id], options);
+        if (options.navigate !== false) {
+          const targetIndex = [...this.slideStates.values()].sort((left, right) => left.index - right.index).findIndex(slide => slide.id === target.id);
+          this.presentation?.show?.(targetIndex, false);
+        }
+        this.select(itemId, {force: true});
+        return true;
+      }
+
+      setGalleryDisplay(slideId, display, options = {}) {
+        const state = this.slideStates.get(slideId);
+        const normalized = display === "tabs" ? "tabs" : "grid";
+        if (!state || this.hasSpecializedItems(state) || this.mediaItemIds(state).length < 2) return false;
+        if (state.galleryDisplay === normalized) return true;
+        state.galleryDisplay = normalized;
+        state.galleryChanged = true;
+        state.changed = true;
+        this.commitMutation({op: "set-gallery-display", slideId, display: normalized}, [slideId], options);
+        return true;
+      }
+
+      insertInLane(state, itemId, beforeItemId) {
+        const item = this.items.get(itemId);
+        const lane = this.laneFor(item?.kind);
+        state.itemIds = state.itemIds.filter(id => id !== itemId);
+        if (beforeItemId) {
+          const index = state.itemIds.indexOf(beforeItemId);
+          if (index >= 0) {
+            state.itemIds.splice(index, 0, itemId);
+            return;
+          }
+        }
+        let insertion = -1;
+        state.itemIds.forEach((id, index) => {
+          if (this.laneFor(this.items.get(id)?.kind) === lane) insertion = index;
+        });
+        state.itemIds.splice(insertion + 1, 0, itemId);
+      }
+
+      laneFor(kind) {
+        if (ContentAuthoring.mediaKinds.has(kind)) return "media";
+        if (ContentAuthoring.blockKinds.has(kind)) return "block";
+        return `fixed:${kind}`;
+      }
+
+      nextLaneItemId(state, itemId) {
+        const item = this.items.get(itemId);
+        const lane = this.laneFor(item?.kind);
+        const index = state.itemIds.indexOf(itemId);
+        return state.itemIds.slice(index + 1).find(id => this.laneFor(this.items.get(id)?.kind) === lane) || null;
+      }
+
+      blockItemIds(state) {
+        return state?.itemIds.filter(id => ContentAuthoring.blockKinds.has(this.items.get(id)?.kind)) || [];
+      }
+
+      mediaItemIds(state) {
+        return state?.itemIds.filter(id => ContentAuthoring.mediaKinds.has(this.items.get(id)?.kind)) || [];
+      }
+
+      hasSpecializedItems(state) {
+        return Boolean(state?.itemIds.some(id => ["table", "code", "chart", "mermaid", "excalidraw", "archscribe"].includes(this.items.get(id)?.kind)));
+      }
+
+      requireContentSlide(slideId) {
+        const state = this.slideStates.get(slideId);
+        if (!state || state.kind !== "content") {
+          const error = new Error("结构页不支持新增或接收内容项");
+          error.code = "UNSUPPORTED_SLIDE";
+          throw error;
+        }
+        return state;
+      }
+
+      createId(kind) {
+        const random = globalThis.crypto?.randomUUID?.().replaceAll("-", "") || `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+        let id = `${kind}-${random.slice(0, 20)}`;
+        while (this.items.has(id)) id = `${kind}-${random.slice(0, 16)}-${Math.random().toString(36).slice(2, 6)}`;
+        return id;
+      }
+
+      commitMutation(operation, slideIds, options = {}) {
+        const affected = [...new Set(slideIds.filter(Boolean))];
+        this.reconcileSlides(affected);
+        if (options.record === false) return;
+        this.revision += 1;
+        const record = {...operation, revision: this.revision};
+        const previous = this.operations[this.operations.length - 1];
+        if (record.op === "update-field" && previous?.op === "update-field" && previous.itemId === record.itemId && previous.field === record.field) {
+          this.operations[this.operations.length - 1] = record;
+        } else this.operations.push(record);
+        this.dirty = true;
+        this.persistDraft();
+        this.dispatch("change", {revision: this.revision, operation: record, affectedSlideIds: affected, dirty: true});
+        this.refreshPanel();
+        if (options.announce !== false) this.setStatus("改动已暂存在本机；点击“保存改动”写回源文件。", "dirty");
+      }
+
+      reconcileSlides(slideIds) {
+        slideIds.forEach(slideId => {
+          const state = this.slideStates.get(slideId);
+          if (!state) return;
+          const snapshot = this.slideSnapshot(state);
+          let handled = false;
+          try {
+            handled = this.domBridge?.reconcileSlide?.({slide: state.element, state: snapshot, nodes: this.nodes, feature: this}) === true;
+            if (!handled) handled = this.layoutEditor?.reconcileAuthoringSlide?.(state.element, snapshot, {nodes: this.nodes}) === true;
+          } catch (error) {
+            this.reportError(error, "页面内容重排失败");
+          }
+          if (!handled) this.fallbackReconcileDom(state);
+          this.updateSlideMetrics(state);
+          this.widgetManager?.reconcile?.(state.element);
+          this.mediaTabsManager?.reconcile?.(state.element);
+          this.mediaPlayback?.reconcile?.(state.element);
+          this.mediaPlayback?.sync?.();
+          this.layoutEditor?.onAuthoringContentChange?.(state.element, snapshot);
+        });
+        requestAnimationFrame(() => {
+          if (typeof inspectSlides === "function") inspectSlides();
+        });
+        this.dispatch("structure-change", {slideIds});
+      }
+
+      fallbackReconcileDom(state) {
+        const slide = state.element;
+        const content = slide.querySelector(":scope > .content");
+        if (!content || state.kind !== "content") return;
+        const items = state.itemIds.map(id => this.items.get(id)).filter(Boolean);
+        const specialized = this.hasSpecializedItems(state);
+        if (specialized) {
+          const table = slide.querySelector(".table-layout");
+          const chartCopy = slide.querySelector(".chart-copy");
+          const copy = table || chartCopy || slide.querySelector(".split-copy,.gallery-copy,.wide-copy,.text-grid");
+          const visualKinds = new Set(["chart", "mermaid", "excalidraw", "archscribe"]);
+          const ids = state.itemIds.filter(id => {
+            const kind = this.items.get(id)?.kind;
+            if (ContentAuthoring.mediaKinds.has(kind)) return false;
+            return !chartCopy || !visualKinds.has(kind);
+          });
+          if (copy) ids.forEach(id => {
+            const node = this.nodes.get(id);
+            if (node) copy.appendChild(node);
+          });
+          return;
+        }
+        const mediaIds = this.mediaItemIds(state);
+        const blockIds = state.itemIds.filter(id => !ContentAuthoring.mediaKinds.has(this.items.get(id)?.kind));
+        const mediaNodes = mediaIds.map(id => this.nodes.get(id)).filter(Boolean);
+        const blockNodes = blockIds.map(id => this.nodes.get(id)).filter(Boolean);
+        const layout = mediaNodes.length >= 2 ? "gallery"
+          : mediaNodes.length === 1 && blockNodes.length ? "split"
+          : mediaNodes.length === 1 ? "media"
+          : "text";
+        let root;
+        if (layout === "gallery") {
+          root = document.createElement("div");
+          root.className = `gallery-layout${blockNodes.length ? "" : " gallery-only"}`;
+          const stage = document.createElement("div");
+          stage.className = "gallery-stage";
+          root.appendChild(stage);
+          if (blockNodes.length) {
+            const copy = this.createCopyLane("gallery-copy", blockNodes);
+            root.appendChild(copy);
+          }
+          content.replaceChildren(root);
+          this.rebuildGalleryStage(state, stage);
+        } else if (layout === "split") {
+          root = document.createElement("div");
+          root.className = "split-layout landscape";
+          const media = document.createElement("div");
+          media.className = "split-media";
+          media.appendChild(mediaNodes[0]);
+          root.append(media, this.createCopyLane("split-copy", blockNodes));
+          content.replaceChildren(root);
+        } else if (layout === "media") {
+          root = document.createElement("div");
+          root.className = "wide-media-layout";
+          const media = document.createElement("div");
+          media.className = "wide-media-stage";
+          media.appendChild(mediaNodes[0]);
+          const copy = document.createElement("div");
+          copy.className = "empty-copy";
+          copy.setAttribute("aria-hidden", "true");
+          root.append(media, copy);
+          content.replaceChildren(root);
+        } else {
+          root = this.createCopyLane("text-grid", blockNodes);
+          content.replaceChildren(root);
+        }
+        [...slide.classList].filter(name => name.startsWith("layout-")).forEach(name => slide.classList.remove(name));
+        slide.classList.add(`layout-${layout}`);
+        slide.dataset.layoutResolved = layout;
+        if (state.layoutResolved !== layout) {
+          state.layoutResolved = layout;
+          state.layoutChanged = true;
+        }
+        if (layout === "gallery") state.galleryChanged = true;
+      }
+
+      createCopyLane(className, nodes) {
+        const copy = document.createElement("div");
+        copy.className = `${className} count-${Math.max(1, Math.min(7, nodes.length))}`;
+        nodes.forEach(node => copy.appendChild(node));
+        return copy;
+      }
+
+      rebuildGalleryStage(state, stage) {
+        const mediaIds = this.mediaItemIds(state);
+        const mediaNodes = mediaIds.map(id => this.nodes.get(id)).filter(Boolean);
+        if (state.galleryDisplay === "tabs") {
+          const shell = document.createElement("div");
+          shell.className = "media-tabs";
+          shell.dataset.mediaTabs = "";
+          mediaNodes.forEach((node, index) => {
+            node.dataset.mediaPanel = mediaIds[index];
+            node.classList.toggle("active", index === 0);
+            shell.appendChild(node);
+          });
+          const tabs = document.createElement("div");
+          tabs.className = "media-tab-list";
+          mediaIds.forEach((id, index) => {
+            const item = this.items.get(id);
+            const button = document.createElement("button");
+            button.type = "button";
+            button.dataset.mediaTarget = id;
+            button.classList.toggle("active", index === 0);
+            button.setAttribute("aria-label", `查看${item.caption || item.alt || index + 1}`);
+            button.textContent = String(index + 1);
+            tabs.appendChild(button);
+          });
+          shell.appendChild(tabs);
+          stage.replaceChildren(shell);
+          this.mediaTabsManager?.reconcile?.(shell);
+          if (!this.mediaTabsManager && typeof MediaTabs === "function") new MediaTabs(shell);
+        } else {
+          const grid = document.createElement("div");
+          grid.className = `media-grid count-${Math.min(4, mediaNodes.length)}`;
+          mediaNodes.forEach(node => {
+            delete node.dataset.mediaPanel;
+            node.classList.remove("active");
+            grid.appendChild(node);
+          });
+          stage.replaceChildren(grid);
+        }
+      }
+
+      updateSlideMetrics(state) {
+        const items = state.itemIds.map(id => this.items.get(id)).filter(Boolean);
+        const blocks = items.filter(item => !ContentAuthoring.mediaKinds.has(item.kind));
+        state.element.dataset.mediaCount = String(items.length - blocks.length);
+        state.element.dataset.blockCount = String(blocks.length);
+        state.element.dataset.textLength = String(blocks.reduce((sum, item) => sum + (item.title + item.body).replace(/\s+/g, "").length, 0));
+        state.element.dataset.galleryDisplay = state.galleryDisplay;
+      }
+
+      slideSnapshot(state) {
+        return {
+          id: state.id,
+          kind: state.kind,
+          number: state.number,
+          title: state.title,
+          subtitle: state.subtitle,
+          baseHash: state.baseHash,
+          layoutResolved: state.layoutResolved,
+          layoutChanged: state.layoutChanged,
+          galleryDisplay: state.galleryDisplay,
+          galleryChanged: state.galleryChanged,
+          items: state.itemIds.map(id => this.itemSnapshot(this.items.get(id))).filter(Boolean)
+        };
+      }
+
+      itemSnapshot(item) {
+        if (!item) return null;
+        return {
+          id: item.id,
+          kind: item.kind,
+          slideId: item.slideId,
+          title: item.title,
+          body: item.body,
+          caption: item.caption,
+          alt: item.alt,
+          calloutKind: item.calloutKind,
+          markdown: item.markdown,
+          baseHash: item.baseHash,
+          sourceRange: item.sourceRange,
+          fieldRanges: item.fieldRanges,
+          assetId: item.assetId,
+          sourcePath: item.sourcePath,
+          width: item.width || null,
+          height: item.height || null,
+          created: item.created,
+          dirtyFields: [...item.dirtyFields]
+        };
+      }
+
+      snapshot() {
+        return {
+          schemaVersion: ContentAuthoring.schemaVersion,
+          revision: this.revision,
+          slides: [...this.slideStates.values()].sort((left, right) => left.index - right.index).map(state => this.slideSnapshot(state))
+        };
+      }
+
+      buildChangeSet() {
+        const layoutPayload = this.layoutEditor?.exportPayload?.() || this.manifest.layout || null;
+        return {
+          schemaVersion: ContentAuthoring.schemaVersion,
+          base: {
+            sourceName: this.source.name,
+            sourceSha256: this.source.sha256,
+            layoutName: this.layoutName(),
+            layoutSha256: this.source.layoutSha256 || ""
+          },
+          revision: this.revision,
+          operations: this.operations.map(operation => structuredClone(operation)),
+          snapshot: this.snapshot(),
+          layout: layoutPayload,
+          pendingAssets: [...this.pendingAssets.values()].map(asset => ({
+            assetId: asset.assetId,
+            relativePath: asset.relativePath || "",
+            mime: asset.mime || asset.blob?.type || "application/octet-stream",
+            sha256: asset.sha256 || "",
+            blob: asset.blob
+          }))
+        };
+      }
+
+      registerPendingAsset(asset) {
+        if (!asset?.assetId || !(asset.blob instanceof Blob)) throw new Error("Pending asset requires assetId and Blob");
+        this.pendingAssets.set(String(asset.assetId), {
+          assetId: String(asset.assetId),
+          blob: asset.blob,
+          mime: String(asset.mime || asset.blob.type || "application/octet-stream"),
+          relativePath: String(asset.relativePath || ""),
+          sha256: String(asset.sha256 || "")
+        });
+      }
+
+      async save() {
+        const changeSet = this.buildChangeSet();
+        this.dispatch("save-state", {state: "saving"});
+        this.setStatus("正在校验并保存源文件…", "saving");
+        try {
+          let result;
+          if (this.saveAdapter?.save) {
+            result = await this.saveAdapter.save(changeSet, this);
+          } else {
+            const request = {
+              changeSet,
+              response: null,
+              respondWith(promise) { this.response = Promise.resolve(promise); }
+            };
+            this.dispatch("save-request", request, {cancelable: true});
+            if (request.response) result = await request.response;
+            else if (typeof globalThis.showDirectoryPicker === "function") {
+              const pickerPromise = globalThis.showDirectoryPicker({id: "golajah-slide-source", mode: "readwrite"});
+              const directory = await pickerPromise;
+              result = await this.saveToDirectory(directory, changeSet);
+            } else {
+              const error = new Error("当前浏览器不支持直接写回源目录");
+              error.code = "UNSUPPORTED";
+              throw error;
+            }
+          }
+          if (!result || !["saved", "exported"].includes(result.status)) {
+            throw this.saveError("WRITE_FAILED", "保存桥未返回可验证的保存结果");
+          }
+          if (result.status === "saved" && (!result.sourceSha256 || !Array.isArray(result.changedFiles))) {
+            throw this.saveError("WRITE_FAILED", "保存桥未返回源文件指纹或改动文件清单");
+          }
+          this.finishSave(result);
+          return result;
+        } catch (error) {
+          const normalized = this.normalizeSaveError(error);
+          const exported = await this.exportEditBundle(normalized, changeSet);
+          this.dispatch("save-state", {state: "exported", error: normalized, result: exported});
+          this.setStatus(normalized.code === "USER_CANCELLED"
+            ? "未获得目录写入授权，已导出可恢复编辑包。"
+            : `未覆盖源文件；已导出可恢复编辑包（${normalized.code}）。`, "warning");
+          return exported;
+        }
+      }
+
+      async saveToDirectory(directoryHandle, changeSet = this.buildChangeSet()) {
+        if (!directoryHandle?.getFileHandle) throw this.saveError("UNSUPPORTED", "无效的目录句柄");
+        if (this.needsRebuild) throw this.saveError("SOURCE_CONFLICT", "上次保存后尚未重新构建 HTML，拒绝使用旧范围再次写回");
+        await this.ensureWritePermission(directoryHandle);
+        if (!changeSet.base.sourceSha256 || !this.source.text) {
+          throw this.saveError("UNSUPPORTED", "HTML 缺少可校验的源文件指纹或无损源码模型");
+        }
+        const sourcePath = this.safeRelativePath(changeSet.base.sourceName);
+        const sourceHandle = await this.fileHandleAt(directoryHandle, sourcePath, false);
+        const sourceFile = await sourceHandle.getFile();
+        const diskBytes = await sourceFile.arrayBuffer();
+        const diskHash = await this.sha256(diskBytes);
+        if (diskHash !== changeSet.base.sourceSha256) {
+          throw this.saveError("SOURCE_CONFLICT", "slides.md 在构建后已发生变化，拒绝覆盖");
+        }
+        const embeddedHash = await this.sha256(new TextEncoder().encode(this.source.text));
+        if (embeddedHash !== changeSet.base.sourceSha256) {
+          throw this.saveError("SOURCE_CONFLICT", "HTML 内嵌源码与基准指纹不一致，拒绝序列化");
+        }
+        const layoutPath = this.safeRelativePath(changeSet.base.layoutName || this.layoutName());
+        const previousLayout = await this.readOptionalFile(directoryHandle, layoutPath);
+        const layoutExistedAtBuild = Boolean(changeSet.base.layoutSha256);
+        if (layoutExistedAtBuild !== Boolean(previousLayout)) {
+          throw this.saveError("SOURCE_CONFLICT", "布局 JSON 在构建后被新增或删除，拒绝覆盖");
+        }
+        if (layoutExistedAtBuild) {
+          const diskLayoutHash = await this.sha256(previousLayout.bytes);
+          if (diskLayoutHash !== changeSet.base.layoutSha256) {
+            throw this.saveError("SOURCE_CONFLICT", "布局 JSON 在构建后已发生变化，拒绝覆盖");
+          }
+        }
+        const assetPlan = await this.planAssets(changeSet.pendingAssets || []);
+        const assetPaths = Object.fromEntries(assetPlan.map(asset => [asset.assetId, asset.path]));
+        const markdown = this.serializeMarkdown(assetPaths);
+        const markdownBytes = new TextEncoder().encode(markdown);
+        const targetSourceHash = await this.sha256(markdownBytes);
+        const layoutPayload = this.layoutPayload(changeSet.layout, targetSourceHash);
+        const layoutBytes = new TextEncoder().encode(JSON.stringify(layoutPayload, null, 2) + "\n");
+        const changedFiles = [];
+        let layoutWritten = false;
+        let sourceWritten = false;
+        try {
+          for (const asset of assetPlan) {
+            const existing = await this.readOptionalFile(directoryHandle, asset.path);
+            if (existing) {
+              const existingHash = await this.sha256(existing.bytes);
+              if (existingHash !== asset.sha256) throw this.saveError("INVALID_PATH", `资产路径已存在不同内容：${asset.path}`);
+            } else {
+              await this.writeFileAt(directoryHandle, asset.path, asset.bytes, true);
+            }
+            changedFiles.push({path: asset.path, kind: "asset", sha256: asset.sha256});
+          }
+          await this.writeFileAt(directoryHandle, layoutPath, layoutBytes, true);
+          layoutWritten = true;
+          await this.writeFileAt(directoryHandle, sourcePath, markdownBytes, false);
+          sourceWritten = true;
+          const verifiedSource = await this.readOptionalFile(directoryHandle, sourcePath);
+          const verifiedLayout = await this.readOptionalFile(directoryHandle, layoutPath);
+          if (!verifiedSource || await this.sha256(verifiedSource.bytes) !== targetSourceHash) throw this.saveError("WRITE_FAILED", "slides.md 写入后校验失败");
+          const layoutHash = await this.sha256(layoutBytes);
+          if (!verifiedLayout || await this.sha256(verifiedLayout.bytes) !== layoutHash) throw this.saveError("WRITE_FAILED", "布局 JSON 写入后校验失败");
+          changedFiles.push({path: layoutPath, kind: "layout", sha256: layoutHash});
+          changedFiles.push({path: sourcePath, kind: "source", sha256: targetSourceHash});
+          return {status: "saved", sourceSha256: targetSourceHash, sourceText: markdown, changedFiles, needsRebuild: true};
+        } catch (error) {
+          if (sourceWritten) {
+            try { await this.writeFileAt(directoryHandle, sourcePath, new Uint8Array(diskBytes), false); } catch (_) { /* best-effort rollback */ }
+          }
+          if (layoutWritten) {
+            try {
+              if (previousLayout) await this.writeFileAt(directoryHandle, layoutPath, previousLayout.bytes, true);
+              else await this.removeFileAt(directoryHandle, layoutPath);
+            } catch (_) { /* content-addressed assets remain safe; bundle records recovery data */ }
+          }
+          throw error;
+        }
+      }
+
+      serializeMarkdown(assetPaths = {}) {
+        if (this.serializeBridge) {
+          const value = this.serializeBridge(this.snapshot(), {
+            manifest: this.manifest,
+            source: this.source,
+            operations: this.operations,
+            assetPaths
+          });
+          if (typeof value !== "string") throw this.saveError("UNSUPPORTED", "源码序列化桥没有返回 Markdown");
+          return value;
+        }
+        if (!this.source.text || this.source.offsetEncoding !== "utf-16") {
+          throw this.saveError("UNSUPPORTED", "缺少 UTF-16 源码范围，无法无损写回 Markdown");
+        }
+        const replacements = [];
+        for (const state of this.slideStates.values()) {
+          if (!state.changed) continue;
+          if (!state.sourceRange) throw this.saveError("UNSUPPORTED", `页面 ${state.id} 缺少 sourceRange`);
+          replacements.push({
+            ...state.sourceRange,
+            text: this.normalizeReplacementNewlines(this.serializeSlide(state, assetPaths))
+          });
+        }
+        let result = this.source.text;
+        replacements.sort((left, right) => right.start - left.start).forEach(replacement => {
+          result = result.slice(0, replacement.start) + replacement.text + result.slice(replacement.end);
+        });
+        if (this.source.bom && !result.startsWith("\ufeff")) result = "\ufeff" + result;
+        return result;
+      }
+
+      normalizeReplacementNewlines(value) {
+        const normalized = String(value).replace(/\r\n|\r/g, "\n");
+        if (this.source.newline === "\r\n") return normalized.replace(/\n/g, "\r\n");
+        if (this.source.newline === "\r") return normalized.replace(/\n/g, "\r");
+        return normalized;
+      }
+
+      serializeSlide(state, assetPaths) {
+        const base = state.source || this.source.text.slice(state.sourceRange.start, state.sourceRange.end);
+        const ranged = state.baseItemIds.map(id => this.items.get(id)).filter(item => item?.sourceRange && item.sourceRange.start >= state.sourceRange.start && item.sourceRange.end <= state.sourceRange.end);
+        ranged.sort((left, right) => left.sourceRange.start - right.sourceRange.start);
+        const firstStart = ranged.length ? ranged[0].sourceRange.start - state.sourceRange.start : base.length;
+        const lastEnd = ranged.length ? ranged[ranged.length - 1].sourceRange.end - state.sourceRange.start : base.length;
+        let header = base.slice(0, firstStart).replace(/\s+$/, "");
+        const tail = base.slice(lastEnd);
+        for (let index = 0; index < ranged.length - 1; index += 1) {
+          const gapStart = ranged[index].sourceRange.end - state.sourceRange.start;
+          const gapEnd = ranged[index + 1].sourceRange.start - state.sourceRange.start;
+          if (base.slice(gapStart, gapEnd).trim()) throw this.saveError("UNSUPPORTED", `页面 ${state.id} 含未建模内容，拒绝重写`);
+        }
+        const directives = {};
+        if (state.layoutChanged) directives.layout = state.layoutResolved;
+        if (state.galleryChanged) directives["gallery-display"] = state.galleryDisplay;
+        if (Object.keys(directives).length) header = this.writeSlideDirectives(header, directives);
+        const body = state.itemIds.map(id => this.serializeItem(this.items.get(id), assetPaths)).filter(Boolean).join("\n\n");
+        return header + (body ? "\n\n" + body : "") + (tail.trim() ? "\n\n" + tail.trimStart() : tail);
+      }
+
+      serializeItem(item, assetPaths) {
+        if (!item) return "";
+        const raw = item.markdown || (item.sourceRange ? this.source.text.slice(item.sourceRange.start, item.sourceRange.end) : "");
+        if (!item.created && !item.dirtyFields.size && raw) return raw.trim();
+        if (item.kind === "text") {
+          const heading = item.title ? `### ${this.singleLine(item.title)}` : "";
+          return [heading, this.safeTextBody(item.body)].filter(Boolean).join("\n\n");
+        }
+        if (item.kind === "callout") {
+          const marker = `> [!${this.safeCalloutKind(item.calloutKind).toUpperCase()}]${item.title ? ` ${this.singleLine(item.title)}` : ""}`;
+          const body = String(item.body).replace(/\r\n|\r/g, "\n").split("\n").map(line => `> ${line}`).join("\n");
+          return `${marker}\n${body}`.trim();
+        }
+        if (ContentAuthoring.mediaKinds.has(item.kind)) {
+          const path = assetPaths[item.assetId] || item.sourcePath;
+          if (!path && raw) return raw.trim();
+          if (!path) throw this.saveError("UNSUPPORTED", `媒体 ${item.id} 缺少资产路径`);
+          const alt = this.singleLine(item.alt || "演示图片").replaceAll("[", "（").replaceAll("]", "）");
+          const safeCaption = this.singleLine(item.caption).replaceAll('"', "”");
+          const caption = safeCaption ? ` "${safeCaption}"` : "";
+          return `![${alt}](${path}${caption})`;
+        }
+        if (raw) return raw.trim();
+        throw this.saveError("UNSUPPORTED", `内容项 ${item.id} 无法序列化`);
+      }
+
+      singleLine(value) {
+        return String(value || "").replace(/\s+/g, " ").trim();
+      }
+
+      safeTextBody(value) {
+        return String(value || "")
+          .replace(/\r\n|\r/g, "\n")
+          .split("\n")
+          .map(line => /^\s*---\s*$/.test(line) ? "\\---" : line)
+          .join("\n")
+          .trim();
+      }
+
+      writeSlideDirectives(header, entries) {
+        const directive = /<!--\s*slide\b[\s\S]*?-->/i.exec(header);
+        if (!directive) {
+          const leading = /^\s*/.exec(header)?.[0] || "";
+          const lines = Object.entries(entries).map(([key, value]) => `${key}: ${value}`).join("\n");
+          return `${leading}<!-- slide\n${lines}\n-->\n${header.slice(leading.length)}`;
+        }
+        let updated = directive[0];
+        Object.entries(entries).forEach(([key, value]) => {
+          const safeKey = String(key).replace(/[^a-z-]/g, "");
+          const expression = new RegExp(`^(\\s*${safeKey}\\s*:)\\s*.*$`, "im");
+          if (expression.test(updated)) updated = updated.replace(expression, `$1 ${value}`);
+          else updated = updated.replace(/\s*-->$/, `\n${safeKey}: ${value}\n-->`);
+        });
+        return header.slice(0, directive.index) + updated + header.slice(directive.index + directive[0].length);
+      }
+
+      layoutPayload(value, targetSourceHash) {
+        const payload = value && typeof value === "object" ? structuredClone(value) : {schemaVersion: "1.0", slides: {}};
+        if (!payload.slides || typeof payload.slides !== "object" || Array.isArray(payload.slides)) payload.slides = {};
+        this.slideStates.forEach(state => {
+          if (!state.layoutChanged) return;
+          const legacyKey = `P${state.number}`;
+          const entryKey = payload.slides[state.id] ? state.id : (payload.slides[legacyKey] ? legacyKey : "");
+          if (!entryKey || typeof payload.slides[entryKey] !== "object") return;
+          const entry = payload.slides[entryKey];
+          if (entryKey !== state.id) {
+            payload.slides[state.id] = entry;
+            delete payload.slides[entryKey];
+          }
+          entry.layout = state.layoutResolved;
+          const content = entry.regions?.content;
+          if (this.layoutEditor?.presetRegions) {
+            entry.regions = this.layoutEditor.presetRegions(state.element, state.layoutResolved, content || undefined);
+          } else entry.regions = content ? {content: structuredClone(content)} : {};
+        });
+        payload.sourceHash = targetSourceHash;
+        payload.source = this.source.name;
+        return payload;
+      }
+
+      layoutName() {
+        if (this.source.layoutName) return this.source.layoutName;
+        return this.source.name.replace(/\.[^.\/]+$/, "") + ".layout.json";
+      }
+
+      async planAssets(assets) {
+        const planned = [];
+        for (const asset of assets) {
+          if (!(asset.blob instanceof Blob)) continue;
+          const bytes = new Uint8Array(await asset.blob.arrayBuffer());
+          const sha256 = await this.sha256(bytes);
+          if (asset.sha256 && asset.sha256 !== sha256) throw this.saveError("SOURCE_CONFLICT", `待保存资产 ${asset.assetId} 指纹不匹配`);
+          const mime = String(asset.mime || asset.blob.type || "");
+          const extension = {"image/png":"png", "image/jpeg":"jpg", "image/webp":"webp"}[mime];
+          if (!extension) throw this.saveError("UNSUPPORTED", `不支持的图片类型：${mime || "unknown"}`);
+          const requested = asset.relativePath ? this.safeRelativePath(asset.relativePath) : `assets/authoring/${asset.assetId}.${extension}`;
+          const segments = requested.split("/");
+          const original = segments.pop().replace(/[^0-9A-Za-z._-]+/g, "-").replace(/^[-.]+/, "") || `${asset.assetId}.${extension}`;
+          const directory = segments.join("/") || "assets/authoring";
+          const path = `${directory}/${sha256.slice(0, 16)}-${original}`;
+          planned.push({assetId: String(asset.assetId), path, bytes, sha256, mime});
+        }
+        return planned;
+      }
+
+      safeRelativePath(value) {
+        const source = String(value || "").replaceAll("\\", "/");
+        if (!source || source.startsWith("/") || /^[A-Za-z]:/.test(source) || source.includes("\0")) {
+          throw this.saveError("INVALID_PATH", `非法相对路径：${source || "(empty)"}`);
+        }
+        const parts = source.split("/");
+        if (parts.some(part => !part || part === "." || part === "..")) throw this.saveError("INVALID_PATH", `非法相对路径：${source}`);
+        return parts.join("/");
+      }
+
+      async ensureWritePermission(handle) {
+        if (!handle.queryPermission || !handle.requestPermission) return;
+        const options = {mode: "readwrite"};
+        if (await handle.queryPermission(options) === "granted") return;
+        if (await handle.requestPermission(options) !== "granted") throw this.saveError("PERMISSION_DENIED", "目录写入授权被拒绝");
+      }
+
+      async directoryAt(root, segments, create) {
+        let directory = root;
+        for (const segment of segments) directory = await directory.getDirectoryHandle(segment, {create});
+        return directory;
+      }
+
+      async fileHandleAt(root, relativePath, create) {
+        const parts = this.safeRelativePath(relativePath).split("/");
+        const name = parts.pop();
+        const directory = await this.directoryAt(root, parts, create);
+        return directory.getFileHandle(name, {create});
+      }
+
+      async readOptionalFile(root, relativePath) {
+        try {
+          const handle = await this.fileHandleAt(root, relativePath, false);
+          const file = await handle.getFile();
+          return {handle, file, bytes: new Uint8Array(await file.arrayBuffer())};
+        } catch (error) {
+          if (error?.name === "NotFoundError") return null;
+          throw error;
+        }
+      }
+
+      async writeFileAt(root, relativePath, bytes, create) {
+        const handle = await this.fileHandleAt(root, relativePath, create);
+        const writable = await handle.createWritable({keepExistingData: false});
+        try {
+          await writable.write(bytes);
+          await writable.close();
+        } catch (error) {
+          try { await writable.abort?.(); } catch (_) { /* noop */ }
+          throw this.saveError("WRITE_FAILED", `无法写入 ${relativePath}`, error);
+        }
+      }
+
+      async removeFileAt(root, relativePath) {
+        const parts = this.safeRelativePath(relativePath).split("/");
+        const name = parts.pop();
+        const directory = await this.directoryAt(root, parts, false);
+        await directory.removeEntry(name);
+      }
+
+      async sha256(value) {
+        if (!globalThis.crypto?.subtle) throw this.saveError("UNSUPPORTED", "浏览器缺少 SHA-256 校验能力");
+        const bytes = value instanceof ArrayBuffer
+          ? value
+          : ArrayBuffer.isView(value) ? value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength) : value;
+        const digest = await crypto.subtle.digest("SHA-256", bytes);
+        return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, "0")).join("");
+      }
+
+      finishSave(result) {
+        const status = result?.status || "saved";
+        if (status === "saved") {
+          this.operations = [];
+          this.dirty = false;
+          this.revision = 0;
+          if (result.sourceSha256) this.source.sha256 = result.sourceSha256;
+          this.needsRebuild = result.needsRebuild === true;
+          this.clearDraft();
+          if (this.needsRebuild) this.setActive(false);
+        }
+        this.dispatch("saved", result);
+        this.dispatch("save-state", {state: status, result});
+        this.setStatus(status === "saved"
+          ? `源文件已保存${result.needsRebuild ? "；请重新运行构建以刷新 HTML 与 build.json。" : "。"}`
+          : "改动已导出，源文件未被覆盖。", status);
+        this.refreshPanel();
+      }
+
+      async exportEditBundle(error, changeSet = this.buildChangeSet()) {
+        const assets = [];
+        const assetPlan = await this.planAssets(changeSet.pendingAssets || []);
+        const assetPaths = Object.fromEntries(assetPlan.map(asset => [asset.assetId, asset.path]));
+        for (const asset of assetPlan) {
+          assets.push({
+            assetId: asset.assetId,
+            path: asset.path,
+            mime: asset.mime,
+            sha256: asset.sha256,
+            dataUrl: await this.dataUrl(new Blob([asset.bytes], {type: asset.mime}))
+          });
+        }
+        let markdown = "";
+        try { markdown = this.serializeMarkdown(assetPaths); } catch (_) { /* operation log and base source remain recoverable */ }
+        const targetHash = markdown ? await this.sha256(new TextEncoder().encode(markdown)) : "";
+        const bundle = {
+          kind: "golajah-edit-bundle",
+          schemaVersion: ContentAuthoring.schemaVersion,
+          createdAt: new Date().toISOString(),
+          error: {code: error.code, message: error.message},
+          base: changeSet.base,
+          baseSourceText: this.source.text,
+          markdown,
+          layout: this.layoutPayload(changeSet.layout, targetHash),
+          operations: changeSet.operations,
+          snapshot: changeSet.snapshot,
+          assets
+        };
+        const source = JSON.stringify(bundle, null, 2) + "\n";
+        const stem = this.source.name.split("/").pop().replace(/\.[^.]+$/, "") || "slides";
+        this.downloadBlob(new Blob([source], {type: "application/json"}), `${stem}.golajah-edit.json`);
+        return {status: "exported", changedFiles: [], needsRebuild: true, bundleName: `${stem}.golajah-edit.json`, error};
+      }
+
+      dataUrl(blob) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.addEventListener("load", () => resolve(String(reader.result || "")), {once: true});
+          reader.addEventListener("error", () => reject(reader.error || new Error("无法读取资产")), {once: true});
+          reader.readAsDataURL(blob);
+        });
+      }
+
+      downloadBlob(blob, name) {
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = name;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(link.href), 800);
+      }
+
+      normalizeSaveError(error) {
+        if (error?.code) return error;
+        if (error?.name === "AbortError") return this.saveError("USER_CANCELLED", "用户取消了目录选择", error);
+        if (error?.name === "NotAllowedError") return this.saveError("PERMISSION_DENIED", "目录写入授权被拒绝", error);
+        if (error?.name === "NotFoundError") return this.saveError("INVALID_PATH", "所选目录中缺少源文件", error);
+        return this.saveError("WRITE_FAILED", error?.message || "保存失败", error);
+      }
+
+      saveError(code, message, cause = null) {
+        const error = new Error(message, cause ? {cause} : undefined);
+        error.code = code;
+        return error;
+      }
+
+      draftKey() {
+        return `golajah:content-authoring:v1:${location.pathname}:${this.source.name}`;
+      }
+
+      persistDraft() {
+        try {
+          localStorage.setItem(this.draftKey(), JSON.stringify({
+            schemaVersion: ContentAuthoring.schemaVersion,
+            baseSourceSha256: this.source.sha256,
+            revision: this.revision,
+            operations: this.operations
+          }));
+          this.storageWarning = "";
+        } catch (_) {
+          this.storageWarning = "浏览器无法暂存内容改动；请立即保存或导出编辑包。";
+          this.setStatus(this.storageWarning, "warning");
+        }
+      }
+
+      restoreDraft() {
+        try {
+          const saved = JSON.parse(localStorage.getItem(this.draftKey()) || "null");
+          if (!saved || !Array.isArray(saved.operations) || !saved.operations.length) return;
+          if (!saved.baseSourceSha256 || saved.baseSourceSha256 !== this.source.sha256) {
+            this.staleDraft = saved;
+            this.dispatch("draft-conflict", {draft: saved, sourceSha256: this.source.sha256});
+            this.setStatus("检测到基于旧源码的本地草稿；为避免内容串位，未自动恢复。", "warning");
+            return;
+          }
+          if (saved.operations.some(operation => ["add-media", "replace-media"].includes(operation.op))) {
+            this.staleDraft = saved;
+            this.dispatch("draft-conflict", {draft: saved, sourceSha256: this.source.sha256, reason: "missing-media-bytes"});
+            this.setStatus("本地草稿包含仅存在于上次会话的图片；为避免部分恢复和内容错位，未自动回放。", "warning");
+            return;
+          }
+          saved.operations.forEach(operation => this.applyOperation(operation));
+          this.operations = saved.operations.map(operation => structuredClone(operation));
+          this.revision = Number(saved.revision) || this.operations.length;
+          this.dirty = true;
+          this.setStatus("已恢复与当前源码指纹匹配的本地草稿。", "dirty");
+        } catch (_) {
+          this.storageWarning = "本地内容草稿无法读取，已忽略。";
+        }
+      }
+
+      applyOperation(operation) {
+        const options = {record: false, announce: false, select: false, navigate: false};
+        if (operation.op === "add" && operation.item) {
+          const state = this.slideStates.get(operation.slideId);
+          if (!state || this.items.has(operation.item.id)) return;
+          const item = this.registerItem(state, {...operation.item, created: true});
+          if (!item) return;
+          const node = this.createBlockNode(item);
+          this.nodes.set(item.id, node);
+          this.insertInLane(state, item.id, operation.beforeItemId || null);
+          state.changed = true;
+          this.reconcileSlides([state.id]);
+        } else if (operation.op === "update-field") {
+          this.updateField(operation.itemId, operation.field, operation.value, options);
+        } else if (operation.op === "reorder") {
+          this.reorderItem(operation.slideId, operation.itemId, operation.beforeItemId || null, options);
+        } else if (operation.op === "move") {
+          this.moveItem(operation.itemId, operation.toSlideId, operation.beforeItemId || null, options);
+        } else if (operation.op === "set-gallery-display") {
+          this.setGalleryDisplay(operation.slideId, operation.display, options);
+        }
+      }
+
+      clearDraft() {
+        try { localStorage.removeItem(this.draftKey()); } catch (_) { /* noop */ }
+      }
+
+      refreshPanel() {
+        if (!this.panel) return;
+        const state = this.slideStates.get(this.currentSlideId());
+        const canEdit = state?.kind === "content" && !this.needsRebuild;
+        const selectedItem = this.items.get(this.selectedId);
+        if (this.modeButton) this.modeButton.disabled = this.needsRebuild;
+        this.panel.querySelectorAll('[data-author-action="add-text"],[data-author-action="add-callout"]')
+          .forEach(button => button.disabled = !canEdit);
+        const upload = this.panel.querySelector('[data-author-action="upload-image"]');
+        if (upload) upload.disabled = !canEdit || (this.hasSpecializedItems(state) && !ContentAuthoring.mediaKinds.has(selectedItem?.kind));
+        const gallery = this.panel.querySelector("[data-author-gallery]");
+        const mediaCount = this.mediaItemIds(state).length;
+        gallery.hidden = !canEdit || this.hasSpecializedItems(state) || mediaCount < 2;
+        gallery.querySelectorAll("[data-author-gallery-display]").forEach(button => {
+          button.setAttribute("aria-pressed", String(button.dataset.authorGalleryDisplay === state?.galleryDisplay));
+        });
+        this.renderOrderList(state);
+        this.renderSelection();
+        if (this.saveButton) this.saveButton.disabled = !this.dirty || this.needsRebuild;
+        if (!this.dirty && !this.storageWarning && !this.staleDraft) this.setStatus("尚无内容改动。", "clean");
+      }
+
+      renderOrderList(state) {
+        if (!this.orderList) return;
+        this.orderList.replaceChildren();
+        const ids = this.blockItemIds(state);
+        ids.forEach((id, index) => {
+          const item = this.items.get(id);
+          const row = document.createElement("li");
+          row.dataset.authorOrderItem = id;
+          row.draggable = this.active;
+          row.classList.toggle("is-selected", id === this.selectedId);
+          const handle = document.createElement("button");
+          handle.type = "button";
+          handle.className = "content-authoring-drag-handle";
+          handle.dataset.authorAction = "select";
+          handle.setAttribute("aria-label", `选择并拖动${item.title || item.kind}`);
+          handle.textContent = "⋮⋮";
+          const label = document.createElement("button");
+          label.type = "button";
+          label.className = "content-authoring-order-label";
+          label.dataset.authorAction = "select";
+          label.textContent = item.title || (item.kind === "callout" ? "Callout" : "未命名文本块");
+          const controls = document.createElement("span");
+          controls.className = "content-authoring-order-controls";
+          controls.innerHTML = '<button type="button" data-author-action="order-up" aria-label="上移">↑</button><button type="button" data-author-action="order-down" aria-label="下移">↓</button>';
+          controls.firstElementChild.disabled = index === 0;
+          controls.lastElementChild.disabled = index === ids.length - 1;
+          row.append(handle, label, controls);
+          this.orderList.appendChild(row);
+        });
+        this.orderList.hidden = !ids.length;
+      }
+
+      renderSelection() {
+        if (!this.selectionPanel) return;
+        const item = this.items.get(this.selectedId);
+        const visible = Boolean(item && item.slideId === this.currentSlideId());
+        this.selectionPanel.hidden = !visible;
+        if (!visible) return;
+        this.selectionPanel.querySelector("[data-author-selection-kind]").textContent = item.kind === "callout" ? "Callout" : item.kind === "text" ? "文本块" : "图片";
+        const title = this.selectionPanel.querySelector('[data-author-input="title"]');
+        const body = this.selectionPanel.querySelector('[data-author-input="body"]');
+        const textLike = ContentAuthoring.blockKinds.has(item.kind);
+        this.selectionPanel.querySelector("[data-author-title-row]").hidden = !textLike;
+        this.selectionPanel.querySelector("[data-author-body-row]").hidden = !textLike;
+        if (textLike) {
+          title.value = item.title;
+          body.value = item.body;
+        }
+        const slides = [...this.slideStates.values()].sort((left, right) => left.index - right.index);
+        const current = this.slideStates.get(item.slideId);
+        const previous = slides[current.index - 1];
+        const next = slides[current.index + 1];
+        const canMoveTo = target => Boolean(target && target.kind === "content"
+          && !(ContentAuthoring.mediaKinds.has(item.kind) && this.hasSpecializedItems(target)));
+        this.selectionPanel.querySelector('[data-author-action="move-prev"]').disabled = !canMoveTo(previous);
+        this.selectionPanel.querySelector('[data-author-action="move-next"]').disabled = !canMoveTo(next);
+      }
+
+      setStatus(message, state = "") {
+        if (!this.statusNode) return;
+        this.statusNode.textContent = message;
+        this.statusNode.dataset.state = state;
+      }
+
+      reportError(error, prefix = "内容编辑失败") {
+        this.setStatus(`${prefix}：${error?.message || error}`, "warning");
+        this.dispatch("error", {error, prefix});
+      }
+
+      dispatch(name, detail, options = {}) {
+        return this.stage.dispatchEvent(new CustomEvent(`content-authoring:${name}`, {
+          bubbles: true,
+          cancelable: options.cancelable === true,
+          detail
+        }));
+      }
+    }
+
+    window.ContentAuthoring = ContentAuthoring;
 
     /* ===========================================
        PRESENTATION CONTROLLER
@@ -3647,7 +5832,6 @@
         this.layoutEditor.attach(this);
         this.fit();
         this.bind();
-        this.restoreEdits();
         this.show(this.current, false);
       }
       fit() {
@@ -3670,33 +5854,12 @@
         document.getElementById("currentPage").textContent = String(this.current + 1);
         document.title = `${this.current + 1}/${this.slides.length} · ${this.slides[this.current].dataset.title || this.layoutEditor.deckTitle}`;
         this.layoutEditor.onSlideChange();
+        this.contentAuthoring?.refreshPanel();
         if (updateHash) history.replaceState(null, "", `#${this.current + 1}`);
       }
       step(delta) { this.show(this.current + delta); }
       toggleEdit() { this.layoutEditor.toggle(); }
       storageKey() { return `slides-template-edits:${location.pathname}:通用 Markdown Slides 工程模板`; }
-      restoreEdits() {
-        let index = 0;
-        this.stage.querySelectorAll("h1, h3, p, li, th, td, figcaption").forEach(node => {
-          if (!node.dataset.editKey) node.dataset.editKey = String(index++);
-        });
-        try {
-          const saved = JSON.parse(localStorage.getItem(this.storageKey()) || "{}");
-          if (!saved || typeof saved !== "object" || Array.isArray(saved)) throw new Error("invalid saved edits");
-          Object.entries(saved).forEach(([key, value]) => {
-            const node = this.stage.querySelector(`[data-edit-key="${CSS.escape(key)}"]`);
-            if (node && typeof value === "string") node.innerHTML = value;
-          });
-        } catch (_) {
-          this.layoutEditor.markStorageFailure("浏览器无法读取之前的文字编辑；当前仍可继续编辑并下载 HTML。");
-        }
-        this.stage.addEventListener("input", () => {
-          const edits = {};
-          this.stage.querySelectorAll("[data-edit-key]").forEach(node => edits[node.dataset.editKey] = node.innerHTML);
-          try { localStorage.setItem(this.storageKey(), JSON.stringify(edits)); }
-          catch (_) { this.layoutEditor.markStorageFailure(); }
-        });
-      }
       save() {
         const clone = document.documentElement.cloneNode(true);
         this.layoutEditor.prepareClone(clone);
@@ -3803,12 +5966,23 @@
     const citations = new Citations();
     const presentation = new SlidePresentation(visualWidgetManager, layoutEditor, presenterFocus, globalLogo);
     const mediaPlayback = new MediaPlayback();
+    const contentAuthoring = new ContentAuthoring({
+      stage: presentation.stage,
+      presentation,
+      layoutEditor,
+      widgetManager: visualWidgetManager,
+      mediaPlayback,
+      panelRoot: "#editorContentAuthoringMount"
+    });
+    presentation.contentAuthoring = contentAuthoring;
+    layoutEditor.contentAuthoring = contentAuthoring;
     const footerChapterNavigation = new FooterChapterNavigation(presentation);
     window.__SLIDE_LAYOUT_EDITOR__ = layoutEditor;
     window.__SLIDE_PRESENTER_FOCUS__ = presenterFocus;
     window.__SLIDE_CITATIONS__ = citations;
     window.__SLIDE_GLOBAL_LOGO__ = globalLogo;
     window.__SLIDE_MEDIA_PLAYBACK__ = mediaPlayback;
+    window.__SLIDE_CONTENT_AUTHORING__ = contentAuthoring;
     window.__SLIDE_PRESENTATION__ = presentation;
     window.__SLIDE_FOOTER_CHAPTER_NAVIGATION__ = footerChapterNavigation;
     document.querySelectorAll("[data-media-tabs]").forEach(shell => new MediaTabs(shell));

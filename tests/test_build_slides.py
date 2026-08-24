@@ -2,6 +2,7 @@ import contextlib
 import io
 import json
 import os
+import re
 import struct
 import subprocess
 import sys
@@ -653,6 +654,29 @@ Second page.
         side_by_side = build_slides.render_gallery(slide)
         self.assertIn("media-grid count-2", side_by_side)
 
+    def test_three_image_gallery_can_explicitly_use_grid(self):
+        media = [
+            build_slides.Media(f"{index}.png", f"assets/{index}.png", f"图 {index}", "", 1600, 900)
+            for index in range(1, 4)
+        ]
+        slide = build_slides.Slide(
+            number=1,
+            slide_id="three-image-grid",
+            kind="content",
+            title="三图并列",
+            subtitle="",
+            section="前言",
+            layout_requested="gallery",
+            layout_resolved="gallery",
+            config={"gallery-display": "grid"},
+            media=media,
+            blocks=[],
+            raw_body="",
+        )
+        rendered = build_slides.render_gallery(slide)
+        self.assertIn("media-grid count-3", rendered)
+        self.assertNotIn("media-tabs", rendered)
+
     def test_non_heading_content_uses_editorial_type_and_text_dividers(self):
         template = build_slides.TEMPLATE_PATH.read_text(encoding="utf-8")
 
@@ -955,6 +979,178 @@ footer: false
             rendered = output.read_text(encoding="utf-8")
             self.assertIn('<video autoplay loop muted playsinline preload="auto" data-slide-video data-video-autoplay', rendered)
             self.assertNotIn('<video controls', rendered)
+
+    def test_authoring_document_preserves_exact_source_and_utf16_ranges(self):
+        source = (
+            "\ufeff---\r\ntitle: 可逆模型\r\n---\r\n\r\n"
+            "<!-- slide\r\nid: first\r\nlayout: gallery\r\ngallery-display: tabs\r\n-->\r\n"
+            "# 第一页😀\r\n## 副标题\r\n\r\n"
+            "![图一](assets/one.png \"图注一\")\r\n\r\n"
+            "### 文本块\r\n\r\n正文[^source]\r\n\r\n"
+            "> [!TIP] 提示\r\n> Callout 正文\r\n\r\n"
+            "---\r\n\r\n# 第二页\r\n\r\n"
+            "```mermaid\r\n---\r\n```\r\n\r\n"
+            "[^source]: 原始资料 — https://example.com/source\r\n"
+        )
+        document = build_slides.parse_authoring_document(source)
+        payload = build_slides.authoring_document_payload(document)
+
+        self.assertEqual(document.source, source)
+        self.assertTrue(document.bom)
+        self.assertEqual(document.newline, "\r\n")
+        self.assertEqual(len(document.slides), 2)
+        self.assertEqual([item.kind for item in document.slides[0].items], ["image", "text", "callout"])
+        self.assertEqual([citation.citation_id for citation in document.citations], ["source"])
+        self.assertEqual(payload["source"]["offsetEncoding"], "utf-16")
+        reconstructed = payload["source"]["prefix"]
+        for index, slide in enumerate(payload["slides"]):
+            reconstructed += slide["source"]
+            if index < len(payload["source"]["separators"]):
+                reconstructed += payload["source"]["separators"][index]
+        reconstructed += payload["source"]["suffix"]
+        self.assertEqual(reconstructed, source)
+
+        encoded = source.encode("utf-16-le")
+        for slide in payload["slides"]:
+            source_range = slide["sourceRange"]
+            sliced = encoded[source_range["start"] * 2 : source_range["end"] * 2].decode("utf-16-le")
+            self.assertEqual(sliced, slide["source"])
+            for item in slide["items"]:
+                item_range = item["sourceRange"]
+                sliced = encoded[item_range["start"] * 2 : item_range["end"] * 2].decode("utf-16-le")
+                self.assertEqual(sliced, item["markdown"])
+
+    def test_build_source_hash_uses_exact_crlf_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            source = "# CRLF 页面\r\n\r\n正文。\r\n"
+            markdown.write_bytes(source.encode("utf-8"))
+
+            self.assertEqual(build_slides.build(markdown, output, strict=True), 0)
+            report = json.loads(output.with_suffix(".build.json").read_text(encoding="utf-8"))
+            self.assertEqual(report["authoring"]["sourceSha256"], build_slides.sha256_file(markdown))
+
+    def test_authoring_item_ids_are_slide_scoped_and_position_independent(self):
+        without_media = """<!-- slide
+id: stable
+-->
+# 标题
+
+### 文本块
+
+相同正文。
+
+> [!NOTE] 重复
+> 相同提醒。
+
+> [!NOTE] 重复
+> 相同提醒。
+"""
+        with_media = without_media.replace("# 标题\n\n", "# 标题\n\n![新增图片](assets/new.png)\n\n")
+        first = build_slides.parse_authoring_document(without_media).slides[0]
+        second = build_slides.parse_authoring_document(with_media).slides[0]
+        first_text_id = next(item.item_id for item in first.items if item.kind == "text")
+        second_text_id = next(item.item_id for item in second.items if item.kind == "text")
+        self.assertEqual(first_text_id, second_text_id)
+        callout_ids = [item.item_id for item in first.items if item.kind == "callout"]
+        self.assertEqual(len(callout_ids), len(set(callout_ids)))
+        self.assertTrue(callout_ids[1].endswith("-2"))
+
+    def test_build_attaches_authoring_identity_to_slides_blocks_and_media(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            assets = root / "assets"
+            assets.mkdir()
+            for name in ("one.png", "two.png"):
+                (assets / name).write_bytes(b"\x89PNG\r\n\x1a\n" + b"\0" * 8 + struct.pack(">II", 1600, 900))
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            markdown.write_text("""<!-- slide
+id: authored
+type: content
+layout: gallery
+gallery-display: tabs
+-->
+# 可编辑页面
+## 可编辑副标题
+
+![图一](assets/one.png "图注一")
+![图二](assets/two.png "图注二")
+
+### 文本块
+
+正文。
+
+> [!TIP] Callout
+> 提示正文。
+""", encoding="utf-8")
+
+            self.assertEqual(build_slides.build(markdown, output, strict=True), 0)
+            rendered = output.read_text(encoding="utf-8")
+            report = json.loads(output.with_suffix(".build.json").read_text(encoding="utf-8"))
+            document = build_slides.parse_authoring_document(markdown.read_text(encoding="utf-8"))
+            payload = build_slides.authoring_document_payload(document)
+            self.assertEqual(payload["slides"][0]["galleryDisplay"], "tabs")
+            self.assertEqual([item["kind"] for item in payload["slides"][0]["items"]], ["image", "image", "text", "callout"])
+            self.assertIn('data-slide-id="authored"', rendered)
+            self.assertRegex(rendered, r'data-author-base-hash="[0-9a-f]{64}"')
+            self.assertIn('data-author-item-kind="image"', rendered)
+            self.assertIn('data-author-item-kind="text"', rendered)
+            self.assertIn('data-author-item-kind="callout"', rendered)
+            self.assertIn('data-author-field="slide-title"', rendered)
+            self.assertIn('data-author-field="slide-subtitle"', rendered)
+            self.assertIn('data-author-field="title"', rendered)
+            self.assertIn('data-author-field="body"', rendered)
+            self.assertIn('data-author-field="caption"', rendered)
+            self.assertEqual(report["authoring"]["sourceSha256"], document.revision)
+
+    def test_layout_source_hash_rejects_stale_content_mapping(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            overrides = root / "slides.layout.json"
+            markdown.write_text("# 当前源码\n\n正文。\n", encoding="utf-8")
+            overrides.write_text(json.dumps({
+                "schemaVersion": "1.0",
+                "sourceHash": "0" * 64,
+                "slides": {"p1": {"layout": "text"}},
+            }), encoding="utf-8")
+
+            result = build_slides.build(markdown, output, overrides_path=overrides)
+            report = json.loads(output.with_suffix(".build.json").read_text(encoding="utf-8"))
+            self.assertEqual(result, 1)
+            self.assertTrue(any("sourceHash" in message for message in report["errors"]))
+            self.assertEqual(report["layoutOverrides"]["appliedSlides"], [])
+
+    def test_authoring_model_preserves_explicit_layout_filename_and_hash(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            overrides = root / "review.layout.json"
+            source = "# 当前源码\n\n正文。\n"
+            markdown.write_text(source, encoding="utf-8")
+            overrides.write_text(json.dumps({
+                "schemaVersion": "1.0",
+                "sourceHash": build_slides.sha256_source(source),
+                "slides": {},
+            }), encoding="utf-8")
+
+            self.assertEqual(build_slides.build(markdown, output, strict=True, overrides_path=overrides), 0)
+            rendered = output.read_text(encoding="utf-8")
+            match = re.search(r'<script id="deckAuthoringModel" type="application/json">(.*?)</script>', rendered, re.S)
+            self.assertIsNotNone(match)
+            payload = json.loads(match.group(1))
+            self.assertEqual(payload["source"]["layoutName"], "review.layout.json")
+            self.assertEqual(payload["source"]["layoutSha256"], build_slides.sha256_file(overrides))
+            self.assertIn('this.outputName = "review.layout.json"', rendered)
+            editor_match = re.search(r'<script id="deckEditorConfig" type="application/json">(.*?)</script>', rendered, re.S)
+            self.assertIsNotNone(editor_match)
+            editor_payload = json.loads(editor_match.group(1))
+            self.assertEqual(editor_payload["sourceHash"], build_slides.sha256_source(source))
 
     def test_atomic_writer_replaces_content_without_temp_files(self):
         with tempfile.TemporaryDirectory() as directory:

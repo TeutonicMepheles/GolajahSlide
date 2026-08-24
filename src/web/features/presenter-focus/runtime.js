@@ -122,6 +122,10 @@
           ":scope > ul > li",
           ":scope > ol > li",
           ":scope > pre",
+          ":scope > [data-author-field='body'] > p",
+          ":scope > [data-author-field='body'] > ul > li",
+          ":scope > [data-author-field='body'] > ol > li",
+          ":scope > [data-author-field='body'] > pre",
           ":scope table th",
           ":scope table td"
         ].join(",");

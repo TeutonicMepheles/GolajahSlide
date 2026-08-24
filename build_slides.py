@@ -44,6 +44,8 @@ TEMPLATE_FRAGMENT_PATHS = {
     "{{GLOBAL_LOGO_RUNTIME}}": WEB_FEATURE_ROOT / "global-logo" / "runtime.js",
     "{{MEDIA_PLAYBACK_CSS}}": WEB_FEATURE_ROOT / "media-playback" / "style.css",
     "{{MEDIA_PLAYBACK_RUNTIME}}": WEB_FEATURE_ROOT / "media-playback" / "runtime.js",
+    "{{CONTENT_AUTHORING_CSS}}": WEB_FEATURE_ROOT / "content-authoring" / "style.css",
+    "{{CONTENT_AUTHORING_RUNTIME}}": WEB_FEATURE_ROOT / "content-authoring" / "runtime.js",
 }
 STAGE_WIDTH = 1920
 STAGE_HEIGHT = 1080
@@ -87,6 +89,9 @@ class Media:
     height: int | None = None
     kind: str = "image"
     poster_source: str = ""
+    author_id: str = ""
+    author_base_hash: str = ""
+    author_markdown: str = ""
 
     @property
     def ratio(self) -> float:
@@ -101,6 +106,9 @@ class Block:
     html: str
     text: str = ""
     meta: dict[str, object] = field(default_factory=dict)
+    author_id: str = ""
+    author_base_hash: str = ""
+    author_markdown: str = ""
 
 
 @dataclass
@@ -119,6 +127,77 @@ class Slide:
     raw_body: str
     chapter: str = ""
     editor_override: dict[str, object] = field(default_factory=dict)
+    author_base_hash: str = ""
+
+
+@dataclass(frozen=True)
+class SourceSpan:
+    """A half-open character range in the exact decoded Markdown source."""
+
+    start: int
+    end: int
+
+    def text(self, source: str) -> str:
+        return source[self.start : self.end]
+
+
+@dataclass(frozen=True)
+class AuthoringField:
+    value: str
+    span: SourceSpan | None = None
+
+
+@dataclass(frozen=True)
+class AuthoringItem:
+    item_id: str
+    kind: str
+    span: SourceSpan
+    markdown: str
+    base_hash: str
+    fields: dict[str, AuthoringField] = field(default_factory=dict)
+    movable: bool = True
+
+
+@dataclass(frozen=True)
+class AuthoringDirective:
+    span: SourceSpan
+    entries: dict[str, AuthoringField] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class AuthoringSlide:
+    number: int
+    slide_id: str
+    span: SourceSpan
+    base_hash: str
+    directive: AuthoringDirective | None
+    title: AuthoringField
+    subtitle: AuthoringField
+    items: tuple[AuthoringItem, ...]
+    config: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class AuthoringCitation:
+    citation_id: str
+    span: SourceSpan
+    markdown: str
+    text: str
+    href: str
+
+
+@dataclass(frozen=True)
+class AuthoringDocument:
+    """Lossless source map used by browser authoring; rendering remains separate."""
+
+    source: str
+    source_name: str
+    revision: str
+    newline: str
+    bom: bool
+    frontmatter: SourceSpan | None
+    slides: tuple[AuthoringSlide, ...]
+    citations: tuple[AuthoringCitation, ...]
 
 
 class BuildMessages:
@@ -313,6 +392,423 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def sha256_source(source: str) -> str:
+    """Hash exact UTF-8 source without the separators used by sha256_text()."""
+    return hashlib.sha256(source.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
+class _SourceLine:
+    start: int
+    content_end: int
+    end: int
+    text: str
+
+
+def _source_lines(source: str) -> list[_SourceLine]:
+    lines: list[_SourceLine] = []
+    for match in re.finditer(r"[^\r\n]*(?:\r\n|\r|\n|$)", source):
+        raw = match.group(0)
+        if not raw:
+            break
+        if raw.endswith("\r\n"):
+            content_end = match.end() - 2
+        elif raw.endswith(("\r", "\n")):
+            content_end = match.end() - 1
+        else:
+            content_end = match.end()
+        lines.append(_SourceLine(match.start(), content_end, match.end(), source[match.start() : content_end]))
+    return lines
+
+
+def _trim_source_span(source: str, start: int, end: int) -> SourceSpan:
+    while start < end and source[start].isspace():
+        start += 1
+    while end > start and source[end - 1].isspace():
+        end -= 1
+    return SourceSpan(start, end)
+
+
+def _overlaps(span: SourceSpan, start: int, end: int) -> bool:
+    return span.start < end and start < span.end
+
+
+def _directive_source(raw: str, absolute_start: int) -> tuple[AuthoringDirective, dict[str, str]]:
+    match = DIRECTIVE_RE.search(raw)
+    if not match:
+        raise ValueError("slide directive missing")
+    entries: dict[str, AuthoringField] = {}
+    config: dict[str, str] = {}
+    inner = match.group(1)
+    inner_start = absolute_start + match.start(1)
+    for entry in re.finditer(r"(?m)^[ \t]*([^#:\r\n][^:\r\n]*?):[ \t]*(.*?)[ \t]*(?=\r?$)", inner):
+        key = entry.group(1).strip().lower().replace("_", "-")
+        raw_value = entry.group(2)
+        value = str(parse_scalar(raw_value))
+        value_start = inner_start + entry.start(2)
+        value_end = inner_start + entry.end(2)
+        entries[key] = AuthoringField(value, SourceSpan(value_start, value_end))
+        config[key] = value
+    return AuthoringDirective(
+        SourceSpan(absolute_start + match.start(), absolute_start + match.end()),
+        entries,
+    ), config
+
+
+def _citation_source_nodes(source: str, lines: list[_SourceLine]) -> tuple[AuthoringCitation, ...]:
+    citations: list[AuthoringCitation] = []
+    fence: str | None = None
+    for line in lines:
+        stripped = line.text.strip()
+        fence_match = re.match(r"^(`{3,}|~{3,})", stripped)
+        if fence:
+            if stripped.startswith(fence):
+                fence = None
+            continue
+        if fence_match:
+            fence = fence_match.group(1)[0] * len(fence_match.group(1))
+            continue
+        match = CITATION_DEFINITION_RE.match(line.text)
+        if not match:
+            continue
+        citation_id, raw = match.groups()
+        link = CITATION_MARKDOWN_LINK_RE.search(raw)
+        if link:
+            link_label, href = link.groups()
+            text = raw[: link.start()].rstrip(" —–-:：") or link_label
+        else:
+            bare = CITATION_BARE_URL_RE.search(raw)
+            if not bare:
+                continue
+            href = bare.group(1).rstrip(".,;，。；")
+            text = raw[: bare.start()].rstrip(" —–-:：") or href
+        citations.append(AuthoringCitation(
+            citation_id,
+            SourceSpan(line.start, line.end),
+            source[line.start : line.end],
+            text,
+            href,
+        ))
+    return tuple(citations)
+
+
+def _authoring_slide_spans(source: str, lines: list[_SourceLine], body_start: int) -> list[SourceSpan]:
+    separators: list[SourceSpan] = []
+    fence: str | None = None
+    for line in lines:
+        if line.end <= body_start:
+            continue
+        stripped = line.text.strip()
+        fence_match = re.match(r"^(`{3,}|~{3,})", stripped)
+        if fence:
+            if stripped.startswith(fence):
+                fence = None
+            continue
+        if fence_match:
+            fence = fence_match.group(1)[0] * len(fence_match.group(1))
+            continue
+        if stripped == "---":
+            separators.append(SourceSpan(line.start, line.end))
+    spans: list[SourceSpan] = []
+    cursor = body_start
+    for separator in separators:
+        if source[cursor : separator.start].strip():
+            spans.append(SourceSpan(cursor, separator.start))
+        cursor = separator.end
+    if source[cursor:].strip():
+        spans.append(SourceSpan(cursor, len(source)))
+    return spans
+
+
+def _authoring_item_kind_for_fence(stripped: str) -> str:
+    marker = re.match(r"^(`{3,}|~{3,})(.*)$", stripped)
+    language = marker.group(2).strip().lower() if marker else ""
+    return language if language in {"chart", "mermaid", "excalidraw", "archscribe"} else "code"
+
+
+def _parse_authoring_items(
+    source: str,
+    slide_span: SourceSpan,
+    slide_id: str,
+    ignored: list[SourceSpan],
+) -> tuple[AuthoringItem, ...]:
+    lines = [line for line in _source_lines(source) if slide_span.start <= line.start and line.end <= slide_span.end]
+
+    def is_ignored(line: _SourceLine) -> bool:
+        return any(_overlaps(span, line.start, line.end) for span in ignored)
+
+    def is_table(index: int) -> bool:
+        if index + 1 >= len(lines) or is_ignored(lines[index + 1]):
+            return False
+        return "|" in lines[index].text.strip() and bool(TABLE_DIVIDER_RE.match(lines[index + 1].text))
+
+    def special(index: int) -> bool:
+        if index >= len(lines) or is_ignored(lines[index]):
+            return True
+        stripped = lines[index].text.strip()
+        if not stripped:
+            return False
+        return bool(
+            stripped.startswith(("### ", "```", "~~~", ">"))
+            or IMAGE_RE.match(stripped)
+            or is_table(index)
+        )
+
+    provisional: list[tuple[str, SourceSpan, dict[str, AuthoringField], bool]] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if is_ignored(line) or not line.text.strip():
+            i += 1
+            continue
+        stripped = line.text.strip()
+        image = IMAGE_RE.match(stripped)
+        if image:
+            alt, raw_source, caption = image.groups()
+            suffix = Path(urlsplit(raw_source).path).suffix.lower()
+            kind = "video" if suffix in VIDEO_MIME_TYPES else "image"
+            stripped_offset = line.text.index(stripped)
+            fields: dict[str, AuthoringField] = {
+                "alt": AuthoringField(alt),
+                "source": AuthoringField(raw_source),
+                "caption": AuthoringField(caption or alt),
+            }
+            if image.start(3) >= 0:
+                fields["caption"] = AuthoringField(
+                    caption or "",
+                    SourceSpan(
+                        line.start + stripped_offset + image.start(3),
+                        line.start + stripped_offset + image.end(3),
+                    ),
+                )
+            provisional.append((kind, SourceSpan(line.start, line.end), fields, True))
+            i += 1
+            continue
+        if stripped.startswith(("```", "~~~")):
+            start = line.start
+            marker = re.match(r"^(`{3,}|~{3,})", stripped)
+            fence = marker.group(1)[0] * len(marker.group(1)) if marker else "```"
+            kind = _authoring_item_kind_for_fence(stripped)
+            i += 1
+            while i < len(lines):
+                closing = lines[i]
+                i += 1
+                if closing.text.strip().startswith(fence):
+                    break
+            provisional.append((kind, SourceSpan(start, lines[i - 1].end), {}, False))
+            continue
+        if is_table(i):
+            start = line.start
+            i += 2
+            while i < len(lines) and not is_ignored(lines[i]) and "|" in lines[i].text and lines[i].text.strip():
+                i += 1
+            provisional.append(("table", SourceSpan(start, lines[i - 1].end), {}, False))
+            continue
+        if stripped.startswith(">"):
+            start = line.start
+            quoted_lines: list[_SourceLine] = []
+            while i < len(lines) and not is_ignored(lines[i]) and lines[i].text.strip().startswith(">"):
+                quoted_lines.append(lines[i])
+                i += 1
+            quoted = [item.text.strip()[1:].strip() for item in quoted_lines]
+            marker = re.fullmatch(r"\[!([A-Za-z]+)\](?:\s+(.+))?", quoted[0]) if quoted else None
+            kind_name = marker.group(1).lower() if marker else "note"
+            defaults = {"tip": "方法提示", "note": "补充说明", "warning": "风险提示", "quote": "关键结论", "question": "思考问题"}
+            title = (marker.group(2) if marker else None) or defaults.get(kind_name, "关键结论")
+            body_lines = quoted[1:] if marker else quoted
+            fields = {
+                "title": AuthoringField(title),
+                "body": AuthoringField("\n".join(body_lines)),
+                "callout-kind": AuthoringField(kind_name),
+            }
+            provisional.append(("callout", SourceSpan(start, quoted_lines[-1].end), fields, True))
+            continue
+        start = line.start
+        fields: dict[str, AuthoringField] = {}
+        if stripped.startswith("### "):
+            prefix = line.text.index("### ") + 4
+            title_span = _trim_source_span(source, line.start + prefix, line.content_end)
+            fields["title"] = AuthoringField(title_span.text(source), title_span)
+            i += 1
+        while i < len(lines):
+            if is_ignored(lines[i]):
+                break
+            if lines[i].text.strip() and special(i):
+                break
+            i += 1
+        end = lines[i - 1].end if i and lines[i - 1].end > start else line.end
+        body_start = line.end if "title" in fields else start
+        body_span = _trim_source_span(source, body_start, end)
+        fields["body"] = AuthoringField(body_span.text(source), body_span if body_span.start < body_span.end else None)
+        provisional.append(("text", SourceSpan(start, end), fields, True))
+
+    duplicate_counts: dict[tuple[str, str], int] = {}
+    items: list[AuthoringItem] = []
+    safe_slide_id = re.sub(r"[^0-9A-Za-z_-]+", "-", slide_id).strip("-") or "slide"
+    for kind, span, fields, movable in provisional:
+        markdown = span.text(source)
+        base_hash = sha256_source(markdown)
+        duplicate_key = (kind, base_hash)
+        duplicate_counts[duplicate_key] = duplicate_counts.get(duplicate_key, 0) + 1
+        duplicate_suffix = f"-{duplicate_counts[duplicate_key]}" if duplicate_counts[duplicate_key] > 1 else ""
+        item_id = f"{safe_slide_id}-{kind}-{base_hash[:12]}{duplicate_suffix}"
+        items.append(AuthoringItem(item_id, kind, span, markdown, base_hash, fields, movable))
+    return tuple(items)
+
+
+def parse_authoring_document(source: str, source_name: str = "slides.md") -> AuthoringDocument:
+    """Scan the Markdown dialect without normalizing or discarding source text.
+
+    The browser receives semantic IDs and hashes, but Python remains the only
+    owner of source offsets. A save must present ``revision`` and be rejected
+    when the file changed, preventing stale ranges from corrupting another node.
+    """
+    lines = _source_lines(source)
+    bom = source.startswith("\ufeff")
+    newline = "\r\n" if "\r\n" in source else ("\r" if "\r" in source and "\n" not in source else "\n")
+    frontmatter: SourceSpan | None = None
+    body_start = 1 if bom else 0
+    if lines:
+        first_text = lines[0].text[1:] if bom and lines[0].text.startswith("\ufeff") else lines[0].text
+        if first_text == "---":
+            for line in lines[1:]:
+                if line.text.strip() == "---":
+                    frontmatter = SourceSpan(1 if bom else lines[0].start, line.end)
+                    body_start = line.end
+                    break
+    citations = _citation_source_nodes(source, lines)
+    slide_spans = _authoring_slide_spans(source, lines, body_start)
+    slides: list[AuthoringSlide] = []
+    citation_spans = [citation.span for citation in citations]
+    for number, slide_span in enumerate(slide_spans, 1):
+        raw = slide_span.text(source)
+        directive: AuthoringDirective | None = None
+        config: dict[str, str] = {}
+        directive_match = DIRECTIVE_RE.search(raw)
+        if directive_match:
+            directive, config = _directive_source(raw, slide_span.start)
+        title = AuthoringField("")
+        subtitle = AuthoringField("")
+        for line in lines:
+            if line.start < slide_span.start or line.end > slide_span.end:
+                continue
+            if directive and _overlaps(directive.span, line.start, line.end):
+                continue
+            if not title.value and line.text.startswith("# "):
+                value_span = _trim_source_span(source, line.start + 2, line.content_end)
+                title = AuthoringField(value_span.text(source), value_span)
+            elif not subtitle.value and line.text.startswith("## "):
+                value_span = _trim_source_span(source, line.start + 3, line.content_end)
+                subtitle = AuthoringField(value_span.text(source), value_span)
+        slide_id = slide_identifier(config, number)
+        ignored = citation_spans + ([directive.span] if directive else [])
+        if title.span:
+            title_line = next((line for line in lines if line.start <= title.span.start < line.end), None)
+            if title_line:
+                ignored.append(SourceSpan(title_line.start, title_line.end))
+        if subtitle.span:
+            subtitle_line = next((line for line in lines if line.start <= subtitle.span.start < line.end), None)
+            if subtitle_line:
+                ignored.append(SourceSpan(subtitle_line.start, subtitle_line.end))
+        items = _parse_authoring_items(source, slide_span, slide_id, ignored)
+        slides.append(AuthoringSlide(
+            number,
+            slide_id,
+            slide_span,
+            sha256_source(raw),
+            directive,
+            title,
+            subtitle,
+            items,
+            config,
+        ))
+    return AuthoringDocument(
+        source,
+        source_name,
+        sha256_source(source),
+        newline,
+        bom,
+        frontmatter,
+        tuple(slides),
+        citations,
+    )
+
+
+def authoring_document_payload(document: AuthoringDocument) -> dict[str, object]:
+    """Return the versioned, JSON-safe contract consumed by editor Features."""
+    utf16_offsets = [0]
+    units = 0
+    for character in document.source:
+        units += 2 if ord(character) > 0xFFFF else 1
+        utf16_offsets.append(units)
+
+    def source_range(span: SourceSpan | None) -> dict[str, int] | None:
+        if span is None:
+            return None
+        return {"start": utf16_offsets[span.start], "end": utf16_offsets[span.end]}
+
+    slides: list[dict[str, object]] = []
+    for slide in document.slides:
+        media_count = sum(item.kind in {"image", "video"} for item in slide.items)
+        configured_display = slide.config.get("gallery-display", "").strip().lower()
+        gallery_display = configured_display if configured_display in {"grid", "tabs"} else ("tabs" if media_count >= 3 else "grid")
+        items: list[dict[str, object]] = []
+        for item in slide.items:
+            fields = {name: field.value for name, field in item.fields.items()}
+            field_ranges = {
+                name: source_range(field.span)
+                for name, field in item.fields.items()
+                if field.span is not None
+            }
+            items.append({
+                "id": item.item_id,
+                "kind": item.kind,
+                **fields,
+                "markdown": item.markdown,
+                "baseHash": item.base_hash,
+                "movable": item.movable,
+                "sourceRange": source_range(item.span),
+                "fieldRanges": field_ranges,
+            })
+        slides.append({
+            "id": slide.slide_id,
+            "number": slide.number,
+            "baseHash": slide.base_hash,
+            "title": slide.title.value,
+            "subtitle": slide.subtitle.value,
+            "galleryDisplay": gallery_display,
+            "source": slide.span.text(document.source),
+            "sourceRange": source_range(slide.span),
+            "titleRange": source_range(slide.title.span),
+            "subtitleRange": source_range(slide.subtitle.span),
+            "directiveRange": source_range(slide.directive.span) if slide.directive else None,
+            "config": dict(slide.config),
+            "items": items,
+        })
+    first_start = document.slides[0].span.start if document.slides else len(document.source)
+    last_end = document.slides[-1].span.end if document.slides else first_start
+    separators = [
+        document.source[left.span.end : right.span.start]
+        for left, right in zip(document.slides, document.slides[1:])
+    ]
+    return {
+        "schemaVersion": "1.0",
+        "source": {
+            "name": document.source_name,
+            "sha256": document.revision,
+            "text": document.source,
+            "newline": document.newline,
+            "bom": document.bom,
+            "offsetEncoding": "utf-16",
+            "prefix": document.source[:first_start],
+            "suffix": document.source[last_end:],
+            "separators": separators,
+            "frontmatterRange": source_range(document.frontmatter),
+        },
+        "slides": slides,
+    }
 
 
 def mermaid_renderer(spec: dict[str, object]) -> str:
@@ -1449,6 +1945,67 @@ def parse_slide(chunk: str, number: int, deck: dict[str, object], source_dir: Pa
     )
 
 
+def _annotate_block_authoring(block: Block, item: AuthoringItem) -> None:
+    block.author_id = item.item_id
+    block.author_base_hash = item.base_hash
+    block.author_markdown = item.markdown
+    attributes = (
+        f'data-author-item-id="{html.escape(item.item_id, quote=True)}" '
+        f'data-author-item-kind="{html.escape(item.kind, quote=True)}" '
+        f'data-author-base-hash="{item.base_hash}" '
+    )
+    if "<article " in block.html:
+        block.html = block.html.replace("<article ", f"<article {attributes}", 1)
+    elif "<article>" in block.html:
+        block.html = block.html.replace("<article>", f"<article {attributes.rstrip()}>", 1)
+    if item.kind == "text":
+        block.html = block.html.replace("<h3>", '<h3 data-author-field="title">', 1)
+        opening_end = block.html.find(">") + 1
+        heading_end = block.html.find("</h3>")
+        body_start = heading_end + len("</h3>") if heading_end >= 0 else opening_end
+        body_end = block.html.rfind("</article>")
+        if body_end >= body_start:
+            block.html = (
+                block.html[:body_start]
+                + '<div data-author-field="body">'
+                + block.html[body_start:body_end]
+                + "</div>"
+                + block.html[body_end:]
+            )
+    elif item.kind == "callout":
+        block.html = block.html.replace("<strong>", '<strong data-author-field="title">', 1)
+        block.html = block.html.replace("<p>", '<p data-author-field="body">', 1)
+
+
+def bind_authoring_metadata(slide: Slide, source_slide: AuthoringSlide) -> None:
+    """Attach lossless source identities to the existing rendering projection."""
+    slide.author_base_hash = source_slide.base_hash
+    media_items = [item for item in source_slide.items if item.kind in {"image", "video"}]
+    for media, item in zip(slide.media, media_items):
+        media.author_id = item.item_id
+        media.author_base_hash = item.base_hash
+        media.author_markdown = item.markdown
+
+    block_kind = {
+        "section": "text",
+        "callout": "callout",
+        "table": "table",
+        "code": "code",
+        "chart": "chart",
+        "mermaid": "mermaid",
+        "excalidraw": "excalidraw",
+        "archscribe": "archscribe",
+    }
+    queues: dict[str, list[AuthoringItem]] = {}
+    for item in source_slide.items:
+        queues.setdefault(item.kind, []).append(item)
+    for block in slide.blocks:
+        expected = block_kind.get(block.kind, block.kind)
+        candidates = queues.get(expected, [])
+        if candidates:
+            _annotate_block_authoring(block, candidates.pop(0))
+
+
 def normalize_region(value: object, messages: BuildMessages, slide_no: int, name: str) -> dict[str, int] | None:
     if not isinstance(value, dict):
         messages.warn(slide_no, f"编辑器区域 {name} 不是对象，已忽略")
@@ -1532,7 +2089,11 @@ def normalize_animation(value: object, messages: BuildMessages, slide_no: int) -
     return {"mode": mode, "order": order[:64], "stepMs": max(40, min(600, step_ms))}
 
 
-def load_layout_overrides(path: Path | None, messages: BuildMessages) -> dict[str, object]:
+def load_layout_overrides(
+    path: Path | None,
+    messages: BuildMessages,
+    expected_source_hash: str | None = None,
+) -> dict[str, object]:
     if path is None:
         return {"schemaVersion": EDITOR_SCHEMA_VERSION, "stage": {"width": STAGE_WIDTH, "height": STAGE_HEIGHT}, "slides": {}}
     if not path.exists():
@@ -1549,6 +2110,14 @@ def load_layout_overrides(path: Path | None, messages: BuildMessages) -> dict[st
     version = str(payload.get("schemaVersion", EDITOR_SCHEMA_VERSION))
     if version != EDITOR_SCHEMA_VERSION:
         messages.warn(None, f"布局覆盖 schemaVersion={version}，当前生成器为 {EDITOR_SCHEMA_VERSION}；将按兼容模式读取")
+    authored_source_hash = str(payload.get("sourceHash", "")).strip().lower()
+    if authored_source_hash and expected_source_hash and authored_source_hash != expected_source_hash.lower():
+        messages.error(None, "布局覆盖的 sourceHash 与当前 Markdown 不一致；为避免把旧布局套到新内容，已拒绝应用")
+        return {
+            "schemaVersion": EDITOR_SCHEMA_VERSION,
+            "stage": {"width": STAGE_WIDTH, "height": STAGE_HEIGHT},
+            "slides": {},
+        }
     return payload
 
 
@@ -1696,7 +2265,13 @@ def visual_media(
 ) -> str:
     panel = f' data-media-panel="{panel_index}"' if panel_index is not None else ""
     active_class = " active" if active else ""
-    caption = f"<figcaption>{html.escape(media.caption)}</figcaption>" if media.caption else ""
+    authoring = (
+        f' data-author-item-id="{html.escape(media.author_id, quote=True)}"'
+        f' data-author-item-kind="{html.escape(media.kind, quote=True)}"'
+        f' data-author-base-hash="{media.author_base_hash}"'
+        if media.author_id else ""
+    )
+    caption = f'<figcaption data-author-field="caption">{html.escape(media.caption)}</figcaption>' if media.caption else ""
     if media.kind == "video":
         mime_type = VIDEO_MIME_TYPES.get(Path(urlsplit(media.source).path).suffix.lower(), "video/mp4")
         poster = f' poster="{html.escape(media.poster_source, quote=True)}"' if media.poster_source else ""
@@ -1707,7 +2282,7 @@ def visual_media(
             else 'controls playsinline preload="metadata" data-slide-video'
         )
         return (
-            f'<figure class="card media-figure video-media{active_class}" data-slide-video-shell tabindex="0"{panel}>'
+            f'<figure class="card media-figure video-media{active_class}" data-slide-video-shell tabindex="0"{panel}{authoring}>'
             '<div class="video-media-content">'
             f'<video {video_attributes} aria-label="{html.escape(media.alt, quote=True)}"{poster} '
             f'style="object-fit:{html.escape(fit)}">'
@@ -1717,7 +2292,7 @@ def visual_media(
             f'</div>{caption}</figure>'
         )
     return (
-        f'<figure class="card media-figure visual-widget{active_class}" data-visual-widget="image" tabindex="0"{panel}>'
+        f'<figure class="card media-figure visual-widget{active_class}" data-visual-widget="image" tabindex="0"{panel}{authoring}>'
         '<div class="visual-widget-content" data-visual-content>'
         f'<img src="{html.escape(media.output_source, quote=True)}" alt="{html.escape(media.alt, quote=True)}" '
         f'style="object-fit:{html.escape(fit)}" draggable="false">'
@@ -1813,8 +2388,14 @@ def render_hero(slide: Slide, deck: dict[str, object], citations: CitationRegist
             return '<div class="pure-image-shell pure-image-missing" aria-label="纯图页面缺少图片"></div>'
         media = slide.media[0]
         fit = slide.config.get("image-fit", "cover")
+        authoring = (
+            f' data-author-item-id="{html.escape(media.author_id, quote=True)}"'
+            f' data-author-item-kind="{html.escape(media.kind, quote=True)}"'
+            f' data-author-base-hash="{media.author_base_hash}"'
+            if media.author_id else ""
+        )
         return (
-            '<figure class="pure-image-shell reveal">'
+            f'<figure class="pure-image-shell reveal"{authoring}>'
             f'<img src="{html.escape(media.output_source, quote=True)}" alt="{html.escape(media.alt, quote=True)}" '
             f'style="object-fit:{html.escape(fit, quote=True)}" draggable="false">'
             '</figure>'
@@ -1832,16 +2413,17 @@ def render_hero(slide: Slide, deck: dict[str, object], citations: CitationRegist
         visual = render_placeholder("封面图占位" if slide.kind == "cover" else "章节图占位")
     return (
         f'<div class="hero-shell hero-{slide.kind} hero-layout-{slide.layout_resolved}"><div class="hero-copy reveal" data-presenter-focus>'
-        f'<p class="hero-kicker">{html.escape(kicker)}</p><h1>{render_inline(slide.title, citations, slide.number)}</h1>'
-        f'<p class="hero-subtitle">{render_inline(slide.subtitle, citations, slide.number)}</p>'
+        f'<p class="hero-kicker">{html.escape(kicker)}</p><h1 data-author-field="slide-title">{render_inline(slide.title, citations, slide.number)}</h1>'
+        f'<p class="hero-subtitle" data-author-field="slide-subtitle">{render_inline(slide.subtitle, citations, slide.number)}</p>'
         f'<p class="hero-meta">{html.escape(meta)}</p></div><div class="hero-visual reveal">{visual}</div></div>'
     )
 
 
 def render_gallery(slide: Slide) -> str:
     fit = slide.config.get("image-fit", "contain")
-    tabbed = slide.config.get("gallery-display", "").strip().lower() == "tabs"
-    if len(slide.media) >= 3 or (tabbed and len(slide.media) >= 2):
+    authored_display = slide.config.get("gallery-display", "").strip().lower()
+    tabbed = authored_display == "tabs" or (authored_display not in {"grid", "tabs"} and len(slide.media) >= 3)
+    if tabbed and len(slide.media) >= 2:
         authored_labels = [label.strip() for label in slide.config.get("tab-labels", "").split("|") if label.strip()]
         labels = authored_labels if len(authored_labels) == len(slide.media) else [str(index + 1) for index in range(len(slide.media))]
         named_class = " named-tabs" if authored_labels and len(authored_labels) == len(slide.media) else ""
@@ -1856,7 +2438,7 @@ def render_gallery(slide: Slide) -> str:
         )
         gallery = f'<div class="media-tabs" data-media-tabs>{panels}<div class="media-tab-list{named_class}">{buttons}</div></div>'
     else:
-        gallery = '<div class="media-grid count-2">' + "".join(
+        gallery = f'<div class="media-grid count-{min(4, len(slide.media))}">' + "".join(
             visual_media(media, fit, video_playback=slide.config.get("video-playback", "manual"))
             for media in slide.media
         ) + "</div>"
@@ -1911,14 +2493,15 @@ def render_slide(
         inner = render_hero(slide, deck, citations)
     else:
         title = render_inline(slide.title, citations, slide.number)
-        subtitle = f'<p class="subtitle">{render_inline(slide.subtitle, citations, slide.number)}</p>' if slide.subtitle else ""
+        subtitle = f'<p class="subtitle" data-author-field="slide-subtitle">{render_inline(slide.subtitle, citations, slide.number)}</p>' if slide.subtitle else ""
         inner = (
-            f'<header class="slide-header reveal" data-presenter-focus><h1>{title}</h1>{subtitle}</header>'
+            f'<header class="slide-header reveal" data-presenter-focus><h1 data-author-field="slide-title">{title}</h1>{subtitle}</header>'
             f'<div class="content">{render_content(slide)}</div>{render_footer(slide, sections, section_chapters)}'
         )
     return (
         f'<section class="{classes}" data-title="{html.escape(slide.title, quote=True)}" '
         f'data-slide-id="{html.escape(slide.slide_id, quote=True)}" data-source-page="P{slide.number}" '
+        f'data-author-base-hash="{html.escape(slide.author_base_hash, quote=True)}" '
         f'data-slide-kind="{html.escape(slide.kind, quote=True)}" data-media-count="{len(slide.media)}" '
         f'data-block-count="{len(slide.blocks)}" data-text-length="{body_text_length(slide.blocks)}" '
         f'data-has-table="{str(any(block.kind == "table" for block in slide.blocks)).lower()}" '
@@ -2516,10 +3099,15 @@ def build(
         print(f"ERROR: template missing: {TEMPLATE_PATH}", file=sys.stderr)
         return 2
     try:
-        source = source_path.read_text(encoding="utf-8")
+        # Keep the authored byte-level newline convention for source hashing and
+        # browser round-trips. Path.read_text() enables universal-newline
+        # translation and would make a CRLF deck disagree with its disk hash.
+        with source_path.open("r", encoding="utf-8", newline="") as source_handle:
+            source = source_handle.read()
     except (OSError, UnicodeError) as error:
         print(f"ERROR: cannot read Markdown source {source_path}: {error}", file=sys.stderr)
         return 2
+    authoring_document = parse_authoring_document(source, source_path.name)
     mermaid_specs = find_mermaid_specs(source)
     excalidraw_configs = find_excalidraw_configs(source)
     mermaid_cli_count = sum(mermaid_renderer(spec) == "mermaid" for spec in mermaid_specs)
@@ -2574,6 +3162,9 @@ def build(
         print("ERROR: no slides found", file=sys.stderr)
         return 2
     slides = [parse_slide(chunk, index, deck, source_path.parent, output_path.parent, messages, citations) for index, chunk in enumerate(chunks, 1)]
+    for slide, source_slide in zip(slides, authoring_document.slides):
+        if slide.slide_id == source_slide.slide_id:
+            bind_authoring_metadata(slide, source_slide)
     if mermaid_specs or excalidraw_configs:
         diagram_report["quality"] = {
             slide.slide_id: [block.meta for block in slide.blocks if block.kind in {"mermaid", "excalidraw"}]
@@ -2602,7 +3193,11 @@ def build(
         automatic = source_path.with_suffix(".layout.json")
         if automatic.exists():
             resolved_overrides_path = automatic
-    editor_payload = load_layout_overrides(resolved_overrides_path, messages)
+    editor_payload = load_layout_overrides(
+        resolved_overrides_path,
+        messages,
+        authoring_document.revision,
+    )
     applied_overrides = apply_layout_overrides(slides, editor_payload, messages)
     density = str(deck.get("density", "reading")).lower()
     if density not in {"reading", "speaking"}:
@@ -2620,6 +3215,7 @@ def build(
         "stage": {"width": STAGE_WIDTH, "height": STAGE_HEIGHT},
         "deckTitle": title,
         "source": source_path.name,
+        "sourceHash": authoring_document.revision,
         "shortcuts": {
             "presenterFocus": normalize_presenter_focus_shortcut(
                 editor_payload.get("shortcuts", {}).get("presenterFocus")
@@ -2639,6 +3235,22 @@ def build(
         "slides": {slide.slide_id: slide.editor_override for slide in slides if slide.editor_override},
     }
     editor_json = json.dumps(embedded_editor_config, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
+    authoring_payload = authoring_document_payload(authoring_document)
+    authoring_source = authoring_payload.get("source")
+    if isinstance(authoring_source, dict):
+        authoring_source["layoutName"] = (
+            resolved_overrides_path.name
+            if resolved_overrides_path
+            else source_path.with_suffix(".layout.json").name
+        )
+        if resolved_overrides_path and resolved_overrides_path.is_file():
+            authoring_source["layoutSha256"] = sha256_file(resolved_overrides_path)
+    authoring_json = json.dumps(authoring_payload, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
+    layout_output_name = (
+        resolved_overrides_path.name
+        if resolved_overrides_path
+        else source_path.with_suffix(".layout.json").name
+    )
     replacements = {
         **template_fragments,
         "{{DECK_TITLE}}": html.escape(title),
@@ -2651,9 +3263,11 @@ def build(
         "{{OUTPUT_FILENAME_JSON}}": json.dumps(output_path.name, ensure_ascii=False).replace("<", "\\u003c"),
         "{{SOURCE_FILENAME}}": html.escape(source_path.name, quote=True),
         "{{SOURCE_FILENAME_JSON}}": json.dumps(source_path.name, ensure_ascii=False).replace("<", "\\u003c"),
-        "{{OVERRIDES_FILENAME}}": html.escape(source_path.with_suffix(".layout.json").name, quote=True),
-        "{{OVERRIDES_FILENAME_JSON}}": json.dumps(source_path.with_suffix(".layout.json").name, ensure_ascii=False).replace("<", "\\u003c"),
+        "{{OVERRIDES_FILENAME}}": html.escape(layout_output_name, quote=True),
+        "{{OVERRIDES_FILENAME_JSON}}": json.dumps(layout_output_name, ensure_ascii=False).replace("<", "\\u003c"),
         "{{EDITOR_CONFIG}}": editor_json,
+        "{{AUTHORING_MODEL}}": authoring_json,
+        "{{AUTHORING_MODEL_JSON}}": authoring_json,
     }
     for key, value in replacements.items():
         template = template.replace(key, value)
@@ -2672,6 +3286,11 @@ def build(
             "defined": len(citation_definitions),
             "referenced": len(citations.numbers),
             "ids": list(citations.numbers),
+        },
+        "authoring": {
+            "schemaVersion": "1.0",
+            "sourceSha256": authoring_document.revision,
+            "slides": len(authoring_document.slides),
         },
     }
     if archscribe_configs:

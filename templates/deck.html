@@ -742,6 +742,7 @@
     .slide.diagnostic-layout .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
 {{PRESENTER_FOCUS_CSS}}
 {{CITATIONS_CSS}}
+{{CONTENT_AUTHORING_CSS}}
     .slide[data-editor-typography="true"] :is(.text-card p, .text-card li, .code-card code, .data-table td) {
       line-height: var(--editor-body-line-height) !important;
       color: var(--editor-body-color) !important;
@@ -1103,12 +1104,13 @@
         </div>
         <p class="editor-help">拖动矩形框调整位置；拖动四角圆点改变尺寸。调整“内容”时，图像和文字区域会等比跟随。</p>
       </section>
-      <section class="editor-group">
+      <section class="editor-group" hidden>
         <div class="editor-toggle-row">
           <div><div class="editor-label">文字内容</div><p class="editor-help">开启后直接点击标题或正文修改。</p></div>
           <button type="button" class="editor-button" id="editorTextMode" aria-pressed="false">文字编辑</button>
         </div>
       </section>
+      <div id="editorContentAuthoringMount"></div>
       <section class="editor-group">
         <div class="editor-label">正文排版 <span>当前页</span></div>
         <div class="editor-coordinate-grid">
@@ -1176,6 +1178,7 @@
   </aside>
   <div class="editor-toast" id="editorToast" role="status"></div>
   <script id="deckEditorConfig" type="application/json">{{EDITOR_CONFIG}}</script>
+  <script id="deckAuthoringModel" type="application/json">{{AUTHORING_MODEL}}</script>
   <script>
     /* ===========================================
        STANDARD IMAGE / CHART / TABLE VIEWER
@@ -1468,6 +1471,23 @@
         this.widgets.forEach(widget => widget.root.classList.toggle("is-disabled", editing));
         if (editing && this.fullscreenWidget) this.exitFullscreen();
       }
+      reconcile(scope = document) {
+        this.widgets = this.widgets.filter(widget => widget.root.isConnected);
+        const known = new Set(this.widgets.map(widget => widget.root));
+        scope.querySelectorAll?.("[data-visual-widget]").forEach(root => {
+          if (known.has(root)) return;
+          const widget = new SlideVisualWidget(root, this);
+          widget.root.classList.toggle("is-disabled", this.editing);
+          this.widgets.push(widget);
+        });
+      }
+      unregister(root) {
+        const widget = this.widgets.find(candidate => candidate.root === root);
+        if (!widget) return;
+        if (this.active === widget) this.active = null;
+        if (this.fullscreenWidget === widget) this.exitFullscreen();
+        this.widgets = this.widgets.filter(candidate => candidate !== widget);
+      }
       sanitizeClone(clone) {
         clone.querySelector(".visual-widget-overlay")?.remove();
         clone.querySelectorAll(".visual-widget-tools, .visual-widget-close, .visual-widget-status, .visual-annotation-layer").forEach(node => node.remove());
@@ -1503,6 +1523,7 @@
         this.schemaVersion = "1.0";
         this.stageSize = {width: 1920, height: 1080};
         this.source = embeddedConfig?.source || {{SOURCE_FILENAME_JSON}};
+        this.sourceHash = typeof embeddedConfig?.sourceHash === "string" ? embeddedConfig.sourceHash : "";
         this.outputName = {{OVERRIDES_FILENAME_JSON}};
         this.deckTitle = embeddedConfig?.deckTitle || {{DECK_TITLE_JSON}};
         this.htmlOutputName = {{OUTPUT_FILENAME_JSON}};
@@ -1591,7 +1612,8 @@
       restoreLocal() {
         try {
           const saved = JSON.parse(localStorage.getItem(this.storageKey()) || "{}");
-          if (saved && typeof saved === "object" && saved.slides && typeof saved.slides === "object" && !Array.isArray(saved.slides)) {
+          const matchingSource = Boolean(this.sourceHash && saved?.sourceHash === this.sourceHash);
+          if (matchingSource && saved.slides && typeof saved.slides === "object" && !Array.isArray(saved.slides)) {
             this.entries = {...this.entries, ...saved.slides};
           }
           if (typeof saved?.shortcuts?.presenterFocus === "string") {
@@ -1604,6 +1626,9 @@
               width: saved.branding.logo.width,
               height: saved.branding.logo.height
             };
+          }
+          if (!matchingSource && saved?.slides && typeof saved.slides === "object" && Object.keys(saved.slides).length) {
+            this.storageWarning = "检测到基于旧源码的本地布局，已忽略以避免页面错位。";
           }
         } catch (_) {
           this.storageWarning = "浏览器无法读取之前的本地布局；当前仍可编辑并导出 JSON。";
@@ -1633,6 +1658,7 @@
           stage: {...this.stageSize},
           deckTitle: this.deckTitle,
           source: this.source,
+          sourceHash: this.sourceHash,
           shortcuts: this.clone(this.shortcuts),
           branding: this.clone(this.branding),
           slides: this.clone(this.entries)
@@ -2463,17 +2489,19 @@
       }
       toggle() { this.setActive(!this.active); }
       setTextMode(active) {
-        if (active && this.animationMode) this.setAnimationMode(false);
-        this.textMode = active;
-        document.body.classList.toggle("editor-text-mode", active);
+        // Legacy whole-stage contentEditable used ordinal DOM keys and could
+        // replay saved HTML into the wrong title after any earlier insertion.
+        // Structured content authoring now owns all editable fields.
+        this.textMode = false;
+        document.body.classList.remove("editor-text-mode");
         if (this.presentation) {
-          this.presentation.editing = active;
-          this.presentation.stage.contentEditable = active ? "true" : "false";
-          this.presentation.widgetManager.setEditing(this.active || active);
+          this.presentation.editing = false;
+          this.presentation.stage.removeAttribute("contenteditable");
+          this.presentation.widgetManager.setEditing(this.active);
         }
         const button = document.getElementById("editorTextMode");
-        button.setAttribute("aria-pressed", String(active));
-        button.textContent = active ? "结束文字编辑" : "文字编辑";
+        button.setAttribute("aria-pressed", "false");
+        button.textContent = "文字编辑已迁移";
       }
       resetPage() {
         const slide = this.currentSlide();
@@ -2631,6 +2659,9 @@
         const config = clone.querySelector("#deckEditorConfig");
         if (config) config.textContent = JSON.stringify(this.exportPayload()).replaceAll("<", "\\u003c");
         clone.querySelectorAll("[contenteditable]").forEach(node => node.removeAttribute("contenteditable"));
+        clone.querySelectorAll("[data-author-edit-key]").forEach(node => node.removeAttribute("data-author-edit-key"));
+        clone.querySelectorAll(".is-author-selected").forEach(node => node.classList.remove("is-author-selected"));
+        clone.querySelectorAll("[aria-selected='true'][data-author-item-id]").forEach(node => node.removeAttribute("aria-selected"));
       }
     }
 
@@ -2639,6 +2670,7 @@
 {{CITATIONS_RUNTIME}}
 {{GLOBAL_LOGO_RUNTIME}}
 {{MEDIA_PLAYBACK_RUNTIME}}
+{{CONTENT_AUTHORING_RUNTIME}}
 
     /* ===========================================
        PRESENTATION CONTROLLER
@@ -2657,7 +2689,6 @@
         this.layoutEditor.attach(this);
         this.fit();
         this.bind();
-        this.restoreEdits();
         this.show(this.current, false);
       }
       fit() {
@@ -2680,33 +2711,12 @@
         document.getElementById("currentPage").textContent = String(this.current + 1);
         document.title = `${this.current + 1}/${this.slides.length} · ${this.slides[this.current].dataset.title || this.layoutEditor.deckTitle}`;
         this.layoutEditor.onSlideChange();
+        this.contentAuthoring?.refreshPanel();
         if (updateHash) history.replaceState(null, "", `#${this.current + 1}`);
       }
       step(delta) { this.show(this.current + delta); }
       toggleEdit() { this.layoutEditor.toggle(); }
       storageKey() { return `slides-template-edits:${location.pathname}:{{DECK_TITLE_ATTR}}`; }
-      restoreEdits() {
-        let index = 0;
-        this.stage.querySelectorAll("h1, h3, p, li, th, td, figcaption").forEach(node => {
-          if (!node.dataset.editKey) node.dataset.editKey = String(index++);
-        });
-        try {
-          const saved = JSON.parse(localStorage.getItem(this.storageKey()) || "{}");
-          if (!saved || typeof saved !== "object" || Array.isArray(saved)) throw new Error("invalid saved edits");
-          Object.entries(saved).forEach(([key, value]) => {
-            const node = this.stage.querySelector(`[data-edit-key="${CSS.escape(key)}"]`);
-            if (node && typeof value === "string") node.innerHTML = value;
-          });
-        } catch (_) {
-          this.layoutEditor.markStorageFailure("浏览器无法读取之前的文字编辑；当前仍可继续编辑并下载 HTML。");
-        }
-        this.stage.addEventListener("input", () => {
-          const edits = {};
-          this.stage.querySelectorAll("[data-edit-key]").forEach(node => edits[node.dataset.editKey] = node.innerHTML);
-          try { localStorage.setItem(this.storageKey(), JSON.stringify(edits)); }
-          catch (_) { this.layoutEditor.markStorageFailure(); }
-        });
-      }
       save() {
         const clone = document.documentElement.cloneNode(true);
         this.layoutEditor.prepareClone(clone);
@@ -2813,12 +2823,23 @@
     const citations = new Citations();
     const presentation = new SlidePresentation(visualWidgetManager, layoutEditor, presenterFocus, globalLogo);
     const mediaPlayback = new MediaPlayback();
+    const contentAuthoring = new ContentAuthoring({
+      stage: presentation.stage,
+      presentation,
+      layoutEditor,
+      widgetManager: visualWidgetManager,
+      mediaPlayback,
+      panelRoot: "#editorContentAuthoringMount"
+    });
+    presentation.contentAuthoring = contentAuthoring;
+    layoutEditor.contentAuthoring = contentAuthoring;
     const footerChapterNavigation = new FooterChapterNavigation(presentation);
     window.__SLIDE_LAYOUT_EDITOR__ = layoutEditor;
     window.__SLIDE_PRESENTER_FOCUS__ = presenterFocus;
     window.__SLIDE_CITATIONS__ = citations;
     window.__SLIDE_GLOBAL_LOGO__ = globalLogo;
     window.__SLIDE_MEDIA_PLAYBACK__ = mediaPlayback;
+    window.__SLIDE_CONTENT_AUTHORING__ = contentAuthoring;
     window.__SLIDE_PRESENTATION__ = presentation;
     window.__SLIDE_FOOTER_CHAPTER_NAVIGATION__ = footerChapterNavigation;
     document.querySelectorAll("[data-media-tabs]").forEach(shell => new MediaTabs(shell));
