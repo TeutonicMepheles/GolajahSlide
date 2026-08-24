@@ -209,6 +209,8 @@ try {
     "editor mode should hide the pointer cue"
   );
 
+  await page.click('[data-editor-category="global"] > summary');
+  assert.equal(await page.$eval('[data-editor-category="global"]', node => node.open), true);
   await page.click("#editorPresenterFocusShortcut");
   await page.keyboard.press("k");
   assert.equal(await page.$eval("#editorPresenterFocusShortcut", node => node.value), "K");

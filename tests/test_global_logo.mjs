@@ -39,8 +39,10 @@ try {
 
   await page.keyboard.press("e");
   await page.waitForFunction(() => document.body.classList.contains("editor-open"));
-  await page.$eval("#editorLogoEnabled", node => node.scrollIntoView({block: "center"}));
-  await page.$eval("#editorLogoEnabled", node => node.click());
+  await page.waitForFunction(() => document.getElementById("layoutEditorPanel").getBoundingClientRect().right <= innerWidth + 1);
+  await page.click('[data-editor-category="global"] > summary');
+  assert.equal(await page.$eval('[data-editor-category="global"]', node => node.open), true);
+  await page.click("#editorLogoEnabled");
   assert.equal(await page.$eval("#editorLogoEnabled", node => node.getAttribute("aria-pressed")), "true");
   assert.deepEqual(await page.$$eval("[data-global-logo]", nodes => nodes.map(node => node.hidden)), [false, true]);
   assert.equal(await page.$eval('[data-slide-id="logo-content"]', node => node.classList.contains("global-logo-enabled")), true);

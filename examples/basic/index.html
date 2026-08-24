@@ -1654,7 +1654,78 @@
       background: rgba(255,255,255,.1);
       cursor: pointer;
     }
-    .layout-editor-body { flex: 1; overflow: auto; padding: 18px 22px 26px; }
+    .layout-editor-body { flex: 1; overflow: auto; padding: 16px 18px 26px; }
+    .editor-category {
+      margin: 0 0 12px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 14px;
+      overflow: clip;
+      background: rgba(255,255,255,.035);
+    }
+    .editor-category > summary {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 54px;
+      padding: 10px 13px;
+      color: #F7F6FB;
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+    }
+    .editor-category > summary::-webkit-details-marker { display: none; }
+    .editor-category > summary::after {
+      content: "";
+      width: 8px;
+      height: 8px;
+      flex: 0 0 auto;
+      border-right: 2px solid rgba(255,255,255,.62);
+      border-bottom: 2px solid rgba(255,255,255,.62);
+      transform: rotate(45deg) translate(-2px, 2px);
+      transition: transform .16s ease;
+    }
+    .editor-category[open] > summary {
+      border-bottom: 1px solid rgba(255,255,255,.1);
+      background: rgba(255,255,255,.045);
+    }
+    .editor-category[open] > summary::after { transform: rotate(225deg) translate(-1px, -1px); }
+    .editor-category > summary:hover { background: rgba(255,255,255,.07); }
+    .editor-category > summary:focus-visible {
+      outline: 3px solid #9B8EFF;
+      outline-offset: -3px;
+    }
+    .editor-category-copy { min-width: 0; flex: 1; }
+    .editor-category-copy strong {
+      display: block;
+      font-size: 14px;
+      line-height: 1.3;
+    }
+    .editor-category-copy small {
+      display: block;
+      margin-top: 3px;
+      overflow: hidden;
+      color: rgba(255,255,255,.5);
+      font-size: 11px;
+      line-height: 1.3;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .editor-category-frequency {
+      flex: 0 0 auto;
+      padding: 4px 7px;
+      border-radius: 999px;
+      color: rgba(255,255,255,.6);
+      background: rgba(255,255,255,.08);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .04em;
+    }
+    .editor-category[data-editor-frequency="high"] .editor-category-frequency {
+      color: #DDD8FF;
+      background: rgba(111,96,229,.3);
+    }
+    .editor-category-body { padding: 16px 14px 2px; }
+    .editor-category-body > .content-authoring-panel { padding-bottom: 14px; }
     .editor-group { padding: 0 0 20px; margin: 0 0 20px; border-bottom: 1px solid rgba(255,255,255,.1); }
     .editor-group:last-child { border-bottom: 0; }
     .editor-label {
@@ -1860,6 +1931,12 @@
     .editor-toast.show { opacity: 1; transform: translate(-50%, 0); }
     body.editor-open .deck-status { right: 408px; }
     body.editor-open .deck-controls { opacity: 1; pointer-events: auto; }
+    @media (max-width: 420px) {
+      .layout-editor-body { padding-right: 12px; padding-left: 12px; }
+      .editor-category > summary { padding-right: 11px; padding-left: 11px; }
+      .editor-category-body { padding-right: 11px; padding-left: 11px; }
+      .editor-category-copy small { white-space: normal; }
+    }
     @media (hover: none) {
       .control-hotzone { display: none; }
       .deck-controls { opacity: .82; pointer-events: auto; }
@@ -1905,99 +1982,124 @@
       <button type="button" class="layout-editor-close" id="editorClose" aria-label="关闭页面编辑器">×</button>
     </header>
     <div class="layout-editor-body">
-      <section class="editor-group">
-        <label class="editor-label" for="editorLayout">布局类型 <span id="editorLayoutSource">自动</span></label>
-        <select class="editor-select" id="editorLayout"></select>
-        <p class="editor-help">选择布局后会生成一组稳健的默认区域；再用画面中的矩形框微调。</p>
-      </section>
-      <section class="editor-group">
-        <div class="editor-label">编辑区域 <span>1920×1080 px</span></div>
-        <div class="editor-region-tabs" role="tablist" aria-label="选择要调整的区域">
-          <button type="button" role="tab" aria-selected="true" class="editor-region-tab active" data-region="content">内容</button>
-          <button type="button" role="tab" aria-selected="false" class="editor-region-tab" data-region="visual">图像</button>
-          <button type="button" role="tab" aria-selected="false" class="editor-region-tab" data-region="copy">文字</button>
+      <details class="editor-category" data-editor-category="content" data-editor-frequency="high" open>
+        <summary><span class="editor-category-copy"><strong>内容与结构</strong><small>文字、图片、顺序与保存</small></span><span class="editor-category-frequency" aria-hidden="true">高频</span></summary>
+        <div class="editor-category-body">
+          <section class="editor-group" hidden>
+            <div class="editor-toggle-row">
+              <div><div class="editor-label">文字内容</div><p class="editor-help">开启后直接点击标题或正文修改。</p></div>
+              <button type="button" class="editor-button" id="editorTextMode" aria-pressed="false">文字编辑</button>
+            </div>
+          </section>
+          <div id="editorContentAuthoringMount"></div>
         </div>
-        <div class="editor-coordinate-grid">
-          <label><span>X</span><input class="editor-number" id="editorRegionX" type="number" min="0" max="1920" step="1"></label>
-          <label><span>Y</span><input class="editor-number" id="editorRegionY" type="number" min="0" max="1080" step="1"></label>
-          <label><span>宽度</span><input class="editor-number" id="editorRegionWidth" type="number" min="48" max="1920" step="1"></label>
-          <label><span>高度</span><input class="editor-number" id="editorRegionHeight" type="number" min="48" max="1080" step="1"></label>
+      </details>
+      <details class="editor-category" data-editor-category="layout" data-editor-frequency="high" open>
+        <summary><span class="editor-category-copy"><strong>页面布局</strong><small>布局类型与图文区域</small></span><span class="editor-category-frequency" aria-hidden="true">高频</span></summary>
+        <div class="editor-category-body">
+          <section class="editor-group">
+            <label class="editor-label" for="editorLayout">布局类型 <span id="editorLayoutSource">自动</span></label>
+            <select class="editor-select" id="editorLayout"></select>
+            <p class="editor-help">选择布局后会生成一组稳健的默认区域；再用画面中的矩形框微调。</p>
+          </section>
+          <section class="editor-group">
+            <div class="editor-label">编辑区域 <span>1920×1080 px</span></div>
+            <div class="editor-region-tabs" role="tablist" aria-label="选择要调整的区域">
+              <button type="button" role="tab" aria-selected="true" class="editor-region-tab active" data-region="content">内容</button>
+              <button type="button" role="tab" aria-selected="false" class="editor-region-tab" data-region="visual">图像</button>
+              <button type="button" role="tab" aria-selected="false" class="editor-region-tab" data-region="copy">文字</button>
+            </div>
+            <div class="editor-coordinate-grid">
+              <label><span>X</span><input class="editor-number" id="editorRegionX" type="number" min="0" max="1920" step="1"></label>
+              <label><span>Y</span><input class="editor-number" id="editorRegionY" type="number" min="0" max="1080" step="1"></label>
+              <label><span>宽度</span><input class="editor-number" id="editorRegionWidth" type="number" min="48" max="1920" step="1"></label>
+              <label><span>高度</span><input class="editor-number" id="editorRegionHeight" type="number" min="48" max="1080" step="1"></label>
+            </div>
+            <div class="editor-button-row">
+              <button type="button" class="editor-button" id="editorResetRegion">重置此区域</button>
+              <button type="button" class="editor-button" id="editorApplyPreset">重套布局预设</button>
+            </div>
+            <p class="editor-help">拖动矩形框调整位置；拖动四角圆点改变尺寸。调整“内容”时，图像和文字区域会等比跟随。</p>
+          </section>
         </div>
-        <div class="editor-button-row">
-          <button type="button" class="editor-button" id="editorResetRegion">重置此区域</button>
-          <button type="button" class="editor-button" id="editorApplyPreset">重套布局预设</button>
+      </details>
+      <details class="editor-category" data-editor-category="appearance" data-editor-frequency="low">
+        <summary><span class="editor-category-copy"><strong>样式与动画</strong><small>正文排版与显示顺序</small></span><span class="editor-category-frequency" aria-hidden="true">按需</span></summary>
+        <div class="editor-category-body">
+          <section class="editor-group">
+            <div class="editor-label">正文排版 <span>当前页</span></div>
+            <div class="editor-coordinate-grid">
+              <label><span>行间距</span><input class="editor-number" id="editorBodyLineHeight" type="number" min="1.1" max="1.8" step="0.05" value="1.46"></label>
+              <label><span>字体颜色</span><input class="editor-color" id="editorBodyColor" type="color" value="#111111"></label>
+            </div>
+            <div class="editor-button-row">
+              <button type="button" class="editor-button" id="editorBodyBold" aria-pressed="false">正文加粗</button>
+              <button type="button" class="editor-button" id="editorResetTypography">恢复正文排版</button>
+            </div>
+            <p class="editor-help">只影响正文、列表、代码正文和表格数据，不改变页面标题与块标题层级。</p>
+          </section>
+          <section class="editor-group">
+            <div class="editor-label">内容显示动画 <span id="editorAnimationSource">默认顺序</span></div>
+            <div class="editor-button-row">
+              <button type="button" class="editor-button primary" id="editorAnimationMode" aria-pressed="false">点击容器编排</button>
+              <button type="button" class="editor-button" id="editorPreviewAnimation">预览动画</button>
+            </div>
+            <button type="button" class="editor-button" id="editorResetAnimation" style="width:100%;margin-top:8px">使用默认生成顺序</button>
+            <ol class="editor-order-list" id="editorAnimationOrder" aria-label="自定义内容显示顺序"></ol>
+            <p class="editor-help">进入编排后，按希望出现的顺序点击页面容器；再次点击可取消标记。未标记内容会按默认顺序追加。</p>
+          </section>
         </div>
-        <p class="editor-help">拖动矩形框调整位置；拖动四角圆点改变尺寸。调整“内容”时，图像和文字区域会等比跟随。</p>
-      </section>
-      <section class="editor-group" hidden>
-        <div class="editor-toggle-row">
-          <div><div class="editor-label">文字内容</div><p class="editor-help">开启后直接点击标题或正文修改。</p></div>
-          <button type="button" class="editor-button" id="editorTextMode" aria-pressed="false">文字编辑</button>
+      </details>
+      <details class="editor-category" data-editor-category="global" data-editor-frequency="low">
+        <summary><span class="editor-category-copy"><strong>全局与演示</strong><small>快捷键与品牌标识</small></span><span class="editor-category-frequency" aria-hidden="true">低频</span></summary>
+        <div class="editor-category-body">
+          <section class="editor-group">
+            <label class="editor-label" for="editorPresenterFocusShortcut">演示快捷键 <span>全局</span></label>
+            <input class="editor-shortcut" id="editorPresenterFocusShortcut" type="text" value="H" readonly aria-describedby="editorPresenterFocusShortcutHelp">
+            <div class="editor-button-row">
+              <button type="button" class="editor-button" id="editorResetPresenterFocusShortcut">恢复默认 H</button>
+            </div>
+            <p class="editor-help" id="editorPresenterFocusShortcutHelp">点击输入框，再按新的单键或组合键。用于开启或关闭悬浮聚焦；键位会应用于整份演示文稿。</p>
+          </section>
+          <section class="editor-group">
+            <div class="editor-toggle-row">
+              <div><div class="editor-label">全局 Logo <span>所有页面</span></div><p class="editor-help">显示在页面右上角，与内容页标题区对齐。</p></div>
+              <button type="button" class="editor-button" id="editorLogoEnabled" aria-pressed="false">已关闭</button>
+            </div>
+            <div class="editor-button-row">
+              <button type="button" class="editor-button primary" id="editorUploadLogo">上传 Logo</button>
+              <button type="button" class="editor-button" id="editorClearLogo">使用占位符</button>
+            </div>
+            <button type="button" class="editor-button" id="editorResetLogoSize" style="width:100%;margin-top:8px">恢复尺寸 190×72</button>
+            <input id="editorLogoFile" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" hidden>
+            <p class="editor-help" id="editorLogoStatus">尚未上传；打开后显示 LOGO 占位符。打开编辑器后可拖动 Logo 左下角手柄调整尺寸。</p>
+          </section>
         </div>
-      </section>
-      <div id="editorContentAuthoringMount"></div>
-      <section class="editor-group">
-        <div class="editor-label">正文排版 <span>当前页</span></div>
-        <div class="editor-coordinate-grid">
-          <label><span>行间距</span><input class="editor-number" id="editorBodyLineHeight" type="number" min="1.1" max="1.8" step="0.05" value="1.46"></label>
-          <label><span>字体颜色</span><input class="editor-color" id="editorBodyColor" type="color" value="#111111"></label>
+      </details>
+      <details class="editor-category" data-editor-category="advanced" data-editor-frequency="low">
+        <summary><span class="editor-category-copy"><strong>文件与高级操作</strong><small>导入导出、构建与重置</small></span><span class="editor-category-frequency" aria-hidden="true">低频</span></summary>
+        <div class="editor-category-body">
+          <section class="editor-group">
+            <div class="editor-label">交给生成器</div>
+            <div class="editor-button-row">
+              <button type="button" class="editor-button primary" id="editorExport">导出布局 JSON</button>
+              <button type="button" class="editor-button" id="editorImport">导入布局 JSON</button>
+            </div>
+            <input id="editorImportFile" type="file" accept="application/json,.json" hidden>
+            <div class="editor-button-row">
+              <button type="button" class="editor-button" id="editorCopyCommand">复制构建命令</button>
+              <button type="button" class="editor-button" id="editorDownloadHtml">下载当前 HTML</button>
+            </div>
+            <p class="editor-help">导出的 `slides.layout.json` 可由构建器直接读取，页面重建后仍能还原布局。</p>
+          </section>
+          <section class="editor-group">
+            <div class="editor-button-row">
+              <button type="button" class="editor-button danger" id="editorResetPage">重置当前页</button>
+              <button type="button" class="editor-button danger" id="editorResetDeck">清除全部布局</button>
+            </div>
+          </section>
         </div>
-        <div class="editor-button-row">
-          <button type="button" class="editor-button" id="editorBodyBold" aria-pressed="false">正文加粗</button>
-          <button type="button" class="editor-button" id="editorResetTypography">恢复正文排版</button>
-        </div>
-        <p class="editor-help">只影响正文、列表、代码正文和表格数据，不改变页面标题与块标题层级。</p>
-      </section>
-      <section class="editor-group">
-        <div class="editor-label">内容显示动画 <span id="editorAnimationSource">默认顺序</span></div>
-        <div class="editor-button-row">
-          <button type="button" class="editor-button primary" id="editorAnimationMode" aria-pressed="false">点击容器编排</button>
-          <button type="button" class="editor-button" id="editorPreviewAnimation">预览动画</button>
-        </div>
-        <button type="button" class="editor-button" id="editorResetAnimation" style="width:100%;margin-top:8px">使用默认生成顺序</button>
-        <ol class="editor-order-list" id="editorAnimationOrder" aria-label="自定义内容显示顺序"></ol>
-        <p class="editor-help">进入编排后，按希望出现的顺序点击页面容器；再次点击可取消标记。未标记内容会按默认顺序追加。</p>
-      </section>
-      <section class="editor-group">
-        <label class="editor-label" for="editorPresenterFocusShortcut">演示快捷键 <span>全局</span></label>
-        <input class="editor-shortcut" id="editorPresenterFocusShortcut" type="text" value="H" readonly aria-describedby="editorPresenterFocusShortcutHelp">
-        <div class="editor-button-row">
-          <button type="button" class="editor-button" id="editorResetPresenterFocusShortcut">恢复默认 H</button>
-        </div>
-        <p class="editor-help" id="editorPresenterFocusShortcutHelp">点击输入框，再按新的单键或组合键。用于开启或关闭悬浮聚焦；键位会应用于整份演示文稿。</p>
-      </section>
-      <section class="editor-group">
-        <div class="editor-toggle-row">
-          <div><div class="editor-label">全局 Logo <span>所有页面</span></div><p class="editor-help">显示在页面右上角，与内容页标题区对齐。</p></div>
-          <button type="button" class="editor-button" id="editorLogoEnabled" aria-pressed="false">已关闭</button>
-        </div>
-        <div class="editor-button-row">
-          <button type="button" class="editor-button primary" id="editorUploadLogo">上传 Logo</button>
-          <button type="button" class="editor-button" id="editorClearLogo">使用占位符</button>
-        </div>
-        <button type="button" class="editor-button" id="editorResetLogoSize" style="width:100%;margin-top:8px">恢复尺寸 190×72</button>
-        <input id="editorLogoFile" type="file" accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp" hidden>
-        <p class="editor-help" id="editorLogoStatus">尚未上传；打开后显示 LOGO 占位符。打开编辑器后可拖动 Logo 左下角手柄调整尺寸。</p>
-      </section>
-      <section class="editor-group">
-        <div class="editor-label">交给生成器</div>
-        <div class="editor-button-row">
-          <button type="button" class="editor-button primary" id="editorExport">导出布局 JSON</button>
-          <button type="button" class="editor-button" id="editorImport">导入布局 JSON</button>
-        </div>
-        <input id="editorImportFile" type="file" accept="application/json,.json" hidden>
-        <div class="editor-button-row">
-          <button type="button" class="editor-button" id="editorCopyCommand">复制构建命令</button>
-          <button type="button" class="editor-button" id="editorDownloadHtml">下载当前 HTML</button>
-        </div>
-        <p class="editor-help">导出的 `slides.layout.json` 可由构建器直接读取，页面重建后仍能还原布局。</p>
-      </section>
-      <section class="editor-group">
-        <div class="editor-button-row">
-          <button type="button" class="editor-button danger" id="editorResetPage">重置当前页</button>
-          <button type="button" class="editor-button danger" id="editorResetDeck">清除全部布局</button>
-        </div>
-      </section>
+      </details>
       <div class="editor-status" id="editorStatus" role="status">布局会自动保存在本机。</div>
     </div>
   </aside>
@@ -2638,6 +2740,23 @@
       }
       bindPanel() {
         document.getElementById("editorClose").addEventListener("click", () => this.setActive(false));
+        document.querySelectorAll("[data-editor-category]").forEach(category => {
+          const summary = category.querySelector(":scope > summary");
+          summary.addEventListener("keydown", event => {
+            if (![" ", "Enter"].includes(event.key)) return;
+            event.preventDefault();
+            category.open = !category.open;
+          });
+          category.addEventListener("toggle", () => {
+            if (category.open) return;
+            if (category.dataset.editorCategory === "content" && this.contentAuthoring?.active) {
+              this.contentAuthoring.setActive(false);
+            }
+            if (category.dataset.editorCategory === "appearance" && this.animationMode) {
+              this.setAnimationMode(false);
+            }
+          });
+        });
         this.layoutSelect.addEventListener("change", () => this.changeLayout(this.layoutSelect.value));
         const regionTabs = [...document.querySelectorAll(".editor-region-tab")];
         regionTabs.forEach((button, index) => {
@@ -3527,11 +3646,20 @@
         this.toast("构建命令已复制");
       }
       prepareClone(clone) {
-        clone.body.classList.remove("editor-open", "editor-text-mode", "editor-animation-mode");
+        const body = clone.body || clone.querySelector("body");
+        body?.classList.remove("editor-open", "editor-text-mode", "editor-animation-mode", "content-authoring-active");
+        clone.querySelectorAll("[data-editor-category]").forEach(category => {
+          category.toggleAttribute("open", category.dataset.editorFrequency === "high");
+        });
         clone.querySelectorAll(".layout-editor-overlay").forEach(node => node.remove());
         clone.querySelectorAll(".animation-editor-overlay").forEach(node => node.remove());
-        clone.querySelector("#layoutEditorPanel")?.setAttribute("aria-hidden", "true");
-        clone.querySelector("#edit")?.classList.remove("active");
+        const panel = clone.querySelector("#layoutEditorPanel");
+        panel?.setAttribute("aria-hidden", "true");
+        panel?.setAttribute("inert", "");
+        const editButton = clone.querySelector("#edit");
+        editButton?.classList.remove("active");
+        editButton?.setAttribute("aria-expanded", "false");
+        editButton?.setAttribute("aria-label", "打开页面编辑器");
         const config = clone.querySelector("#deckEditorConfig");
         if (config) config.textContent = JSON.stringify(this.exportPayload()).replaceAll("<", "\\u003c");
         clone.querySelectorAll("[contenteditable]").forEach(node => node.removeAttribute("contenteditable"));
@@ -5935,7 +6063,7 @@
             this.layoutEditor.setActive(false);
             return;
           }
-          if (event.metaKey || event.ctrlKey || event.altKey || event.target.isContentEditable || event.target.closest?.("button,input,textarea,select")) return;
+          if (event.metaKey || event.ctrlKey || event.altKey || event.target.isContentEditable || event.target.closest?.(".layout-editor-panel,button,input,textarea,select")) return;
           if (["ArrowRight","ArrowDown","PageDown"," "].includes(event.key)) { event.preventDefault(); this.step(1); }
           else if (["ArrowLeft","ArrowUp","PageUp"].includes(event.key)) { event.preventDefault(); this.step(-1); }
           else if (event.key === "Home") this.show(0);

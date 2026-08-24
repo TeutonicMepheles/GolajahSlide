@@ -14,6 +14,7 @@
 - 用稳定的 Slide / 内容项 / 字段 ID 替代全稿 DOM 数字序号，消除同路径重建后的文字串位。
 - 编辑模式可新增默认包含标题与一段正文的文本块。
 - 打开布局编辑器或在编辑器开启时切页，优先选择可编辑的图像区域，其次选择文字区域；整体内容区域保留为显式的低频选项。
+- 编辑器选项按内容、布局、样式、全局和文件操作分组；高频内容与布局默认展开，低频分组默认折叠。
 - 文本块与 Callout 可在当前页通过拖拽重新排序。
 - 支持上传、拖入或粘贴 PNG、JPEG、WebP，以替换占位图、替换现有图片或向当前页追加图片。
 - 两张及以上图片可在编辑器中选择 Tab Gallery 或并列展示。
@@ -48,13 +49,15 @@
 - [x] 不支持文件系统写入时，可以下载包含 Markdown、布局、操作日志和资产的完整可恢复编辑包。
 - [x] Focused Harness 严格构建，Python 合同测试与真实浏览器测试通过。
 - [x] 布局编辑器在文字页默认进入文字范围，在图文、Gallery 与纯图页默认进入图像范围；同页提交不覆盖用户手动选择的整体内容范围。
+- [x] 高频编辑分组默认展开，低频分组默认折叠；折叠标题支持键盘操作且窄屏无横向溢出。
 - [x] `npm test`、生成物 freshness 与桌面/窄屏浏览器 QA 通过。
 
 ## Validation evidence
 
 - `python3 -m unittest discover -s tests -v`: 50 项通过，覆盖源码模型、稳定 ID、UTF-16/CRLF 往返、显式布局文件名与指纹、布局冲突和显式多图布局。
-- `npm run test:content-authoring`: Focused Harness 严格构建并通过浏览器回归，覆盖旧文字/布局缓存隔离、新增/重排、Gallery 切换、跨页移动、布局指令与 sidecar 同步、图片导入、Markdown 安全序列化、文件写回及源码/布局冲突拒绝；同时验证文字/图像默认区域、编辑器开启时翻页、同页提交与重复开启保留手动选择、重置回首选区域及纯图页实际图片映射。
+- `npm run test:content-authoring`: Focused Harness 严格构建并通过浏览器回归，覆盖旧文字/布局缓存隔离、新增/重排、Gallery 切换、跨页移动、布局指令与 sidecar 同步、图片导入、Markdown 安全序列化、文件写回及源码/布局冲突拒绝；同时验证文字/图像默认区域、五类选项归属与展开规则、Space/Enter 键盘折叠、模式安全退出、下载 HTML 状态归一和 375×800 窄屏滚动/溢出。
 - `env PATH="<temporary-python3-shim>:$PATH" npm test`: 全量 Python 与 7 组浏览器/图表测试通过；临时 shim 仅用于本机 `python` 命令兼容，未加入仓库。
 - 从当前源重新生成 `examples/basic`、`examples/diagrams` 与 `examples/archscribe` 的 `index.html` / `index.build.json`；三组 strict 构建通过，其中 diagrams 使用 `--render-diagrams`。
 - 真实浏览器检查通过：1920×1080 下新增文本、选中、双图并列/Tab Gallery 与图片显示正常；820×900 和 375×800 下编辑面板无横向溢出；控制台无 error/warning。
 - 应用内浏览器真实点击检查通过：文字页首次打开选中“文字范围”；手动选择“内容范围”并重套预设后保持不变；编辑器开启时翻到 Gallery 自动选中“图像范围”，再回到文字页恢复“文字范围”；控制台无 error/warning。
+- 应用内浏览器真实点击与截图检查通过：内容/布局默认展开，样式/全局/高级默认折叠；打开低频分组可见完整控件，折叠活动内容或动画分组会退出对应模式；控制台无 error/warning。

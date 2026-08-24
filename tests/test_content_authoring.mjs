@@ -63,6 +63,135 @@ try {
     localStorage.removeItem(keys.layout);
   }, cacheKeys);
 
+  await page.keyboard.press("e");
+  await page.waitForFunction(() => document.body.classList.contains("editor-open") && document.activeElement?.id === "editorClose");
+  await page.keyboard.press("Tab");
+  assert.equal(await page.evaluate(() => document.activeElement?.closest?.("[data-editor-category]")?.dataset.editorCategory), "content");
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => !document.body.classList.contains("editor-open") && document.activeElement?.id === "edit");
+
+  const categoryDefaults = await page.$$eval("[data-editor-category]", categories => categories.map(category => ({
+    name: category.dataset.editorCategory,
+    frequency: category.dataset.editorFrequency,
+    open: category.open
+  })));
+  assert.deepEqual(categoryDefaults, [
+    {name: "content", frequency: "high", open: true},
+    {name: "layout", frequency: "high", open: true},
+    {name: "appearance", frequency: "low", open: false},
+    {name: "global", frequency: "low", open: false},
+    {name: "advanced", frequency: "low", open: false}
+  ]);
+  assert.deepEqual(await page.evaluate(() => ({
+    content: Boolean(document.querySelector('[data-editor-category="content"] [data-author-action="save"]')),
+    layout: Boolean(document.querySelector('[data-editor-category="layout"] #editorLayout')),
+    appearance: Boolean(document.querySelector('[data-editor-category="appearance"] #editorAnimationMode')),
+    global: Boolean(document.querySelector('[data-editor-category="global"] #editorLogoEnabled')),
+    advanced: Boolean(document.querySelector('[data-editor-category="advanced"] #editorExport'))
+  })), {content: true, layout: true, appearance: true, global: true, advanced: true});
+
+  const downloadedCategoryDefaults = await page.evaluate(() => {
+    const content = document.querySelector('[data-editor-category="content"]');
+    const advanced = document.querySelector('[data-editor-category="advanced"]');
+    content.open = false;
+    advanced.open = true;
+    const clone = document.documentElement.cloneNode(true);
+    window.__SLIDE_LAYOUT_EDITOR__.prepareClone(clone);
+    const categories = [...clone.querySelectorAll("[data-editor-category]")].map(category => ({
+      name: category.dataset.editorCategory,
+      open: category.open
+    }));
+    content.open = true;
+    advanced.open = false;
+    const panel = clone.querySelector("#layoutEditorPanel");
+    const edit = clone.querySelector("#edit");
+    return {
+      categories,
+      panelHidden: panel.getAttribute("aria-hidden"),
+      panelInert: panel.hasAttribute("inert"),
+      editExpanded: edit.getAttribute("aria-expanded"),
+      editLabel: edit.getAttribute("aria-label"),
+      cleanBody: !clone.querySelector("body").classList.contains("editor-open")
+    };
+  });
+  assert.deepEqual(downloadedCategoryDefaults, {
+    categories: [
+      {name: "content", open: true},
+      {name: "layout", open: true},
+      {name: "appearance", open: false},
+      {name: "global", open: false},
+      {name: "advanced", open: false}
+    ],
+    panelHidden: "true",
+    panelInert: true,
+    editExpanded: "false",
+    editLabel: "打开页面编辑器",
+    cleanBody: true
+  });
+
+  await page.evaluate(() => window.__SLIDE_LAYOUT_EDITOR__.setActive(true));
+  await page.waitForFunction(() => document.activeElement?.id === "editorClose");
+  assert.equal(await page.$eval('[data-editor-category="content"] [data-author-action="save"]', node => node.checkVisibility()), true);
+  assert.equal(await page.$eval('[data-editor-category="advanced"] #editorExport', node => node.checkVisibility()), false);
+  await page.focus('[data-editor-category="appearance"] > summary');
+  const pageBeforeDisclosure = await page.evaluate(() => window.__SLIDE_PRESENTATION__.current);
+  await page.keyboard.press("Space");
+  assert.equal(await page.$eval('[data-editor-category="appearance"]', node => node.open), true);
+  assert.equal(await page.evaluate(() => window.__SLIDE_PRESENTATION__.current), pageBeforeDisclosure);
+  assert.equal(await page.$eval("#editorAnimationMode", node => node.checkVisibility()), true);
+  await page.focus('[data-editor-category="appearance"] > summary');
+  await page.keyboard.press("Enter");
+  assert.equal(await page.$eval('[data-editor-category="appearance"]', node => node.open), false);
+
+  await page.evaluate(() => {
+    const content = document.querySelector('[data-editor-category="content"]');
+    const appearance = document.querySelector('[data-editor-category="appearance"]');
+    const feature = window.__SLIDE_CONTENT_AUTHORING__;
+    const editor = window.__SLIDE_LAYOUT_EDITOR__;
+    feature.setActive(true);
+    content.open = false;
+    appearance.open = true;
+    editor.setAnimationMode(true);
+    appearance.open = false;
+  });
+  await page.waitForFunction(() => !window.__SLIDE_CONTENT_AUTHORING__.active && !window.__SLIDE_LAYOUT_EDITOR__.animationMode);
+  assert.equal(await page.$eval("body", node => node.classList.contains("content-authoring-active") || node.classList.contains("editor-animation-mode")), false);
+  await page.evaluate(() => {
+    document.querySelector('[data-editor-category="content"]').open = true;
+    document.querySelector('[data-editor-category="appearance"]').open = false;
+  });
+  await page.evaluate(() => window.__SLIDE_LAYOUT_EDITOR__.setActive(false));
+
+  await page.setViewport({width: 375, height: 800, deviceScaleFactor: 1});
+  await page.evaluate(() => window.__SLIDE_LAYOUT_EDITOR__.setActive(true));
+  await new Promise(resolve => setTimeout(resolve, 280));
+  const compactPanel = await page.evaluate(() => {
+    const panel = document.getElementById("layoutEditorPanel");
+    const body = panel.querySelector(".layout-editor-body");
+    const panelRect = panel.getBoundingClientRect();
+    const summaries = [...panel.querySelectorAll("[data-editor-category] > summary")].map(summary => {
+      const rect = summary.getBoundingClientRect();
+      return {left: rect.left, right: rect.right};
+    });
+    body.scrollTop = body.scrollHeight;
+    return {
+      clientWidth: body.clientWidth,
+      scrollWidth: body.scrollWidth,
+      panelLeft: panelRect.left,
+      panelRight: panelRect.right,
+      viewportWidth: innerWidth,
+      summaries,
+      maxScrollTop: body.scrollHeight - body.clientHeight,
+      scrollTop: body.scrollTop
+    };
+  });
+  assert(compactPanel.scrollWidth <= compactPanel.clientWidth + 1, `narrow editor should not overflow horizontally: ${JSON.stringify(compactPanel)}`);
+  assert(compactPanel.panelLeft >= -1 && compactPanel.panelRight <= compactPanel.viewportWidth + 1, `narrow editor should stay inside viewport: ${JSON.stringify(compactPanel)}`);
+  assert(compactPanel.summaries.every(rect => rect.left >= compactPanel.panelLeft - 1 && rect.right <= compactPanel.panelRight + 1), `category summaries should stay inside panel: ${JSON.stringify(compactPanel)}`);
+  assert(compactPanel.maxScrollTop > 0 && compactPanel.scrollTop >= compactPanel.maxScrollTop - 1, `advanced category should be vertically reachable: ${JSON.stringify(compactPanel)}`);
+  await page.evaluate(() => window.__SLIDE_LAYOUT_EDITOR__.setActive(false));
+  await page.setViewport({width: 1920, height: 1080, deviceScaleFactor: 1});
+
   const preferredRegions = await page.evaluate(() => {
     const editor = window.__SLIDE_LAYOUT_EDITOR__;
     const presentation = window.__SLIDE_PRESENTATION__;
