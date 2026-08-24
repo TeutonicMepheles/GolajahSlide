@@ -4,6 +4,7 @@
 
 | Plan | Status | Scope | Summary | Last verified |
 |---|---|---|---|---|
+| [Animated PowerPoint Export (Experimental)](2026-08-24-animated-pptx-export.md) | Implemented | Native Fade Slide Transition on the existing full-frame PPTX model | 保留默认静态导出，新增明确标注的实验性原生淡化转场 PPTX | 2026-08-24 |
 | [Agent CLI and MCP Bridge](2026-08-24-agent-cli-mcp.md) | Implemented | JSON-first deck operations and stdio MCP for Hermes/agents | Agent 可安全盘点、检索、生成报告、编辑并构建 GolajahSlide | 2026-08-24 |
 | [Static PDF and PowerPoint Export](2026-08-24-static-pdf-pptx-export.md) | Implemented | Browser-native static PDF/PPTX export | 编辑模式一键导出无动效 16:9 PDF 与高保真静态 PowerPoint | 2026-08-24 |
 | [Content Authoring and Source Save](2026-08-24-content-authoring-and-source-save.md) | Implemented | Structured text/media/Chapter editing, cross-slide moves and source write-back | 编辑内容与 Chapter 归属可调整，并安全回写 Markdown 与资产 | 2026-08-24 |

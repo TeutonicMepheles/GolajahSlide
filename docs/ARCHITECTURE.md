@@ -25,7 +25,7 @@ The build runtime embeds an exact-source authoring model containing UTF-16 sourc
 
 A browser source save requires explicit directory permission and matching source/layout hashes. It writes content-addressed assets before layout and Markdown, refuses stale or externally changed files, and exports a recovery bundle when a direct transaction cannot finish safely. A successful save still requires the Python builder to regenerate the self-contained HTML and `.build.json`; the browser does not become a second compiler.
 
-Static Export is a flattened derivative of a sanitized live-DOM clone, not an editable source model. It cannot modify Markdown, layout sidecars, authoring drafts, or presentation state. Content Authoring, the Layout Editor, Media Playback, and Static Export collaborate only through their documented public bridges; for example, Media Playback exits fullscreen and sanitizes transient controls before a clone is captured.
+Static Export is a flattened derivative of a sanitized live-DOM clone, not an editable source model. Its default PDF and PPTX are animation-free; the separately named experimental PPTX derivative may add only a core PresentationML Fade transition between flattened pages. Neither path converts HTML object timing or media. Static Export cannot modify Markdown, layout sidecars, authoring drafts, or presentation state. Content Authoring, the Layout Editor, Media Playback, and Static Export collaborate only through their documented public bridges; for example, Media Playback exits fullscreen and sanitizes transient controls before a clone is captured.
 
 ## Source ownership
 

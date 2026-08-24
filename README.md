@@ -84,7 +84,7 @@ python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 - 页面级布局、坐标、正文样式和动画顺序覆盖
 - 编辑模式新增/排序/跨页移动文本块与 Callout，上传/拖放/粘贴图片，并切换多图并列或 Gallery
 - 编辑模式调整当前页 Chapter item，保存后安全写回 Markdown、布局 sidecar 与新增资产
-- 默认无动效的 PDF 与 PowerPoint 静态导出；Gallery 隐藏 Tab 展开为附加页，PPTX 每页为保真的全画幅静态图
+- 默认无动效的 PDF 与 PowerPoint 静态导出；另可实验性导出带原生淡化页间转场的 PPTX。Gallery 隐藏 Tab 展开为附加页，两种 PPTX 每页均为保真的全画幅静态图
 - 构建期内容密度检查与浏览器运行时溢出诊断
 - 页脚 Section 子章节导航（悬浮向上展开，点击跳转到子章节首个 Page）
 
@@ -99,7 +99,7 @@ python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 - 当前视觉标注：`A`
 - 悬浮聚焦开关：`H`（默认开启；Slide 内显示主题色鼠标圆圈，容器使用浅色聚焦，再悬停段落或列表项时使用更深的主题色强调）
 - 页脚章节导航：悬浮或聚焦 Section，使用 `↑` / `↓` 浏览子章节，`Enter` 跳转，`Escape` 关闭
-- 静态导出：页面编辑器的“高级 · 文件”中选择 PDF 或 PowerPoint
+- 文件导出：页面编辑器的“高级 · 文件”中选择 PDF、默认无动效 PowerPoint，或实验性的带淡化转场 PowerPoint
 
 访问 `index.html?debug=1` 可以标记运行时检测到的溢出区域；诊断结果也可通过 `window.__SLIDE_DIAGNOSTICS__` 读取。
 

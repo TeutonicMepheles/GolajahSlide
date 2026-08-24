@@ -55,3 +55,4 @@
 - 长稿 PDF 可全页渲染；PPTX 的 ZIP/XML/关系完整，不含 `timing`、`transition` 或外部引用。全页联络表、代表页细查、overflow 检查与 PDF/PPTX 栅格一致性均通过，导出前后源码 SHA-256 不变。
 - 真实编辑器交互：375×800 下展开“文件与高级操作”，分别点击 PDF 与 PowerPoint 后均显示“4 页无动效静态画面”，浏览器无 warning/error。
 - `examples/basic`、`examples/diagrams` 与 `examples/archscribe` 已从当前源码严格重建；`git diff --check` 通过。
+- 2026-08-24 follow-up：实验性转场工作定位并修复了 PPTX `viewProps.xml` 中不完整的空 `normalViewPr`；默认静态路径仍保持无 `transition` / `timing`。后续验证与原生 PowerPoint 门禁见 [Animated PowerPoint Export](2026-08-24-animated-pptx-export.md)。

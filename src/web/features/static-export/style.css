@@ -1,5 +1,6 @@
     .static-export-panel { padding-bottom: 18px; }
     .static-export-actions .editor-button { min-width: 0; }
+    .static-export-actions #editorExportAnimatedPptx { grid-column: 1 / -1; }
     .static-export-progress {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;

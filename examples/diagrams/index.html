@@ -1735,6 +1735,7 @@
     }
     .static-export-panel { padding-bottom: 18px; }
     .static-export-actions .editor-button { min-width: 0; }
+    .static-export-actions #editorExportAnimatedPptx { grid-column: 1 / -1; }
     .static-export-progress {
       display: grid;
       grid-template-columns: minmax(0, 1fr) auto;
@@ -7014,7 +7015,7 @@
         const mount = clone.querySelector?.("#editorStaticExportMount");
         if (!mount) return;
         mount.setAttribute("aria-busy", "false");
-        mount.querySelectorAll("#editorExportPdf,#editorExportPptx").forEach(button => {
+        mount.querySelectorAll("#editorExportPdf,#editorExportPptx,#editorExportAnimatedPptx").forEach(button => {
           button.disabled = false;
           button.setAttribute("aria-busy", "false");
         });
@@ -7035,22 +7036,25 @@
             <div class="editor-button-row static-export-actions">
               <button type="button" class="editor-button primary" id="editorExportPdf">导出 PDF</button>
               <button type="button" class="editor-button" id="editorExportPptx">导出 PowerPoint</button>
+              <button type="button" class="editor-button" id="editorExportAnimatedPptx">导出带转场 PowerPoint（实验）</button>
             </div>
             <div class="static-export-progress" id="editorStaticExportProgress" hidden>
               <progress max="1" value="0" aria-label="导出进度"></progress>
               <span>准备导出…</span>
             </div>
-            <p class="editor-help" id="editorStaticExportHelp">直接下载 16:9 静态文件；所有内容均显示，Tab Gallery 会逐项展开为连续页面。PDF 文字不可搜索，PPTX 页面不可拆分编辑，链接与动效不保留。</p>
+            <p class="editor-help" id="editorStaticExportHelp">默认直接下载 16:9 无动效静态文件；Tab Gallery 会逐项展开为连续页面。实验性 PowerPoint 为第 2 页起添加原生淡化转场，但仍是不可拆分的全画幅静态图；HTML 逐项动画、视频、GIF 和链接不保留。</p>
             <p class="static-export-status" id="editorStaticExportStatus" role="status" aria-live="polite">尚未导出。</p>
           </section>`;
         this.pdfButton = this.mount.querySelector("#editorExportPdf");
         this.pptxButton = this.mount.querySelector("#editorExportPptx");
+        this.animatedPptxButton = this.mount.querySelector("#editorExportAnimatedPptx");
         this.progressRoot = this.mount.querySelector("#editorStaticExportProgress");
         this.progressBar = this.progressRoot.querySelector("progress");
         this.progressLabel = this.progressRoot.querySelector("span");
         this.statusNode = this.mount.querySelector("#editorStaticExportStatus");
         this.pdfButton.addEventListener("click", () => this.exportPdf().catch(() => {}));
         this.pptxButton.addEventListener("click", () => this.exportPptx().catch(() => {}));
+        this.animatedPptxButton.addEventListener("click", () => this.exportAnimatedPptx().catch(() => {}));
       }
 
       safeBaseName() {
@@ -7065,7 +7069,7 @@
 
       setBusy(busy) {
         this.busy = busy === true;
-        [this.pdfButton, this.pptxButton].filter(Boolean).forEach(button => {
+        [this.pdfButton, this.pptxButton, this.animatedPptxButton].filter(Boolean).forEach(button => {
           button.disabled = this.busy;
           button.setAttribute("aria-busy", String(this.busy));
         });
@@ -7136,27 +7140,36 @@
         return this.exportFile("pptx", {download});
       }
 
-      async exportFile(format, {download = true} = {}) {
+      async exportAnimatedPptx({download = true} = {}) {
+        return this.exportFile("pptx", {download, mode: "animated"});
+      }
+
+      async exportFile(format, {download = true, mode = "static"} = {}) {
         if (!new Set(["pdf", "pptx"]).has(format)) throw new Error(`不支持的导出格式：${format}`);
+        if (!new Set(["static", "animated"]).has(mode)) throw new Error(`不支持的导出模式：${mode}`);
+        if (format !== "pptx" && mode !== "static") throw new Error("PDF 不支持动效导出");
         if (this.busy) throw new Error("已有导出任务正在进行");
+        const animated = format === "pptx" && mode === "animated";
         this.setBusy(true);
-        this.setStatus("正在准备无动效静态导出…", "working");
+        this.setStatus(animated ? "正在准备原生淡化转场 PowerPoint…" : "正在准备无动效静态导出…", "working");
         try {
           if (this.beforeCapture) await this.beforeCapture();
           const plan = this.snapshotPlan();
-          this.emit("start", {format, pages: plan.length, sourceSlides: this.slides.length});
-          const frames = await this.renderFrames(plan);
-          this.updateProgress(plan.length, plan.length, format === "pdf" ? "正在封装 PDF…" : "正在封装 PowerPoint…");
+          this.emit("start", {format, mode, pages: plan.length, sourceSlides: this.slides.length});
+          const frames = await this.renderFrames(plan, {mode});
+          this.updateProgress(plan.length, plan.length, format === "pdf" ? "正在封装 PDF…" : (animated ? "正在写入 PowerPoint 淡化转场…" : "正在封装 PowerPoint…"));
           await new Promise(resolve => requestAnimationFrame(() => resolve()));
-          const blob = format === "pdf" ? this.buildPdf(frames) : this.buildPptx(frames);
-          const filename = `${this.safeBaseName()}.${format}`;
+          const blob = format === "pdf" ? this.buildPdf(frames) : this.buildPptx(frames, {animated});
+          const filename = `${this.safeBaseName()}${animated ? "-animated" : ""}.${format}`;
           if (download) this.downloadBlob(blob, filename);
           this.lastResult = {
             format,
+            mode,
             filename,
             pages: frames.length,
             sourceSlides: this.slides.length,
             bytes: blob.size,
+            animationEffects: animated ? [{type: "slide-transition", effect: "fade", speed: "med", slides: Math.max(0, frames.length - 1)}] : [],
             manifest: plan.map(({slideId, slideIndex, variantIndex, selections, title}) => ({
               slideId,
               slideIndex,
@@ -7165,13 +7178,13 @@
               title
             }))
           };
-          this.setStatus(`已导出 ${format.toUpperCase()} · ${frames.length} 页无动效静态画面`, "success");
+          this.setStatus(animated ? `已导出 PPTX · ${frames.length} 页全画幅画面 · ${Math.max(0, frames.length - 1)} 个原生淡化转场` : `已导出 ${format.toUpperCase()} · ${frames.length} 页无动效静态画面`, "success");
           this.emit("complete", {...this.lastResult, blob});
           return {blob, ...this.lastResult};
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           this.setStatus(`导出失败：${message}`, "error");
-          this.emit("error", {format, message});
+          this.emit("error", {format, mode, message});
           throw error;
         } finally {
           this.setBusy(false);
@@ -7179,7 +7192,7 @@
         }
       }
 
-      async renderFrames(plan = null) {
+      async renderFrames(plan = null, {mode = "static"} = {}) {
         if (this.beforeCapture) await this.beforeCapture();
         if (!plan) plan = this.snapshotPlan();
         if (!plan.length) throw new Error("演示文稿没有可导出的页面");
@@ -7189,7 +7202,7 @@
         for (let index = 0; index < plan.length; index += 1) {
           const entry = plan[index];
           this.updateProgress(index, plan.length, `正在生成第 ${index + 1}/${plan.length} 页…`);
-          this.emit("progress", {phase: "render", current: index + 1, total: plan.length, slideId: entry.slideId});
+          this.emit("progress", {mode, phase: "render", current: index + 1, total: plan.length, slideId: entry.slideId});
           await new Promise(resolve => requestAnimationFrame(() => resolve()));
           const frame = await this.renderFrame(entry);
           rasterBytes += frame.bytes.length;
@@ -7529,7 +7542,7 @@
         return new Blob([this.concatBytes(chunks)], {type: "application/pdf"});
       }
 
-      buildPptx(frames) {
+      buildPptx(frames, {animated = false} = {}) {
         const entries = [];
         const xml = (name, value) => entries.push({name, bytes: this.encoder.encode(value)});
         const binary = (name, bytes) => entries.push({name, bytes});
@@ -7545,7 +7558,7 @@
         const slideRelationships = frames.map((_, index) => `<Relationship Id="rId${index + 2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${index + 1}.xml"/>`).join("");
         xml("ppt/_rels/presentation.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>${slideRelationships}<Relationship Id="rId${extraBase}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/presProps" Target="presProps.xml"/><Relationship Id="rId${extraBase + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/viewProps" Target="viewProps.xml"/><Relationship Id="rId${extraBase + 2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableStyles" Target="tableStyles.xml"/></Relationships>`);
         xml("ppt/presProps.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:presentationPr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"/>`);
-        xml("ppt/viewProps.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:viewPr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" lastView="sldView"><p:normalViewPr/><p:slideViewPr><p:cSldViewPr><p:cViewPr varScale="1"><p:scale><a:sx n="100" d="100"/><a:sy n="100" d="100"/></p:scale><p:origin x="0" y="0"/></p:cViewPr><p:guideLst/></p:cSldViewPr></p:slideViewPr><p:notesTextViewPr><p:cViewPr><p:scale><a:sx n="100" d="100"/><a:sy n="100" d="100"/></p:scale><p:origin x="0" y="0"/></p:cViewPr></p:notesTextViewPr><p:gridSpacing cx="78028800" cy="78028800"/></p:viewPr>`);
+        xml("ppt/viewProps.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:viewPr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" lastView="sldView"><p:slideViewPr><p:cSldViewPr><p:cViewPr varScale="1"><p:scale><a:sx n="100" d="100"/><a:sy n="100" d="100"/></p:scale><p:origin x="0" y="0"/></p:cViewPr><p:guideLst/></p:cSldViewPr></p:slideViewPr><p:notesTextViewPr><p:cViewPr><p:scale><a:sx n="100" d="100"/><a:sy n="100" d="100"/></p:scale><p:origin x="0" y="0"/></p:cViewPr></p:notesTextViewPr><p:gridSpacing cx="76200" cy="76200"/></p:viewPr>`);
         xml("ppt/tableStyles.xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><a:tblStyleLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" def="{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}"/>`);
         xml("ppt/slideMasters/slideMaster1.xml", this.slideMasterXml());
         xml("ppt/slideMasters/_rels/slideMaster1.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="../theme/theme1.xml"/></Relationships>`);
@@ -7554,7 +7567,7 @@
         xml("ppt/theme/theme1.xml", this.themeXml());
         frames.forEach((frame, index) => {
           const number = index + 1;
-          xml(`ppt/slides/slide${number}.xml`, this.slideXml(frame, number));
+          xml(`ppt/slides/slide${number}.xml`, this.slideXml(frame, number, {transition: animated && number > 1}));
           xml(`ppt/slides/_rels/slide${number}.xml.rels`, `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/image${number}.jpeg"/></Relationships>`);
           binary(`ppt/media/image${number}.jpeg`, frame.bytes);
         });
@@ -7573,9 +7586,10 @@
         return `<p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr><p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/><a:chOff x="0" y="0"/><a:chExt cx="0" cy="0"/></a:xfrm></p:grpSpPr>`;
       }
 
-      slideXml(frame, number) {
+      slideXml(frame, number, {transition = false} = {}) {
         const title = this.escapeXml(frame.title || `Slide ${number}`);
-        return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld name="${title}"><p:spTree>${this.groupShapeXml()}<p:pic><p:nvPicPr><p:cNvPr id="2" name="Slide ${number}" descr="${title}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="rId2"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${this.slideSize.width}" cy="${this.slideSize.height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:ln><a:noFill/></a:ln></p:spPr></p:pic></p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr></p:sld>`;
+        const transitionXml = transition ? '<p:transition spd="med"><p:fade thruBlk="0"/></p:transition>' : "";
+        return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"><p:cSld name="${title}"><p:spTree>${this.groupShapeXml()}<p:pic><p:nvPicPr><p:cNvPr id="2" name="Slide ${number}" descr="${title}"/><p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr><p:nvPr/></p:nvPicPr><p:blipFill><a:blip r:embed="rId2"/><a:stretch><a:fillRect/></a:stretch></p:blipFill><p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${this.slideSize.width}" cy="${this.slideSize.height}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:ln><a:noFill/></a:ln></p:spPr></p:pic></p:spTree></p:cSld><p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>${transitionXml}</p:sld>`;
       }
 
       themeXml() {

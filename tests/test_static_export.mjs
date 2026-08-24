@@ -174,6 +174,7 @@ try {
   ]);
   assert.equal(await page.$eval('[data-editor-category="advanced"]', node => node.open), false);
   assert.equal(await page.$eval("#editorExportPdf", node => node.checkVisibility()), false);
+  assert.equal(await page.$eval("#editorExportAnimatedPptx", node => node.checkVisibility()), false);
 
   await page.keyboard.press("e");
   await page.waitForFunction(() => document.body.classList.contains("editor-open"));
@@ -182,7 +183,23 @@ try {
   assert.equal(await page.$eval('[data-editor-category="advanced"]', node => node.open), true);
   assert.equal(await page.$eval("#editorExportPdf", node => node.checkVisibility()), true);
   assert.equal(await page.$eval("#editorExportPptx", node => node.checkVisibility()), true);
-  assert.match(await page.$eval("#editorStaticExportHelp", node => node.textContent), /静态|无动效/);
+  assert.equal(await page.$eval("#editorExportAnimatedPptx", node => node.checkVisibility()), true);
+  const exportHelp = await page.$eval("#editorStaticExportHelp", node => node.textContent);
+  assert.match(exportHelp, /默认.*无动效/);
+  assert.match(exportHelp, /实验.*原生淡化转场/);
+  assert.match(exportHelp, /不可拆分.*全画幅静态图/);
+  assert.match(exportHelp, /HTML.*动画.*视频.*GIF.*链接不保留/);
+
+  await page.evaluate(() => {
+    const mount = document.getElementById("editorStaticExportMount");
+    window.__STATIC_EXPORT_EVENTS__ = [];
+    ["start", "progress", "complete", "error"].forEach(name => {
+      mount.addEventListener(`static-export:${name}`, event => {
+        const {format = null, mode = null, phase = null, current = null, total = null, filename = null, message = null} = event.detail;
+        window.__STATIC_EXPORT_EVENTS__.push({name, format, mode, phase, current, total, filename, message});
+      });
+    });
+  });
 
   const revealStatic = await page.evaluate(async () => {
     const feature = window.__SLIDE_STATIC_EXPORT__;
@@ -216,7 +233,9 @@ try {
   const pdfDownload = waitForDownload(client, ".pdf");
   await page.click("#editorExportPdf");
   await page.waitForFunction(() => window.__SLIDE_STATIC_EXPORT__.busy);
-  assert.equal(await page.$eval("#editorExportPdf", node => node.disabled && node.getAttribute("aria-busy") === "true"), true);
+  assert.equal(await page.$$eval("#editorExportPdf,#editorExportPptx,#editorExportAnimatedPptx", nodes => (
+    nodes.length === 3 && nodes.every(node => node.disabled && node.getAttribute("aria-busy") === "true")
+  )), true);
   assert.equal(await page.$eval("#editorStaticExportProgress", node => !node.hidden), true);
   const concurrentMessage = await page.evaluate(async () => {
     try {
@@ -238,6 +257,16 @@ try {
   assert.match(pdfStructure, /\/Type \/Pages \/Count 4/);
   assert.equal((pdfStructure.match(/\/MediaBox \[0 0 960 540\]/g) || []).length, 4);
   assert(!/\/JavaScript|\/RichMedia|\/Movie/.test(pdfStructure));
+  assert.deepEqual(await page.evaluate(() => {
+    const result = window.__SLIDE_STATIC_EXPORT__.lastResult;
+    return {format: result.format, mode: result.mode, filename: result.filename, pages: result.pages, animationEffects: result.animationEffects};
+  }), {
+    format: "pdf",
+    mode: "static",
+    filename: "Static Export Harness.pdf",
+    pages: 4,
+    animationEffects: []
+  });
 
   const pptxDownload = waitForDownload(client, ".pptx");
   await page.click("#editorExportPptx");
@@ -257,6 +286,9 @@ try {
   const presentationXml = decode("ppt/presentation.xml");
   assert.equal((presentationXml.match(/<p:sldId /g) || []).length, 4);
   assert.match(presentationXml, /<p:sldSz cx="12192000" cy="6858000" type="screen16x9"\/>/);
+  const viewPropsXml = decode("ppt/viewProps.xml");
+  assert(!/<p:normalViewPr\s*\/>/.test(viewPropsXml), "optional normalViewPr must be omitted instead of emitted without its required children");
+  assert.match(viewPropsXml, /<p:gridSpacing cx="76200" cy="76200"\/>/);
   assert.match(decode("docProps/app.xml"), /<Slides>4<\/Slides>/);
   assert.match(decode("ppt/slideMasters/slideMaster1.xml"), /<p:sldLayoutId id="2147483649" r:id="rId1"\/>/);
   for (let number = 1; number <= 4; number += 1) {
@@ -273,6 +305,16 @@ try {
   }
   assert.equal([...parts.keys()].some(name => /\.(?:mp4|webm)$/i.test(name)), false);
   assert.equal([...parts.values()].some(bytes => /relationships\/(?:video|media)/.test(new TextDecoder().decode(bytes))), false);
+  assert.deepEqual(await page.evaluate(() => {
+    const result = window.__SLIDE_STATIC_EXPORT__.lastResult;
+    return {format: result.format, mode: result.mode, filename: result.filename, pages: result.pages, animationEffects: result.animationEffects};
+  }), {
+    format: "pptx",
+    mode: "static",
+    filename: "Static Export Harness.pptx",
+    pages: 4,
+    animationEffects: []
+  });
 
   const afterState = await page.evaluate(() => ({
     current: window.__SLIDE_PRESENTATION__.current,
@@ -284,7 +326,98 @@ try {
     storage: JSON.stringify({...localStorage})
   }));
   assert.deepEqual(afterState, beforeState, "static export should not mutate live presentation/editor/Gallery/storage state");
-  assert.deepEqual((await readdir(downloadRoot)).sort(), ["Static Export Harness.pdf", "Static Export Harness.pptx"]);
+
+  const animatedPptxDownload = waitForDownload(client, ".pptx");
+  await page.click("#editorExportAnimatedPptx");
+  await page.waitForFunction(() => window.__SLIDE_STATIC_EXPORT__.busy);
+  assert.equal(await page.$$eval("#editorExportPdf,#editorExportPptx,#editorExportAnimatedPptx", nodes => (
+    nodes.length === 3 && nodes.every(node => node.disabled && node.getAttribute("aria-busy") === "true")
+  )), true);
+  const downloadedAnimatedPptx = await animatedPptxDownload;
+  await page.waitForFunction(() => !window.__SLIDE_STATIC_EXPORT__.busy);
+  assert.equal(downloadedAnimatedPptx.filename, "Static Export Harness-animated.pptx");
+  const animatedPptx = await readFile(downloadedAnimatedPptx.path);
+  assert.deepEqual([...animatedPptx.subarray(0, 4)], [0x50, 0x4b, 0x03, 0x04]);
+  const animatedParts = parseZip(animatedPptx);
+  assert.deepEqual([...animatedParts.keys()].sort(), [...parts.keys()].sort(), "animated export should preserve the static package shape");
+  const decodeAnimated = name => new TextDecoder().decode(animatedParts.get(name));
+  assert.equal((decodeAnimated("ppt/presentation.xml").match(/<p:sldId /g) || []).length, 4);
+  assert.match(decodeAnimated("ppt/presentation.xml"), /<p:sldSz cx="12192000" cy="6858000" type="screen16x9"\/>/);
+  assert.match(decodeAnimated("docProps/app.xml"), /<Slides>4<\/Slides>/);
+  for (let number = 1; number <= 4; number += 1) {
+    const slideName = `ppt/slides/slide${number}.xml`;
+    const relsName = `ppt/slides/_rels/slide${number}.xml.rels`;
+    const imageName = `ppt/media/image${number}.jpeg`;
+    const slideXml = decodeAnimated(slideName);
+    assert.equal((slideXml.match(/<p:pic>/g) || []).length, 1);
+    assert.match(slideXml, /<a:off x="0" y="0"\/><a:ext cx="12192000" cy="6858000"\/>/);
+    assert(!/<p:timing\b/.test(slideXml), `slide ${number} must remain a flattened frame without object timing`);
+    const transitions = slideXml.match(/<p:transition\b[\s\S]*?<\/p:transition>/g) || [];
+    if (number === 1) {
+      assert.deepEqual(transitions, [], "the first slide has no previous page and must not declare a transition");
+    } else {
+      assert.deepEqual(transitions, ['<p:transition spd="med"><p:fade thruBlk="0"/></p:transition>']);
+    }
+    assert.match(decodeAnimated(relsName), new RegExp(`Target="\\.\\./media/image${number}\\.jpeg"`));
+    assert.deepEqual(jpegDimensions(animatedParts.get(imageName)), {width: 1920, height: 1080});
+  }
+  assert.equal([...animatedParts.keys()].some(name => /\.(?:mp4|webm)$/i.test(name)), false);
+  assert.equal([...animatedParts.values()].some(bytes => /relationships\/(?:video|media)/.test(new TextDecoder().decode(bytes))), false);
+  assert.deepEqual(await page.evaluate(() => {
+    const result = window.__SLIDE_STATIC_EXPORT__.lastResult;
+    return {
+      format: result.format,
+      mode: result.mode,
+      filename: result.filename,
+      pages: result.pages,
+      animationEffects: result.animationEffects,
+      manifest: result.manifest.map(entry => ({slideId: entry.slideId, targets: entry.selections.map(selection => selection.target)})),
+      status: document.getElementById("editorStaticExportStatus").textContent
+    };
+  }), {
+    format: "pptx",
+    mode: "animated",
+    filename: "Static Export Harness-animated.pptx",
+    pages: 4,
+    animationEffects: [{type: "slide-transition", effect: "fade", speed: "med", slides: 3}],
+    manifest: [
+      {slideId: "export-text", targets: []},
+      {slideId: "export-gallery", targets: ["0"]},
+      {slideId: "export-gallery", targets: ["1"]},
+      {slideId: "export-video", targets: []}
+    ],
+    status: "已导出 PPTX · 4 页全画幅画面 · 3 个原生淡化转场"
+  });
+  const afterAnimatedState = await page.evaluate(() => ({
+    current: window.__SLIDE_PRESENTATION__.current,
+    hash: location.hash,
+    bodyClasses: [...document.body.classList].sort(),
+    galleryTarget: document.querySelector('[data-slide-id="export-gallery"] [data-media-target].active')?.dataset.mediaTarget,
+    editorOpen: document.body.classList.contains("editor-open"),
+    advancedOpen: document.querySelector('[data-editor-category="advanced"]').open,
+    storage: JSON.stringify({...localStorage})
+  }));
+  assert.deepEqual(afterAnimatedState, beforeState, "animated export should not mutate live presentation/editor/Gallery/storage state");
+  assert.deepEqual((await readdir(downloadRoot)).sort(), [
+    "Static Export Harness-animated.pptx",
+    "Static Export Harness.pdf",
+    "Static Export Harness.pptx"
+  ]);
+
+  const eventsAfterSuccess = await page.evaluate(() => window.__STATIC_EXPORT_EVENTS__);
+  assert.deepEqual(eventsAfterSuccess.filter(event => event.name === "start").map(({format, mode}) => ({format, mode})), [
+    {format: "pdf", mode: "static"},
+    {format: "pptx", mode: "static"},
+    {format: "pptx", mode: "animated"}
+  ]);
+  assert.deepEqual(eventsAfterSuccess.filter(event => event.name === "complete").map(({format, mode, filename}) => ({format, mode, filename})), [
+    {format: "pdf", mode: "static", filename: "Static Export Harness.pdf"},
+    {format: "pptx", mode: "static", filename: "Static Export Harness.pptx"},
+    {format: "pptx", mode: "animated", filename: "Static Export Harness-animated.pptx"}
+  ]);
+  assert(eventsAfterSuccess.some(event => event.name === "progress" && event.mode === "static"));
+  assert(eventsAfterSuccess.some(event => event.name === "progress" && event.mode === "animated"));
+  assert(eventsAfterSuccess.filter(event => event.name === "progress").every(event => event.mode === "static" || event.mode === "animated"));
 
   await page.setViewport({width: 375, height: 800, deviceScaleFactor: 1});
   await new Promise(resolveDelay => setTimeout(resolveDelay, 280));
@@ -317,24 +450,39 @@ try {
     const original = feature.sanitizeClone;
     feature.sanitizeClone = () => { throw new Error("测试导出失败"); };
     let message = "";
-    try { await feature.exportPdf({download: false}); } catch (error) { message = error.message; }
+    try { await feature.exportAnimatedPptx({download: false}); } catch (error) { message = error.message; }
     feature.sanitizeClone = original;
     return {
       message,
       status: document.getElementById("editorStaticExportStatus").textContent,
       state: document.getElementById("editorStaticExportStatus").dataset.state,
-      buttonsEnabled: [...document.querySelectorAll("#editorExportPdf,#editorExportPptx")].every(button => !button.disabled)
+      buttonsEnabled: [...document.querySelectorAll("#editorExportPdf,#editorExportPptx,#editorExportAnimatedPptx")].every(button => !button.disabled),
+      lastError: window.__STATIC_EXPORT_EVENTS__.filter(event => event.name === "error").at(-1)
     };
   });
   assert.match(failure.message, /测试导出失败/);
   assert.match(failure.status, /导出失败/);
   assert.equal(failure.state, "error");
   assert.equal(failure.buttonsEnabled, true);
-  assert.deepEqual((await readdir(downloadRoot)).sort(), ["Static Export Harness.pdf", "Static Export Harness.pptx"]);
+  assert.deepEqual(failure.lastError, {
+    name: "error",
+    format: "pptx",
+    mode: "animated",
+    phase: null,
+    current: null,
+    total: null,
+    filename: null,
+    message: "测试导出失败"
+  });
+  assert.deepEqual((await readdir(downloadRoot)).sort(), [
+    "Static Export Harness-animated.pptx",
+    "Static Export Harness.pdf",
+    "Static Export Harness.pptx"
+  ]);
   assert.deepEqual(networkRequests, []);
   assert.deepEqual(consoleIssues, []);
 
-  console.log("Static PDF/PPTX export browser test passed.");
+  console.log("Static PDF/PPTX and experimental animated PPTX export browser test passed.");
 } finally {
   if (browser) await browser.close();
   await rm(outputRoot, {recursive: true, force: true});

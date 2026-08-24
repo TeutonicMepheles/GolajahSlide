@@ -99,7 +99,7 @@ footer: true
 
 “保存改动”会在浏览器授权目录后校验原始 `slides.md` 与布局 sidecar 的 SHA-256，再写入新增资产、布局 JSON，最后写 Markdown；外部文件冲突不会被覆盖。保存后必须重新运行构建器，页脚 Chapter 导航及 `.build.json` 才会同步。只调整布局时仍可导出与 Markdown 同名的 `.layout.json` 文件。
 
-“高级 · 文件”中可直接导出无动效 PDF 或 PowerPoint。Gallery 中隐藏的 Tab 会展开为附加页，以避免静态文件遗漏内容。PPTX 的每页是一张全画幅静态图，优先保持 HTML 版式，不支持逐对象解组编辑，也不保留视频、链接或动画。
+“高级 · 文件”中可直接导出无动效 PDF 或 PowerPoint，也可实验性导出带原生淡化页间转场的 PowerPoint。Gallery 中隐藏的 Tab 会展开为附加页，以避免派生文件遗漏内容。两种 PPTX 的每页都是一张全画幅静态图，优先保持 HTML 版式；实验性版本只增加页面间 Fade，不会转换 HTML 的逐对象动画，也不支持解组编辑或保留视频、GIF、链接。
 
 坐标体系、文件结构、字段范围、优先级和动画键的完整说明见 [Slide 布局覆盖规范](LAYOUT-SPEC.md)。
 
