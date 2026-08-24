@@ -1,21 +1,35 @@
-# Plan Index
+# 计划索引 / Plan Index
 
-每个计划对应一个独立、可验收的功能或工程能力。状态使用 `Draft`、`Active`、`Implemented`、`Superseded` 或 `Cancelled`。
+中文 · English
 
-| Plan | Status | Scope | Summary | Last verified |
-|---|---|---|---|---|
-| [Animated PowerPoint Export (Experimental)](2026-08-24-animated-pptx-export.md) | Implemented | Native Fade Slide Transition on the existing full-frame PPTX model | 保留默认静态导出，新增明确标注的实验性原生淡化转场 PPTX | 2026-08-24 |
-| [Agent CLI and MCP Bridge](2026-08-24-agent-cli-mcp.md) | Implemented | JSON-first deck operations and stdio MCP for Hermes/agents | Agent 可安全盘点、检索、生成报告、编辑并构建 GolajahSlide | 2026-08-24 |
-| [Static PDF and PowerPoint Export](2026-08-24-static-pdf-pptx-export.md) | Implemented | Browser-native static PDF/PPTX export | 编辑模式一键导出无动效 16:9 PDF 与高保真静态 PowerPoint | 2026-08-24 |
-| [Content Authoring and Source Save](2026-08-24-content-authoring-and-source-save.md) | Implemented | Structured text/media/Chapter editing, cross-slide moves and source write-back | 编辑内容与 Chapter 归属可调整，并安全回写 Markdown 与资产 | 2026-08-24 |
-| [Global Logo — Per-slide Visibility Exceptions](2026-08-22-global-logo-page-visibility.md) | Implemented | Per-slide visibility metadata for the existing global logo | 全局 Logo 保持统一配置，指定页可显式单独隐藏 | 2026-08-24 |
-| [Native Media Playback](2026-08-22-media-playback.md) | Implemented | Self-contained native video, fullscreen and tab-aware autoplay | 本地视频内嵌为单 HTML，支持独立/Gallery 统一全屏并只在可见页面或 Tab 内播放 | 2026-08-24 |
-| [Slide Authoring Controls](2026-08-22-slide-authoring-controls.md) | Implemented | Pure-image structural slides, named Gallery tabs, Callout titles and heading citations | 提供显式、向后兼容的页面创作控制 | 2026-08-24 |
-| [Global Logo — Editor Upload and Global Visibility](2026-08-21-global-logo.md) | Implemented | Global upper-right logo, editor upload/toggle/resize, persistence, Harness and browser validation | 页面右上角提供可全局开关、上传和调整尺寸的自包含 Logo | 2026-08-21 |
-| [Footer Chapter Navigation](2026-08-14-footer-chapter-navigation.md) | Implemented | Section/Chapter metadata, footer popover, keyboard navigation, Harness and browser validation | 悬浮页脚 Section 向上展开纵向子章节列表，点击跳转到子章节首个 Page | 2026-08-14 |
-| [Content Typography and Divider](2026-08-21-plain-content-typography.md) | Implemented | Non-heading content typography and textual-container separators | 非主副标题内容统一宋体粗标题与黑体正文，文本块使用底部细分隔线 | 2026-08-21 |
-| [Presenter Focus – Configurable Global Shortcut](2026-08-21-presenter-focus-shortcut.md) | Implemented | Presenter Focus shortcut, Layout Editor global setting, persistence and browser validation | 在编辑模式中设置整份演示文稿通用的悬浮聚焦开关键 | 2026-08-21 |
-| [Citations — Inline References and Source Tooltip](2026-08-21-citations.md) | Implemented | Markdown references, source tooltip, Harness and browser validation | 用标准脚注语法生成论文式角标，并以悬浮或键盘提示打开原文 | 2026-08-21 |
-| [Diagram Design – Editorial Mermaid Pipeline](2026-08-12-diagram-design-mermaid.md) | Implemented | Repository Skill, editorial Mermaid renderer, provenance/cache gates, Harness and browser validation | 保留 Mermaid 语义源码，用 diagram-design 的编辑式 HTML/SVG 作为可审查的 Slide 交付产物 | 2026-08-14 |
-| [Presenter Focus – Pointer Cue and Theme Depth](2026-08-12-presenter-focus-pointer-theme.md) | Implemented | Pointer cue, focus depth palette, theme-derived tokens, Harness and browser validation | 增加鼠标圆形示意，并让容器/文本聚焦按语义深度使用由主题色派生的浅/深层级 | 2026-08-12 |
-| [Modular Foundation — Stable First Slice](2026-08-12-modular-foundation.md) | Implemented | Architecture rules, Presenter Focus source boundary, focused Harness, validation entry point | 在不改变 Python-only 和单 HTML 交付的前提下，建立并验证了第一个浏览器 Feature 闭环 | 2026-08-12 |
+这里记录每项功能的目标、范围、验收结果与最近验证时间。开发状态使用 `Draft`、`Active`、`Implemented`、`Superseded` 或 `Cancelled`。
+
+This index records each feature's goal, scope, acceptance evidence, and latest verification date. Status values are `Draft`, `Active`, `Implemented`, `Superseded`, and `Cancelled`.
+
+| 计划 / Plan | 状态 / Status | 范围与结果 / Scope and outcome | 最近验证 / Last verified |
+|---|---|---|---|
+| [Animated PowerPoint Export (Experimental)](2026-08-24-animated-pptx-export.md) | Implemented | 在默认静态 PPTX 之外，提供明确标注为实验性的原生 Fade 页间转场。<br>Adds an explicitly experimental native Fade transition while keeping static PPTX as the default. | 2026-08-24 |
+| [Agent CLI and MCP Bridge](2026-08-24-agent-cli-mcp.md) | Implemented | Agent 可通过 JSON-first CLI 或 stdio MCP 安全盘点、检索、审校、编辑和构建文稿。<br>Safe inventory, search, audit, editing, and builds through a JSON-first CLI and stdio MCP server. | 2026-08-24 |
+| [Static PDF and PowerPoint Export](2026-08-24-static-pdf-pptx-export.md) | Implemented | 在浏览器编辑器中一键导出 16:9 静态 PDF 与高保真 PowerPoint。<br>One-click 16:9 static PDF and high-fidelity PowerPoint export from the browser editor. | 2026-08-24 |
+| [Content Authoring and Source Save](2026-08-24-content-authoring-and-source-save.md) | Implemented | 编辑文字、媒体与 Chapter，并在哈希校验后安全写回 Markdown、布局和资产。<br>Edit text, media, and Chapters with hash-guarded save-back to Markdown, layout, and assets. | 2026-08-24 |
+| [Global Logo — Per-slide Visibility Exceptions](2026-08-22-global-logo-page-visibility.md) | Implemented | 保留统一 Logo 配置，同时允许指定页面单独隐藏。<br>Keeps one shared logo configuration while allowing selected pages to hide it. | 2026-08-24 |
+| [Native Media Playback](2026-08-22-media-playback.md) | Implemented | 自包含本地视频、统一全屏，以及只在当前页面或 Gallery Tab 可见时播放。<br>Self-contained local video, consistent fullscreen, and visibility-aware playback for slides and Gallery tabs. | 2026-08-24 |
+| [Slide Authoring Controls](2026-08-22-slide-authoring-controls.md) | Implemented | 支持纯图结构页、命名 Gallery Tab、自定义 Callout 标题和标题引用。<br>Adds pure-image structural pages, named Gallery tabs, custom callout titles, and heading citations. | 2026-08-24 |
+| [Global Logo — Editor Upload and Global Visibility](2026-08-21-global-logo.md) | Implemented | 在编辑器中上传、开关和调整全局右上角品牌 Logo。<br>Upload, toggle, and resize a shared upper-right brand logo in the editor. | 2026-08-21 |
+| [Footer Chapter Navigation](2026-08-14-footer-chapter-navigation.md) | Implemented | 页脚 Section 可展开 Chapter 列表并跳到对应内容起点。<br>Footer Sections open a Chapter list that navigates to each content starting point. | 2026-08-14 |
+| [Content Typography and Divider](2026-08-21-plain-content-typography.md) | Implemented | 统一非标题文字层级，并为文本容器加入清晰分隔。<br>Establishes consistent non-heading typography and clear text-container dividers. | 2026-08-21 |
+| [Presenter Focus – Configurable Global Shortcut](2026-08-21-presenter-focus-shortcut.md) | Implemented | 在编辑器中设置整份演示通用的聚焦快捷键。<br>Lets authors configure one deck-wide Presenter Focus shortcut. | 2026-08-21 |
+| [Citations — Inline References and Source Tooltip](2026-08-21-citations.md) | Implemented | 将标准 Markdown 脚注变成可访问的编号角标和来源提示。<br>Turns standard Markdown footnotes into accessible numbered markers and source tooltips. | 2026-08-21 |
+| [Diagram Design – Editorial Mermaid Pipeline](2026-08-12-diagram-design-mermaid.md) | Implemented | 保留 Mermaid 语义源，并以可审阅的编辑式 HTML/SVG 提升演示视觉。<br>Preserves Mermaid semantics while adding reviewable editorial HTML/SVG for presentation-quality visuals. | 2026-08-14 |
+| [Presenter Focus – Pointer Cue and Theme Depth](2026-08-12-presenter-focus-pointer-theme.md) | Implemented | 使用主题色鼠标提示与分层文字强调辅助现场讲解。<br>Adds theme-aware pointer cues and layered text emphasis for live explanation. | 2026-08-12 |
+| [Modular Foundation — Stable First Slice](2026-08-12-modular-foundation.md) | Implemented | 在 Python-only、单 HTML 交付前提下建立浏览器功能的独立边界与验证闭环。<br>Establishes modular browser-feature boundaries and validation while preserving Python-only, single-HTML delivery. | 2026-08-12 |
+
+## 如何阅读 / How to read a plan
+
+- 设计师可先看 Goal、Non-goals 和 Acceptance gates，快速判断功能能做什么、不能做什么。
+- 开发者可继续查看 Ownership、Validation 和已记录的浏览器测试证据。
+- `Implemented` 表示计划中的验收门槛已通过，不代表未来不会继续优化。
+
+- Designers can start with Goal, Non-goals, and Acceptance gates to understand the promise and limits.
+- Developers can continue with Ownership, Validation, and recorded browser evidence.
+- `Implemented` means the plan's acceptance gates passed; it does not mean the feature will never evolve.

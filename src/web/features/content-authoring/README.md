@@ -1,150 +1,103 @@
-# Content Authoring
+# Content Authoring / 内容编辑
 
-Content Authoring owns structured browser edits that must survive a Markdown rebuild. It does not use DOM position as identity and never stores edited `innerHTML`.
+[中文](#中文) · [English](#english)
 
-## User contract
+## 中文
 
-- Content mode can add a text card with the default title `标题` and body `正文`, or add a Note Callout with `补充说明` and `正文`.
-- Text cards and Callouts can be reordered by drag-and-drop or the accessible up/down buttons.
-- A content slide can select an existing Chapter item from its current Section or create a new name and immediately join it. Clearing the selection restores the page-title fallback. Chapter-only edits do not recompose the slide layout; footer navigation updates after source save and rebuild.
-- Images, text cards, and Callouts can move to the immediately previous or next content slide. The first/last page does not wrap, and structural cover/section pages are not valid destinations. A specialized table/code/diagram page can still receive text, but deliberately does not accept newly appended or moved media because its locked visual stage cannot be recomposed safely in-browser.
-- Two or more images can use `grid` (side-by-side) or `tabs` (Gallery). Tab targets use stable media IDs rather than numeric DOM positions, and the currently visible choice is persisted even when a media move crosses the default three-image threshold.
-- PNG, JPEG, and WebP can be uploaded, dropped, or pasted. The built-in importer checks MIME plus file magic, an 8 MB byte limit, successful decode, a 12,000 px edge limit, and a 40-million-pixel limit. A selected image on the current page is replaced; otherwise images are appended to the current page. Navigation clears an old-page selection, and import context defensively rejects stale cross-page selections.
-- `保存改动` asks for a directory with the File System Access API. It verifies the exact UTF-8 `slides.md` SHA-256 and the layout file's hash plus presence/absence before writing anything, then writes content-addressed assets, layout JSON, and Markdown last. A source/layout conflict never overwrites the disk file.
-- Structural layout changes are written to the Markdown directive and rebased into an existing layout sidecar. The sidecar keeps its content bounds and typography/animation settings while incompatible visual/copy regions are regenerated for the new layout.
-- Unsupported, denied, cancelled, conflicting, or failed direct saves export a `.golajah-edit.json` recovery bundle containing the base source, operation log, target Markdown when serializable, layout payload, and pending assets.
-- A successful source save reports `needsRebuild: true` and locks further source writes until the deck is rebuilt. Browser code cannot truthfully regenerate Python validation or `index.build.json`.
+内容编辑让浏览器中的修改在重新构建后仍然存在。它编辑 Markdown、布局 sidecar 和本地资产，而不是把临时 HTML 当作源文件。
 
-## Build-time DOM/model contract
+### 设计师可以做什么
 
-The build embeds JSON in `#deckAuthoringModel`:
+按 `E` 打开编辑器并进入“内容”模式：
 
-```json
-{
-  "schemaVersion": "1.0",
-  "source": {
-    "name": "slides.md",
-    "sha256": "...",
-    "text": "exact source",
-    "newline": "\n",
-    "bom": false,
-    "offsetEncoding": "utf-16"
-  },
-  "slides": [{
-    "id": "stable-slide-id",
-    "baseHash": "...",
-    "config": {"section": "方案", "chapter": "方案概览"},
-    "effectiveSection": "方案",
-    "source": "exact slide source",
-    "sourceRange": {"start": 0, "end": 100},
-    "galleryDisplay": "grid",
-    "items": [{
-      "id": "stable-item-id",
-      "kind": "text",
-      "markdown": "### 标题\n\n正文",
-      "baseHash": "...",
-      "sourceRange": {"start": 20, "end": 35},
-      "fieldRanges": {}
-    }]
-  }]
-}
+- 新增文本卡片或 Note Callout。
+- 编辑受控的标题、正文和图注。
+- 拖拽或使用上下按钮调整文本与 Callout 顺序。
+- 把文字、Callout 或图片移到相邻内容页。
+- 上传、拖放或粘贴 PNG、JPEG、WebP。
+- 替换当前选中的图片，或向当前页追加图片。
+- 在多图并列 `grid` 与 Gallery `tabs` 之间切换。
+- 选择当前页已有的 Chapter，或创建新的 Chapter 名称。
+
+封面页、章节页和锁定的表格/代码/图表舞台会限制不安全的跨页移动或媒体追加。
+
+### 保存方式
+
+点击“保存改动”后：
+
+1. 浏览器请求选择文稿目录。
+2. GolajahSlide 检查打开 HTML 时记录的 `slides.md` 和布局文件 SHA-256。
+3. 只有文件未被其他程序修改时，才依次写入新资产、布局 JSON 和 Markdown。
+4. 保存成功后会要求重新构建；在重建前不会继续写源文件。
+
+如果浏览器不支持目录写入、用户取消授权、文件冲突或保存失败，会下载 `.golajah-edit.json` 恢复包。它包含原始源文件、操作记录、布局数据和待写资产，方便找回工作。
+
+编辑默认使用稳定的 Slide / 内容 ID，不依赖页面 DOM 顺序；在前面新增内容不会把旧编辑错配到其他区域。
+
+### 作者注意事项
+
+- 每页建议设置唯一且稳定的 `id`。
+- 保存前不要在另一个编辑器里同时修改同一份 Markdown。
+- 保存后必须重新运行构建器，再检查新的 HTML 和 `.build.json`。
+- Git 仍是最可靠的版本回退方式。
+- 只导出布局时，可继续使用与 Markdown 同名的 `.layout.json`。
+
+### 验证
+
+```bash
+npm run test:content-authoring
 ```
 
-Offsets are JavaScript UTF-16 code-unit offsets so emoji cannot shift a browser `slice()`. The exact embedded source must hash to `source.sha256`; otherwise serialization and disk writes are rejected.
+专项示例：`harnesses/content-authoring/slides.md`
 
-Rendered markup exposes:
+调试入口：`window.__SLIDE_CONTENT_AUTHORING__`
 
-- `.slide[data-slide-id][data-author-base-hash]`
-- `[data-author-item-id][data-author-item-kind][data-author-base-hash]`
-- item leaves with `[data-author-field="title|body|caption"]`
-- slide headings may use `slide-title` and `slide-subtitle`; they are deliberately outside this Feature's movable-item scope.
+## English
 
-Stable item IDs are mandatory. Existing nodes without an ID are not assigned whole-deck numeric fallbacks.
+Content Authoring makes browser edits survive a rebuild. It updates Markdown, the layout sidecar, and local assets instead of treating temporary DOM HTML as the source.
 
-## Construction
+### What designers can do
 
-The composition shell constructs the Feature after `SlidePresentation` and publishes the instance:
+Press `E` and enter Content mode:
 
-```js
-const contentAuthoring = new ContentAuthoring({
-  stage: document.getElementById("deckStage"),
-  manifest: JSON.parse(document.getElementById("deckAuthoringModel").textContent),
-  presentation,
-  layoutEditor,
-  widgetManager: visualWidgetManager,
-  mediaTabsManager,
-  mediaPlayback
-});
-window.__SLIDE_CONTENT_AUTHORING__ = contentAuthoring;
+- Add a text card or Note callout.
+- Edit controlled titles, body copy, and captions.
+- Reorder text and callouts by drag-and-drop or accessible buttons.
+- Move text, callouts, or images to an adjacent content page.
+- Upload, drop, or paste PNG, JPEG, and WebP files.
+- Replace the selected image or append media to the current page.
+- Switch a multi-image page between `grid` and Gallery `tabs`.
+- Choose an existing Chapter or create a new Chapter name.
+
+Cover pages, section pages, and locked table/code/diagram stages reject moves that cannot be recomposed safely in the browser.
+
+### Saving
+
+When you select “Save changes”:
+
+1. The browser asks for the deck directory.
+2. GolajahSlide checks the `slides.md` and layout-file SHA-256 values captured when the HTML was built.
+3. It writes new assets, layout JSON, and Markdown only if those files were not changed elsewhere.
+4. A successful save requires a rebuild and blocks further source writes until then.
+
+If direct directory saving is unsupported, cancelled, denied, conflicting, or unsuccessful, the browser downloads a `.golajah-edit.json` recovery bundle with the base source, operation log, layout data, and pending assets.
+
+Stable Slide and content IDs are used instead of DOM position, so inserting earlier content does not redirect an old edit to another region.
+
+### Author notes
+
+- Give every page a unique, stable `id`.
+- Do not edit the same Markdown in another app while saving from the browser.
+- Rebuild after every save, then review the new HTML and `.build.json`.
+- Keep Git history for dependable rollback.
+- Layout-only work may still be exported as a same-basename `.layout.json` file.
+
+### Validation
+
+```bash
+npm run test:content-authoring
 ```
 
-The runtime creates its Layout Editor group if no `[data-content-authoring-mount]` exists. The template should still provide an explicit mount for predictable panel order.
+Focused example: `harnesses/content-authoring/slides.md`
 
-## Public API
-
-- `setActive(active)` enters/leaves the mutually exclusive content interaction mode.
-- `addTextBlock(slideId, values?)` / `addCallout(slideId, values?)` create stable items.
-- `updateField(itemId, field, value)` edits controlled text fields as text, never HTML.
-- `reorderItem(slideId, itemId, beforeItemId)` reorders text/Callout items.
-- `moveItem(itemId, targetSlideId, beforeItemId?)` moves a supported item without wrapping page boundaries.
-- `chapterItemsForSlide(slideId)` projects the current Section's Chapter items in first-page order.
-- `setChapterItem(slideId, name)` assigns a Chapter item; an empty name restores the page-title fallback.
-- `setGalleryDisplay(slideId, "grid"|"tabs")` changes the authored Gallery choice.
-- `importRasterFiles(files, context)` validates and appends/replaces raster images.
-- `replaceMediaItem(...)`, `appendMediaItem(...)`, and `registerPendingAsset(...)` support a custom media UI.
-- `snapshot()` and `buildChangeSet()` return JSON-safe structural state (pending asset Blob objects are excluded from localStorage but included in a live change set).
-- `serializeMarkdown(assetPaths?)` applies changed slide replacements to the exact embedded source. A `serializeMarkdown` constructor bridge can replace the built-in serializer.
-- `save()` runs the user-facing adapter/picker/bundle flow.
-- `saveToDirectory(directoryHandle, changeSet?)` is the deterministic direct-write entry point and accepts fake File System handles in tests.
-
-## Cross-Feature bridge
-
-The preferred bridge is `domBridge.reconcileSlide({slide, state, nodes, feature})`, returning `true` when it composed the live layout. As a compatibility path, Layout Editor may expose:
-
-- `reconcileAuthoringSlide(slide, snapshot, {nodes}) -> true`
-- `onAuthoringContentChange(slide, snapshot)`
-- `setInteractionMode("content"|"layout")`
-
-After every structural transaction Content Authoring calls, when present:
-
-- `widgetManager.reconcile(slide)` and `widgetManager.unregister(oldRoot)`
-- `mediaTabsManager.reconcile(slide)`
-- `mediaPlayback.reconcile(slide)` and `mediaPlayback.sync()`
-
-The fallback composer covers ordinary content pages: 0 media -> `text`, 1 media plus blocks -> `split`, 1 media without blocks -> `media`, and 2+ media -> `gallery`. Pages containing locked table/chart/Mermaid/Excalidraw/Archscribe items keep their specialized layout. Layout Editor remains responsible for preserving or invalidating manual regions and for rebuilding stable animation candidates.
-
-## Persistence and save adapter
-
-Draft localStorage contains only `{baseSourceSha256, revision, operations}` under a source-specific key. Draft operations include `set-chapter` metadata changes and are replayed only when the current embedded SHA-256 matches. The older Layout Editor cache uses the same source-hash gate for page entries, so ordinal page overrides from a prior build are ignored. A mismatched draft emits `content-authoring:draft-conflict` and is never applied by guessed position. Raster Blob bytes remain in memory (or a supplied media store), not localStorage; therefore a reloaded draft containing unsaved media operations is kept as a conflict record and is not partially replayed.
-
-An optional `saveAdapter.save(changeSet, feature)` may replace the native directory flow. It returns:
-
-```js
-{
-  status: "saved" | "exported",
-  sourceSha256: "...",
-  changedFiles: [{path, kind, sha256}],
-  needsRebuild: true
-}
-```
-
-An empty or incomplete adapter response is treated as `WRITE_FAILED`; the UI never reports a source save without a returned source fingerprint and changed-file list.
-
-Recognized error codes are `SOURCE_CONFLICT`, `PERMISSION_DENIED`, `UNSUPPORTED`, `WRITE_FAILED`, `INVALID_PATH`, and `USER_CANCELLED`.
-
-## Events
-
-All events bubble from the deck stage and use the `content-authoring:` prefix:
-
-- `mode-change`, `selection-change`, `change`, and `structure-change`
-- `media-import-request` (supports `detail.respondWith(promise)`) and `media-imported`
-- `save-request` (supports `detail.respondWith(promise)`), `save-state`, and `saved`
-- `draft-conflict` and `error`
-
-## Required validation
-
-- Focused source: `harnesses/content-authoring/slides.md`
-- Browser test: `tests/test_content_authoring.mjs`
-- Generator/source-model contracts: `tests/test_build_slides.py`
-
-The browser matrix must cover add/edit, drag and keyboard reorder, Chapter selection/create/title fallback and draft replay, grid/tabs switching, text and image moves in both directions, automatic 0/1/2-media layout changes, dynamic Visual Widget/Media Tabs registration without duplicate controls, plain-text paste, raster validation, stale-selection import defense, matching-hash save, strict rebuild of saved Markdown, source/layout conflicts, write rollback, recovery-bundle fallback, stable-cache rebuild regression, and overflow checks at desktop and narrow viewports.
+Debug surface: `window.__SLIDE_CONTENT_AUTHORING__`

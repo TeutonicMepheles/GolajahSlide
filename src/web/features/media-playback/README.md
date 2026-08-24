@@ -1,36 +1,77 @@
-# Media Playback
+# Media Playback / 视频播放
 
-Media Playback owns native MP4/WebM presentation inside GolajahSlide media layouts.
+[中文](#中文) · [English](#english)
 
-## Contract
+## 中文
 
-- A standalone Markdown media line whose source ends in `.mp4` or `.webm` is rendered as a native `<video controls playsinline>` element.
-- A slide with `video-playback: autoplay-loop` renders its video as muted, inline, control-free autoplaying media that loops while the slide is active.
-- Local video and poster bytes are embedded as data URIs so the delivered HTML stays self-contained.
-- Video uses the same `split`, `media`, and `gallery` layout decisions as images, with a default 16:9 ratio.
-- A same-basename PNG, JPEG, or WebP beside a local video becomes its native poster image.
-- Playback is user-initiated by default. Autoplay-loop videos start when their slide and, when applicable, Gallery panel are active. Hiding the containing Tab or leaving the slide pauses either mode without resetting its position.
-- Pointer, touch, and wheel interaction with video controls does not trigger slide navigation.
-- Every video receives the same keyboard-operable fullscreen button, whether it is standalone, in a Gallery Tab, or in a Gallery grid. The authored stage scale is compensated so the visible hit target remains at least 44×44 CSS pixels on narrow screens.
-- Fullscreen prefers the element Fullscreen API, uses `HTMLVideoElement.webkitEnterFullscreen()` on supporting iOS/Safari builds, and otherwise moves the original shell (never a cloned video) into a feature-owned viewport overlay.
-- The entry request is tokenized: changing Slide/Tab or opening the editor cancels a pending request, while a late native success is either reconciled with the active fallback or immediately exited.
-- Fullscreen keeps the same video node and playback position. Autoplay-loop videos temporarily receive native controls in fullscreen and return to their original control-free state after exit.
-- The fallback is an accessible modal dialog: background presentation roots become inert, focus stays between the video and exit control, and all prior `inert`/`aria-hidden` state is restored exactly.
-- Changing Slide, hiding the containing Gallery Tab, or entering edit mode exits fullscreen without returning focus to hidden content. Explicit exit restores focus to the originating button when it remains visible.
-- Runtime controls, overlays, placeholders, temporary controls, and fullscreen state are removed by `sanitizeClone()` before saved HTML or static PDF/PPTX frames are produced.
-- The runtime adds no network or package dependency.
+GolajahSlide 直接使用浏览器播放本地 MP4 和 WebM。视频、封面图和控制逻辑都会进入单文件 HTML，不依赖第三方播放器。
 
-## Public API
+### 写法
 
-- `fullscreenShell` exposes the active video surface; `isFullscreen` also covers pending entry and browser-owned exit state so presentation navigation stays blocked throughout the transition.
-- `toggleFullscreen(shellOrRecord)` and `exitFullscreen(options?)` own entry, exit, fallback, ARIA state, and focus restoration.
-- `handleSlideChange()`, `setEditing(editing)`, and `sync()` synchronize fullscreen and playback with the composition shell.
-- `reconcile(scope?)` mounts controls for authoring-created or moved videos without duplicating them.
-- `syncControlScale()` keeps the authored-stage control at a usable screen-space size.
-- `sanitizeClone(clone)` is the save/static-export boundary and must run after an HTML clone is created.
+视频与图片一样独占一行：
 
-## Validation
+```markdown
+![产品演示](assets/demo.mp4 "操作流程")
+```
 
-- Focused source: `harnesses/media-playback/slides.md`
-- Browser test: `tests/test_media_playback.mjs`
-- Generator contract: `tests/test_build_slides.py`
+如需要静音自动循环：
+
+```markdown
+<!-- slide
+video-playback: autoplay-loop
+-->
+```
+
+- 默认由观众点击播放。
+- 自动循环只在当前页面及当前 Gallery Tab 可见时播放。
+- 离开页面或切换 Tab 会暂停，但不会重置进度。
+- 同目录下同名 PNG、JPEG 或 WebP 会自动成为封面图。
+- 独立视频、Gallery Tab 和并列 Gallery 都有可键盘操作的全屏按钮。
+- 换页、隐藏 Tab 或进入编辑模式会安全退出全屏。
+- 指针、触摸和滚轮操作视频控件时不会误触发翻页。
+- 本功能不增加运行时网络或包依赖。
+
+### 验证
+
+```bash
+npm run test:media-playback
+```
+
+专项示例：`harnesses/media-playback/slides.md`
+
+## English
+
+GolajahSlide plays local MP4 and WebM with the browser's native video element. Video, posters, and controls are embedded in the single HTML delivery file—no third-party player is required.
+
+### Authoring
+
+Use the same standalone line syntax as an image:
+
+```markdown
+![Product demo](assets/demo.mp4 "Walkthrough")
+```
+
+For muted autoplay and looping:
+
+```markdown
+<!-- slide
+video-playback: autoplay-loop
+-->
+```
+
+- Playback is user-initiated by default.
+- Autoplay runs only while the slide and its Gallery tab are visible.
+- Leaving the slide or hiding the tab pauses without resetting progress.
+- A same-basename PNG, JPEG, or WebP file becomes the poster.
+- Standalone, tabbed, and grid videos all receive a keyboard-accessible fullscreen button.
+- Slide changes, hidden tabs, and editor mode exit fullscreen safely.
+- Pointer, touch, and wheel interaction with video controls never advances the deck.
+- The feature adds no runtime network or package dependency.
+
+### Validation
+
+```bash
+npm run test:media-playback
+```
+
+Focused example: `harnesses/media-playback/slides.md`
