@@ -13,9 +13,9 @@ The intended split is:
 - Python 3.10 or newer.
 - A local GolajahSlide checkout containing `golajah_slide_agent.py` and `build_slides.py`.
 - No package installation is needed for the CLI or MCP server. The MCP transport is implemented with the Python standard library.
-- Diagram rendering and browser-based export retain their existing optional Node.js/Chromium requirements; merely inspecting, searching, editing, auditing, or building an ordinary Markdown deck does not add those dependencies.
+- Optional diagram generation and automated browser/rendering QA retain their existing Node.js/Chromium requirements. Interactive PDF/PPTX export runs inside the built deck without a runtime package or network dependency; merely inspecting, searching, editing, auditing, or building an ordinary Markdown deck also adds no dependency.
 
-Use absolute paths in long-running agent configuration. On this Mac, discover the interpreter rather than assuming its location:
+Use absolute paths in long-running agent configuration. Discover the interpreter on the target host rather than assuming its location:
 
 ```bash
 command -v python3
@@ -111,11 +111,11 @@ Example agent workflow:
 
 ## Hermes stdio MCP configuration
 
-The Hermes Agent v0.20.5 currently installed on this Mac supports local stdio MCP servers directly. Register the server through the Hermes CLI so it can probe the tool list and save an allowlist:
+Hermes Agent v0.20.5 has been validated with local stdio MCP servers. Register the server through the Hermes CLI so it can probe the tool list and save an allowlist:
 
 ```bash
 hermes mcp add golajah_basic \
-  --command /opt/homebrew/bin/python3 \
+  --command /absolute/path/to/python3 \
   --args \
     /absolute/path/to/GolajahSlide/golajah_slide_agent.py \
     mcp \

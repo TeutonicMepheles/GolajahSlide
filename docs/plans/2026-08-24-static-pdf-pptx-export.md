@@ -51,5 +51,7 @@
 - `python3 build_slides.py harnesses/static-export/slides.md ... --strict`：3 个源页面严格构建通过，静态计划生成 4 个输出页面。
 - `pdfinfo` 与 `pdftoppm`：PDF 1.4、4 页、每页 960×540 pt，可逐页渲染；4 页渲染图均完成视觉检查，无裁切、空白素材或覆盖层。
 - `unzip -t`、PowerPoint 渲染脚本与 Slide 越界检查：PPTX 全部 ZIP part/CRC 通过，可渲染为 4 页且无越界；4 页渲染图均完成视觉检查。
+- 在一份未纳入仓库的真实长稿上完成交付级验收：114 个源 Slide 因 Gallery Tab 展开为 116 个静态页；PDF 为 116 页 960×540 pt，PPTX 为 116 页 12192000×6858000 EMU。
+- 长稿 PDF 可全页渲染；PPTX 的 ZIP/XML/关系完整，不含 `timing`、`transition` 或外部引用。全页联络表、代表页细查、overflow 检查与 PDF/PPTX 栅格一致性均通过，导出前后源码 SHA-256 不变。
 - 真实编辑器交互：375×800 下展开“文件与高级操作”，分别点击 PDF 与 PowerPoint 后均显示“4 页无动效静态画面”，浏览器无 warning/error。
 - `examples/basic`、`examples/diagrams` 与 `examples/archscribe` 已从当前源码严格重建；`git diff --check` 通过。

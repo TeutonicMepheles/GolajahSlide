@@ -46,13 +46,13 @@
 - [x] MCP 完成 initialize、initialized、ping、tools/list 与 tools/call；stdout 只输出逐行 JSON-RPC。
 - [x] MCP `--root` 拒绝根目录外直接或间接读取与写入；不暴露删除、Shell、Git 或发布工具。
 - [x] 构建 HTML 与 `.build.json` 成对 staging/提交并按目标加锁，提交后校验内容哈希，后一个产物失败时仅在目标仍属于本事务时恢复原产物；源码与 sidecar 的正常异常路径具备哈希所有权回滚。
-- [x] CLI/MCP focused tests、`npm test`、实际 0822 deck 只读 inspect/audit 和 `git diff --check` 通过。
+- [x] CLI/MCP focused tests、`npm test`、代表性真实长稿的只读 inspect/audit 和 `git diff --check` 通过。
 
 ## Validation evidence
 
 - `python3 -m unittest tests.test_agent_cli -v`：52 项 Agent 契约、路径边界、双哈希、并发恢复、布局迁移与 MCP lifecycle 测试通过。
-- `python3 -m unittest discover -s tests -p 'test_*.py' -v`：111 项全量 Python 测试通过。
-- `PATH=<temporary python3 shim>:$PATH npm test`：全量 Python 与 presenter-focus、footer-chapter-navigation、citations、global-logo、media-playback、content-authoring、static-export、diagram-design 八组浏览器测试通过。
+- `python3 -m unittest discover -s tests -p 'test_*.py' -v`：112 项全量 Python 测试通过。
+- `PATH=<temporary python3 shim>:$PATH npm test`：112 项 Python 与 presenter-focus、footer-chapter-navigation、citations、global-logo、media-playback、content-authoring、static-export、diagram-design 八组浏览器/图表测试通过。
 - Hermes Agent v0.20.5 `hermes mcp test golajah_contract_test`：stdio 连接成功并发现 6 个工具；仅使用 `work/` 下临时 `HERMES_HOME`，未改用户全局 Hermes 配置。
-- 实际 `examples/ai-interaction/slides.md`（0822）：只读 inspect 得到 114 页、114 个显式 ID、267 个内容项、0 个结构问题；strict audit 为 0 warning / 0 error，且前后 SHA-256 均为 `2a88d41931e3a3468fe4dcaf868029cd417ac9e817597912307d67ba5e0d9b27`。
+- 对一份未纳入仓库的 100+ 页真实演示稿执行只读 inspect/audit：稳定 ID 和内容项解析完整，0 个结构问题，strict audit 为 0 warning / 0 error，验证前后源码 SHA-256 一致。
 - `python3 -m py_compile build_slides.py golajah_slide_agent.py tests/test_agent_cli.py tests/test_build_slides.py` 与 `git diff --check` 通过。

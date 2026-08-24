@@ -32,6 +32,7 @@ python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 ```text
 .
 ├── build_slides.py
+├── golajah_slide_agent.py      # JSON-first Agent CLI 与 stdio MCP 入口
 ├── src/
 │   └── web/
 │       └── features/       # 浏览器 Feature 的行为、样式和契约
@@ -39,6 +40,7 @@ python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 │   └── deck.html           # 最终 HTML 的组合壳
 ├── docs/
 │   ├── ARCHITECTURE.md
+│   ├── AGENT-TOOLS.md
 │   ├── plans/
 │   ├── MARKDOWN-SPEC.md
 │   └── LAYOUT-SPEC.md
@@ -64,6 +66,8 @@ python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 5. 重新构建；构建器会自动读取同目录的覆盖文件。
 6. 查看 `.build.json`，处理警告和错误。
 
+编辑器打开时优先选中当前页的图片或文字区域；内容和布局是高频分组并默认展开，样式、全局和文件操作默认折叠。整体内容区域的移动与缩放保留为显式的低频选项。
+
 `slides.layout.json` 只描述一份演示文稿的页面覆盖，不是全局主题配置。布局文件的完整结构见 [布局覆盖规范](docs/LAYOUT-SPEC.md)。
 
 ## 已支持的内容
@@ -76,10 +80,11 @@ python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 - 可选 Archscribe 动态流程图（GIF 动画、PNG 减少动态效果降级、Excalidraw 可编辑源文件）
 - 自动选择文字、左右图文、大图、画廊、表格和图表布局
 - 图片缩放、拖拽、全屏和临时标注
+- 独立视频、Gallery Tab 和 Gallery 并列视频的统一全屏播放入口
 - 页面级布局、坐标、正文样式和动画顺序覆盖
 - 编辑模式新增/排序/跨页移动文本块与 Callout，上传/拖放/粘贴图片，并切换多图并列或 Gallery
 - 编辑模式调整当前页 Chapter item，保存后安全写回 Markdown、布局 sidecar 与新增资产
-- 默认无动效的 PDF 与 PowerPoint 静态导出
+- 默认无动效的 PDF 与 PowerPoint 静态导出；Gallery 隐藏 Tab 展开为附加页，PPTX 每页为保真的全画幅静态图
 - 构建期内容密度检查与浏览器运行时溢出诊断
 - 页脚 Section 子章节导航（悬浮向上展开，点击跳转到子章节首个 Page）
 
@@ -90,6 +95,7 @@ python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 - 首尾页：`Home` / `End`
 - 页面编辑器：`E`
 - 当前视觉全屏：`F`
+- 视频全屏：使用视频右上角的“全屏播放”按钮；换页、切换 Gallery Tab 或进入编辑模式会安全退出
 - 当前视觉标注：`A`
 - 悬浮聚焦开关：`H`（默认开启；Slide 内显示主题色鼠标圆圈，容器使用浅色聚焦，再悬停段落或列表项时使用更深的主题色强调）
 - 页脚章节导航：悬浮或聚焦 Section，使用 `↑` / `↓` 浏览子章节，`Enter` 跳转，`Escape` 关闭
@@ -112,6 +118,9 @@ npm test
 ```bash
 python3 -m unittest discover -s tests -v
 npm run test:presenter-focus
+npm run test:media-playback
+npm run test:content-authoring
+npm run test:static-export
 ```
 
 ## 清晰规整的流程图

@@ -49,4 +49,4 @@
 - 2026-08-24：全屏请求使用 pending token；ESC、换页、切 Tab 与编辑会取消未完成请求，迟到的 native 成功会升级当前 fallback 或被安全退出。
 - 2026-08-24：fallback 具备 modal/inert 语义与焦点循环；Static Export 在生成 Gallery 计划和克隆页面前恢复 live fullscreen 视频。
 - 2026-08-24：1280×720 与 375×800 下，全屏入口的实际屏幕点击区域均不小于 44×44 CSS px。
-- 2026-08-24：完整 `npm test`（Python 51 项及所有浏览器 Feature 测试）与 `git diff --check` 通过。
+- 2026-08-24：最终分支完整 `npm test`（112 项 Python 及 8 组浏览器/图表测试）与 `git diff --check` 通过。
