@@ -2413,6 +2413,7 @@
         this.textMode = false;
         this.animationMode = false;
         this.selectedRegion = "content";
+        this.activeSlideId = null;
         this.dragState = null;
         this.toastTimer = null;
         this.fieldCommitTimer = null;
@@ -2536,6 +2537,9 @@
       currentSlide() { return this.presentation?.slides[this.presentation.current] || null; }
       currentId() { return this.currentSlide()?.dataset.slideId || null; }
       defaultContent(slide) {
+        if (slide?.classList.contains("pure-image-slide")) {
+          return {x: 0, y: 0, width: this.stageSize.width, height: this.stageSize.height};
+        }
         return slide?.dataset.slideKind === "content"
           ? {x: 110, y: 214, width: 1700, height: 716}
           : {x: 110, y: 104, width: 1700, height: 760};
@@ -2577,6 +2581,9 @@
       }
       presetRegions(slide, layout, content = null) {
         const base = this.normalizeRegion(content || this.defaultContent(slide));
+        if (slide?.classList.contains("pure-image-slide")) {
+          return {content: base, visual: {...base}};
+        }
         const gap = 28;
         const result = {content: base};
         if (["hero-split", "hero-reverse"].includes(layout)) {
@@ -2907,20 +2914,34 @@
         });
       }
       selectRegion(name) {
-        this.selectedRegion = name;
+        const slide = this.currentSlide();
+        const entry = slide && (this.entries[slide.dataset.slideId] || this.ensureEntry(slide, false));
+        const layout = slide && entry ? this.effectiveLayout(slide, entry) : "text";
+        this.selectedRegion = this.regionIsVisible(layout, name) ? name : this.preferredRegion(slide, entry);
+        this.syncRegionTabs();
+        this.refreshOverlay();
+        this.refreshFields();
+      }
+      syncRegionTabs() {
         document.querySelectorAll(".editor-region-tab").forEach(button => {
-          const selected = button.dataset.region === name;
+          const selected = button.dataset.region === this.selectedRegion;
           button.classList.toggle("active", selected);
           button.setAttribute("aria-selected", String(selected));
           button.tabIndex = selected ? 0 : -1;
         });
-        this.refreshOverlay();
-        this.refreshFields();
       }
       regionIsVisible(layout, name) {
         if (name === "content") return true;
         if (["text", "table"].includes(layout)) return name === "copy";
         return true;
+      }
+      preferredRegion(slide = this.currentSlide(), entry = null) {
+        if (!slide) return "content";
+        const resolvedEntry = entry || this.entries[slide.dataset.slideId] || this.ensureEntry(slide, false);
+        const layout = this.effectiveLayout(slide, resolvedEntry);
+        if (this.regionIsVisible(layout, "visual") && resolvedEntry.regions?.visual) return "visual";
+        if (this.regionIsVisible(layout, "copy") && resolvedEntry.regions?.copy) return "copy";
+        return "content";
       }
       refreshPanel() {
         const slide = this.currentSlide();
@@ -2928,6 +2949,11 @@
         const id = slide.dataset.slideId;
         const entry = this.entries[id] || this.ensureEntry(slide, false);
         const selectedLayout = entry.layout || "auto";
+        const effectiveLayout = this.effectiveLayout(slide, entry);
+        if (!this.regionIsVisible(effectiveLayout, this.selectedRegion)) {
+          this.selectedRegion = this.preferredRegion(slide, entry);
+        }
+        this.syncRegionTabs();
         this.pageName.textContent = `${slide.dataset.sourcePage} · ${slide.dataset.title}`;
         this.layoutSource.textContent = this.entries[id] ? "已覆盖" : `生成：${this.generatedLayout(slide)}`;
         this.layoutSelect.replaceChildren(...this.layoutOptions(slide).map(([value, label, enabled]) => {
@@ -3101,7 +3127,7 @@
         entry.layout = layout;
         const effective = this.effectiveLayout(slide, entry);
         entry.regions = this.presetRegions(slide, effective, entry.regions.content);
-        this.selectedRegion = "content";
+        this.selectedRegion = this.preferredRegion(slide, entry);
         this.commit(slide, `已切换为 ${this.layoutSelect.selectedOptions[0]?.textContent || layout}`);
       }
       applyPreset() {
@@ -3187,6 +3213,10 @@
       }
       actualParts(slide) {
         if (slide.dataset.slideKind !== "content") {
+          const pureImage = slide.querySelector(".pure-image-shell");
+          if (pureImage) {
+            return {content: pureImage, root: pureImage, visual: pureImage, copy: null};
+          }
           return {
             content: slide.querySelector(".hero-shell"),
             visual: slide.querySelector(".hero-visual"),
@@ -3225,6 +3255,8 @@
           position: "absolute",
           left: `${relative.x}px`,
           top: `${relative.y}px`,
+          right: "auto",
+          bottom: "auto",
           width: `${relative.width}px`,
           height: `${relative.height}px`,
           maxHeight: "none",
@@ -3278,8 +3310,9 @@
           this.markStyle(parts.content, {position:"absolute", inset:"0", display:"block", padding:"0"});
           this.positionPart(parts.visual, regions.visual, {x:0,y:0,width:1920,height:1080});
           this.positionPart(parts.copy, regions.copy, {x:0,y:0,width:1920,height:1080});
-          parts.content?.classList.remove("hero-layout-hero-split", "hero-layout-hero-reverse", "hero-layout-hero-full");
-          parts.content?.classList.add(`hero-layout-${layout}`);
+          const hero = parts.content?.classList.contains("hero-shell") ? parts.content : null;
+          hero?.classList.remove("hero-layout-hero-split", "hero-layout-hero-reverse", "hero-layout-hero-full");
+          hero?.classList.add(`hero-layout-${layout}`);
           return;
         }
         this.markStyle(parts.content, {
@@ -3334,9 +3367,24 @@
           this.applyEntry(slide, entry ? this.ensureEntry(slide, false) : null);
         });
       }
-      onSlideChange() { if (this.active) this.refreshPanel(); }
+      onSlideChange() {
+        if (!this.active) return;
+        const slideId = this.currentId();
+        if (slideId !== this.activeSlideId) {
+          this.selectedRegion = this.preferredRegion();
+          this.activeSlideId = slideId;
+        }
+        this.refreshPanel();
+      }
       setActive(active) {
+        const opening = active && !this.active;
         this.active = active;
+        if (opening) {
+          this.selectedRegion = this.preferredRegion();
+          this.activeSlideId = this.currentId();
+        } else if (!active) {
+          this.activeSlideId = null;
+        }
         document.body.classList.toggle("editor-open", active);
         this.panel.setAttribute("aria-hidden", String(!active));
         this.panel.toggleAttribute("inert", !active);
@@ -3380,6 +3428,7 @@
         this.clearTypography(slide);
         this.applyAnimation(slide, null);
         this.saveLocal();
+        this.selectedRegion = this.preferredRegion(slide);
         this.refreshPanel();
         this.toast("当前页已恢复为生成结果");
       }
@@ -3406,6 +3455,7 @@
           this.applyAnimation(slide, null);
         });
         this.saveLocal();
+        this.selectedRegion = this.preferredRegion();
         this.refreshPanel();
         this.toast("全部布局已恢复为生成结果");
       }
@@ -3496,6 +3546,7 @@
           }
           this.applyAll();
           this.saveLocal();
+          this.selectedRegion = this.preferredRegion();
           this.refreshPanel();
           this.toast(`已导入 ${Object.keys(imported).length} 页编辑配置${adjusted ? `，${adjusted} 页布局已回退自动` : ""}`);
         } catch (error) {

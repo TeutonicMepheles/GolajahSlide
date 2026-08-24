@@ -63,6 +63,83 @@ try {
     localStorage.removeItem(keys.layout);
   }, cacheKeys);
 
+  const preferredRegions = await page.evaluate(() => {
+    const editor = window.__SLIDE_LAYOUT_EDITOR__;
+    const presentation = window.__SLIDE_PRESENTATION__;
+    const snapshot = () => ({
+      selected: editor.selectedRegion,
+      tab: document.querySelector(".editor-region-tab.active")?.dataset.region || "",
+      box: document.querySelector(".slide.active .layout-region-box.active")?.dataset.region || ""
+    });
+    presentation.show(0, false);
+    editor.setActive(true);
+    const textPage = snapshot();
+    editor.selectRegion("content");
+    const explicitOverall = snapshot();
+    presentation.show(0, false);
+    const overallAfterSamePageShow = snapshot();
+    editor.applyPreset();
+    const overallAfterCommit = snapshot();
+    editor.setActive(true);
+    const overallAfterRepeatedOpen = snapshot();
+    editor.setActive(false);
+    editor.setActive(true);
+    const reopenedTextPage = snapshot();
+    editor.changeLayout("split");
+    const changedToSplit = snapshot();
+    editor.selectRegion("content");
+    editor.resetPage();
+    const resetTextPage = snapshot();
+    presentation.show(1, false);
+    const galleryPageAfterNavigation = snapshot();
+    editor.setActive(false);
+    editor.setActive(true);
+    const reopenedGalleryPage = snapshot();
+    editor.setActive(false);
+    presentation.show(0, false);
+    return {textPage, explicitOverall, overallAfterSamePageShow, overallAfterCommit, overallAfterRepeatedOpen, reopenedTextPage, changedToSplit, resetTextPage, galleryPageAfterNavigation, reopenedGalleryPage};
+  });
+  assert.deepEqual(preferredRegions.textPage, {selected: "copy", tab: "copy", box: "copy"});
+  assert.deepEqual(preferredRegions.explicitOverall, {selected: "content", tab: "content", box: "content"});
+  assert.deepEqual(preferredRegions.overallAfterSamePageShow, {selected: "content", tab: "content", box: "content"});
+  assert.deepEqual(preferredRegions.overallAfterCommit, {selected: "content", tab: "content", box: "content"});
+  assert.deepEqual(preferredRegions.overallAfterRepeatedOpen, {selected: "content", tab: "content", box: "content"});
+  assert.deepEqual(preferredRegions.reopenedTextPage, {selected: "copy", tab: "copy", box: "copy"});
+  assert.deepEqual(preferredRegions.changedToSplit, {selected: "visual", tab: "visual", box: "visual"});
+  assert.deepEqual(preferredRegions.resetTextPage, {selected: "copy", tab: "copy", box: "copy"});
+  assert.deepEqual(preferredRegions.galleryPageAfterNavigation, {selected: "visual", tab: "visual", box: "visual"});
+  assert.deepEqual(preferredRegions.reopenedGalleryPage, {selected: "visual", tab: "visual", box: "visual"});
+
+  const pureImageRegion = await page.evaluate(() => {
+    const editor = window.__SLIDE_LAYOUT_EDITOR__;
+    const slide = document.createElement("section");
+    slide.className = "slide cover-slide pure-image-slide";
+    slide.dataset.slideKind = "cover";
+    slide.dataset.slideId = "synthetic-pure-image";
+    slide.dataset.generatedLayout = "hero-split";
+    const figure = document.createElement("figure");
+    figure.className = "pure-image-shell";
+    slide.appendChild(figure);
+    document.body.appendChild(slide);
+    const entry = {layout: "auto", regions: editor.presetRegions(slide, "hero-split")};
+    const parts = editor.actualParts(slide);
+    const result = {
+      preferred: editor.preferredRegion(slide, entry),
+      contentIsImage: parts.content === figure,
+      visualIsImage: parts.visual === figure,
+      regions: entry.regions
+    };
+    slide.remove();
+    return result;
+  });
+  assert.equal(pureImageRegion.preferred, "visual");
+  assert.equal(pureImageRegion.contentIsImage, true);
+  assert.equal(pureImageRegion.visualIsImage, true);
+  assert.deepEqual(pureImageRegion.regions, {
+    content: {x: 0, y: 0, width: 1920, height: 1080},
+    visual: {x: 0, y: 0, width: 1920, height: 1080}
+  });
+
   const interaction = await page.evaluate(async () => {
     const feature = window.__SLIDE_CONTENT_AUTHORING__;
     feature.setActive(true);
