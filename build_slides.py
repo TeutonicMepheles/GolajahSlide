@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import argparse
 import base64
+import contextlib
+import errno
 import hashlib
 import html
 import json
@@ -19,16 +21,23 @@ import math
 import os
 import re
 import shutil
+import stat
 import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
 from urllib.parse import unquote, urlsplit
 from urllib.request import url2pathname
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - non-POSIX builds retain in-process locking.
+    fcntl = None
 
 
 ROOT = Path(__file__).resolve().parent
@@ -222,6 +231,26 @@ class BuildMessages:
         self.errors.append(prefix + message)
 
 
+class AssetBoundaryError(RuntimeError):
+    """An Agent-scoped build attempted to read a generated asset outside its allowed root."""
+
+    def __init__(self, source: str, resolved_path: Path, allowed_root: Path):
+        super().__init__(f"static export asset escapes allowed root: {source}")
+        self.source = source
+        self.resolved_path = resolved_path
+        self.allowed_root = allowed_root
+
+
+class UnsafeAssetReferenceError(RuntimeError):
+    """A rooted SVG attempted to load another local resource."""
+
+    def __init__(self, source: str, path: Path, references: list[str]):
+        super().__init__(f"rooted SVG contains local nested references: {source}")
+        self.source = source
+        self.path = path
+        self.references = references
+
+
 @dataclass(frozen=True)
 class Citation:
     citation_id: str
@@ -301,6 +330,11 @@ def extract_citations(source: str, messages: BuildMessages) -> tuple[str, dict[s
 
 def write_text_atomic(path: Path, source: str) -> None:
     """Replace a text artifact only after its complete contents reach disk."""
+    write_text_artifacts_atomic(((path, source),))
+
+
+def _stage_text_artifact(path: Path, source: str) -> Path:
+    """Write one complete sibling temp file without changing its destination."""
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
         target_mode = path.stat().st_mode & 0o777
@@ -315,11 +349,203 @@ def write_text_atomic(path: Path, source: str) -> None:
             handle.flush()
             os.fsync(handle.fileno())
         os.chmod(temporary_path, target_mode)
-        os.replace(temporary_path, path)
+        return temporary_path
+    except BaseException:
+        temporary_path.unlink(missing_ok=True)
+        raise
     finally:
         if descriptor >= 0:
             os.close(descriptor)
-        temporary_path.unlink(missing_ok=True)
+
+
+def _backup_slot(path: Path) -> Path:
+    """Copy one existing artifact into a sibling recovery slot without moving it."""
+    descriptor, name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".bak", dir=path.parent)
+    backup = Path(name)
+    source_descriptor = -1
+    try:
+        metadata = path.lstat()
+        if stat.S_ISLNK(metadata.st_mode):
+            target = os.readlink(path)
+            os.close(descriptor)
+            descriptor = -1
+            backup.unlink()
+            os.symlink(target, backup)
+        elif stat.S_ISREG(metadata.st_mode):
+            source_descriptor = os.open(
+                path,
+                os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0),
+            )
+            with os.fdopen(source_descriptor, "rb") as source_handle:
+                source_descriptor = -1
+                with os.fdopen(descriptor, "wb") as backup_handle:
+                    descriptor = -1
+                    shutil.copyfileobj(source_handle, backup_handle)
+                    backup_handle.flush()
+                    os.fsync(backup_handle.fileno())
+                    os.fchmod(backup_handle.fileno(), metadata.st_mode & 0o777)
+        else:
+            raise OSError(f"artifact destination is not a regular file or symlink: {path}")
+        return backup
+    except BaseException:
+        if source_descriptor >= 0:
+            os.close(source_descriptor)
+        if descriptor >= 0:
+            os.close(descriptor)
+        backup.unlink(missing_ok=True)
+        raise
+
+
+def _artifact_sha256_if_regular(path: Path) -> str | None:
+    """Fingerprint one destination leaf without following a replacement symlink."""
+    descriptor = -1
+    try:
+        descriptor = os.open(
+            path,
+            os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0),
+        )
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            return None
+        digest = hashlib.sha256()
+        with os.fdopen(descriptor, "rb") as handle:
+            descriptor = -1
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+    except OSError as error:
+        if error.errno in {errno.ENOENT, errno.ENOTDIR, errno.ELOOP}:
+            return None
+        raise
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+
+
+_ARTIFACT_THREAD_LOCK_GUARD = threading.Lock()
+_ARTIFACT_THREAD_LOCKS: dict[str, threading.RLock] = {}
+
+
+@contextlib.contextmanager
+def _artifact_write_locks(paths: Iterable[Path]):
+    """Serialize every overlapping artifact destination in-process and on POSIX."""
+    keys = sorted({str(Path(path).expanduser().resolve(strict=False)) for path in paths})
+    with _ARTIFACT_THREAD_LOCK_GUARD:
+        thread_locks = [_ARTIFACT_THREAD_LOCKS.setdefault(key, threading.RLock()) for key in keys]
+    for lock in thread_locks:
+        lock.acquire()
+
+    handles = []
+    try:
+        if fcntl is not None:
+            user = str(os.getuid()) if hasattr(os, "getuid") else "default"
+            lock_directory = Path(tempfile.gettempdir()) / f"golajah-slide-artifact-locks-{user}"
+            lock_directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+            for key in keys:
+                lock_path = lock_directory / f"{hashlib.sha256(key.encode('utf-8')).hexdigest()}.lock"
+                handle = lock_path.open("a+b")
+                try:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+                except BaseException:
+                    handle.close()
+                    raise
+                handles.append(handle)
+        yield
+    finally:
+        for handle in reversed(handles):
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            finally:
+                handle.close()
+        for lock in reversed(thread_locks):
+            lock.release()
+
+
+def write_text_artifacts_atomic(artifacts: Iterable[tuple[Path, str]]) -> None:
+    """Commit related text artifacts together, restoring prior files on failure.
+
+    POSIX has no multi-file rename primitive, so this stages every byte before
+    touching a destination and uses sibling backups for best-effort rollback.
+    In particular, a report commit failure cannot leave a newly generated HTML
+    file behind.
+    """
+    entries = tuple((Path(path), source) for path, source in artifacts)
+    if not entries:
+        return
+    if len({path for path, _ in entries}) != len(entries):
+        raise ValueError("artifact destinations must be unique")
+    with _artifact_write_locks(path for path, _ in entries):
+        _write_text_artifacts_locked(entries)
+
+
+def _write_text_artifacts_locked(entries: tuple[tuple[Path, str], ...]) -> None:
+    """Stage and commit artifacts while their destination locks are held."""
+    staged: dict[Path, Path] = {}
+    committed_hashes: dict[Path, str] = {}
+    backups: dict[Path, Path] = {}
+    committed: set[Path] = set()
+    commit_complete = False
+    try:
+        for path, source in entries:
+            staged[path] = _stage_text_artifact(path, source)
+            staged_hash = _artifact_sha256_if_regular(staged[path])
+            if staged_hash is None:  # pragma: no cover - mkstemp always creates a regular file.
+                raise OSError(f"staged artifact is not a regular file: {staged[path]}")
+            committed_hashes[path] = staged_hash
+        for path, _ in entries:
+            if path.exists() or path.is_symlink():
+                backup = _backup_slot(path)
+                backups[path] = backup
+        for path, _ in entries:
+            os.replace(staged[path], path)
+            committed.add(path)
+        for path, _ in entries:
+            actual_hash = _artifact_sha256_if_regular(path)
+            if actual_hash != committed_hashes[path]:
+                raise OSError(
+                    f"artifact changed during commit verification: {path} "
+                    f"(expected {committed_hashes[path]}, actual {actual_hash})"
+                )
+        commit_complete = True
+    except BaseException as error:
+        rollback_errors: list[str] = []
+        for path, _ in reversed(entries):
+            backup = backups.get(path)
+            try:
+                if path in committed:
+                    actual_hash = _artifact_sha256_if_regular(path)
+                    if actual_hash != committed_hashes[path]:
+                        rollback_errors.append(
+                            f"{path}: rollback skipped because another process changed the artifact"
+                        )
+                        if backup is not None:
+                            backup.unlink(missing_ok=True)
+                            backups.pop(path, None)
+                        continue
+                    if backup is not None and (backup.exists() or backup.is_symlink()):
+                        os.replace(backup, path)
+                        backups.pop(path, None)
+                    else:
+                        path.unlink(missing_ok=True)
+                elif backup is not None:
+                    backup.unlink(missing_ok=True)
+                    backups.pop(path, None)
+            except OSError as rollback_error:
+                rollback_errors.append(f"{path}: {rollback_error}")
+        if rollback_errors and hasattr(error, "add_note"):
+            error.add_note("artifact rollback incomplete: " + "; ".join(rollback_errors))
+        raise
+    finally:
+        for temporary_path in staged.values():
+            try:
+                temporary_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+        if commit_complete:
+            for backup in backups.values():
+                try:
+                    backup.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
 
 def relative_asset_href(path: Path, output_dir: Path) -> str:
@@ -329,11 +555,106 @@ def relative_asset_href(path: Path, output_dir: Path) -> str:
         return path.as_uri()
 
 
-def local_data_uri(path: Path, mime_type: str) -> str:
-    return f"data:{mime_type};base64,{base64.b64encode(path.read_bytes()).decode('ascii')}"
+def local_data_uri(path: Path, mime_type: str, allowed_root: Path | None = None) -> str:
+    payload = _asset_bytes(path, allowed_root, str(path))
+    if payload is None:
+        raise FileNotFoundError(path)
+    return f"data:{mime_type};base64,{base64.b64encode(payload).decode('ascii')}"
 
 
-def static_export_asset_manifest(rendered: str, output_dir: Path) -> dict[str, object]:
+def _svg_local_references(payload: bytes) -> list[str]:
+    try:
+        source = payload.decode("utf-8")
+    except UnicodeError:
+        return []
+    candidates: list[str] = []
+    candidates.extend(
+        html.unescape(match.group(1)).strip()
+        for match in re.finditer(r'(?is)\b(?:href|xlink:href|src|poster)\s*=\s*["\']([^"\']+)["\']', source)
+    )
+    for match in re.finditer(r'(?is)\bsrcset\s*=\s*["\']([^"\']+)["\']', source):
+        candidates.extend(
+            entry.strip().split()[0]
+            for entry in html.unescape(match.group(1)).split(",")
+            if entry.strip()
+        )
+    candidates.extend(
+        html.unescape(match.group(1)).strip()
+        for match in re.finditer(r'(?is)url\(\s*["\']?([^"\')]+)', source)
+    )
+    unsafe: list[str] = []
+    for candidate in candidates:
+        parsed = urlsplit(candidate)
+        if (
+            not candidate
+            or candidate.startswith("#")
+            or candidate.lower().startswith(("data:image/", "http://", "https://", "blob:"))
+            or (not parsed.scheme and parsed.path == "" and parsed.fragment)
+        ):
+            continue
+        unsafe.append(candidate)
+    return unsafe
+
+
+def _asset_bytes(asset_path: Path, allowed_root: Path | None, source: str) -> bytes | None:
+    """Read one regular asset once, without following post-check symlink swaps."""
+    if allowed_root is None:
+        try:
+            with asset_path.open("rb") as handle:
+                if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
+                    return None
+                return handle.read()
+        except (FileNotFoundError, IsADirectoryError):
+            return None
+
+    resolved_root = allowed_root.resolve()
+    resolved_asset = asset_path.resolve(strict=False)
+    try:
+        relative = resolved_asset.relative_to(resolved_root)
+    except ValueError as error:
+        raise AssetBoundaryError(source, resolved_asset, resolved_root) from error
+    if not relative.parts:
+        return None
+
+    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_CLOEXEC", 0)
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    opened: list[int] = []
+    try:
+        current = os.open(resolved_root, directory_flags | nofollow)
+        opened.append(current)
+        for component in relative.parts[:-1]:
+            current = os.open(component, directory_flags | nofollow, dir_fd=current)
+            opened.append(current)
+        descriptor = os.open(
+            relative.parts[-1],
+            os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | nofollow,
+            dir_fd=current,
+        )
+        opened.append(descriptor)
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            return None
+        opened.pop()
+        with os.fdopen(descriptor, "rb") as handle:
+            payload = handle.read()
+        if resolved_asset.suffix.lower() == ".svg":
+            references = _svg_local_references(payload)
+            if references:
+                raise UnsafeAssetReferenceError(source, resolved_asset, references[:10])
+        return payload
+    except OSError as error:
+        if error.errno in {errno.ENOENT, errno.ENOTDIR, errno.ELOOP}:
+            return None
+        raise
+    finally:
+        for descriptor in reversed(opened):
+            os.close(descriptor)
+
+
+def static_export_asset_manifest(
+    rendered: str,
+    output_dir: Path,
+    allowed_root: Path | None = None,
+) -> dict[str, object]:
     """Embed local raster/SVG bytes once so file:// snapshots stay origin-clean."""
     candidates: set[str] = set()
     for match in re.finditer(r'(?is)\b(?:src|poster)\s*=\s*["\']([^"\']+)["\']', rendered):
@@ -375,12 +696,13 @@ def static_export_asset_manifest(rendered: str, output_dir: Path) -> dict[str, o
             # Keep lexical `..` traversal intact before macOS resolves `/var`
             # or `/tmp` to their `/private/...` aliases.
             asset_path = Path(os.path.abspath(output_dir / unquote(parsed.path)))
-        if not asset_path.is_file():
+        payload = _asset_bytes(asset_path, allowed_root, source)
+        if payload is None:
             continue
-        digest = sha256_file(asset_path)
+        digest = hashlib.sha256(payload).hexdigest()
         sources[source] = digest
         if digest not in assets:
-            assets[digest] = local_data_uri(asset_path, mime_type)
+            assets[digest] = f"data:{mime_type};base64,{base64.b64encode(payload).decode('ascii')}"
     return {
         "schemaVersion": "1.0",
         "sources": sources,
@@ -450,11 +772,17 @@ def sha256_text(*parts: str) -> str:
     return digest.hexdigest()
 
 
-def sha256_file(path: Path) -> str:
+def sha256_file(path: Path, allowed_root: Path | None = None) -> str:
     digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
+    if allowed_root is not None:
+        payload = _asset_bytes(path, allowed_root, str(path))
+        if payload is None:
+            raise FileNotFoundError(path)
+        digest.update(payload)
+    else:
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
     return digest.hexdigest()
 
 
@@ -1075,10 +1403,11 @@ def sanitize_inline_svg(
     return "\n".join(line.rstrip() for line in serialized.splitlines())
 
 
-def read_diagram_sidecar(svg_path: Path) -> dict[str, object]:
+def read_diagram_sidecar(svg_path: Path, allowed_root: Path | None = None) -> dict[str, object]:
     path = svg_path.with_suffix(".diagram-build.json")
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        source = _asset_bytes(path, allowed_root, str(path))
+        payload = json.loads(source.decode("utf-8")) if source is not None else {}
     except (OSError, UnicodeError, json.JSONDecodeError):
         return {}
     return payload if isinstance(payload, dict) else {}
@@ -1198,12 +1527,7 @@ def read_webp_size(data: bytes) -> tuple[int, int] | None:
     return None
 
 
-def image_size(path: Path) -> tuple[int, int] | None:
-    try:
-        data = path.read_bytes()
-    except OSError:
-        return None
-    suffix = path.suffix.lower()
+def image_size_from_bytes(data: bytes, suffix: str) -> tuple[int, int] | None:
     if suffix == ".svg":
         return read_svg_size(data)
     if data.startswith(b"\x89PNG\r\n\x1a\n") and len(data) >= 24:
@@ -1217,7 +1541,22 @@ def image_size(path: Path) -> tuple[int, int] | None:
     return None
 
 
-def extract_media(body: str, source_dir: Path, output_dir: Path, messages: BuildMessages, slide_no: int) -> tuple[list[Media], str]:
+def image_size(path: Path, allowed_root: Path | None = None) -> tuple[int, int] | None:
+    try:
+        data = _asset_bytes(path, allowed_root, str(path))
+    except OSError:
+        return None
+    return image_size_from_bytes(data, path.suffix.lower()) if data is not None else None
+
+
+def extract_media(
+    body: str,
+    source_dir: Path,
+    output_dir: Path,
+    messages: BuildMessages,
+    slide_no: int,
+    allowed_root: Path | None = None,
+) -> tuple[list[Media], str]:
     media: list[Media] = []
     kept: list[str] = []
     for line in body.splitlines():
@@ -1236,20 +1575,25 @@ def extract_media(body: str, source_dir: Path, output_dir: Path, messages: Build
                 messages.warn(slide_no, f"远程图片无法在构建期读取比例，将按 16:9 处理：{raw_source}")
         else:
             absolute = (source_dir / raw_source).resolve()
-            if not absolute.exists():
+            payload = _asset_bytes(absolute, allowed_root, raw_source)
+            if payload is None:
                 messages.error(slide_no, f"媒体不存在：{raw_source}")
                 size = None
                 output_source = relative_asset_href(absolute, output_dir)
             elif kind == "video":
                 size = None
-                output_source = local_data_uri(absolute, VIDEO_MIME_TYPES[suffix])
+                output_source = f"data:{VIDEO_MIME_TYPES[suffix]};base64,{base64.b64encode(payload).decode('ascii')}"
                 for poster_suffix in (".png", ".jpg", ".jpeg", ".webp"):
                     poster_path = absolute.with_suffix(poster_suffix)
-                    if poster_path.is_file():
-                        poster_source = local_data_uri(poster_path, IMAGE_MIME_TYPES[poster_suffix])
+                    poster_payload = _asset_bytes(poster_path, allowed_root, str(poster_path))
+                    if poster_payload is not None:
+                        poster_source = (
+                            f"data:{IMAGE_MIME_TYPES[poster_suffix]};base64,"
+                            f"{base64.b64encode(poster_payload).decode('ascii')}"
+                        )
                         break
             else:
-                size = image_size(absolute)
+                size = image_size_from_bytes(payload, absolute.suffix.lower())
                 if not size:
                     messages.warn(slide_no, f"无法读取图片尺寸，将按 16:9 处理：{raw_source}")
                 output_source = relative_asset_href(absolute, output_dir)
@@ -1338,12 +1682,14 @@ def parse_svg_diagram(
     slide_no: int,
     stage_size: tuple[int, int],
     block_kind: str | None = None,
+    allowed_root: Path | None = None,
 ) -> Block:
     raw_source = str(config.get("src", "")).strip()
     title = str(config.get("title", f"{engine} 流程图")).strip() or f"{engine} 流程图"
     alt = str(config.get("alt", title)).strip() or title
     caption = str(config.get("caption", "")).strip()
     metrics: dict[str, object] = {"engine": engine, "src": raw_source}
+    svg_payload: bytes | None = None
     if not raw_source:
         messages.error(slide_no, f"{engine} 代码块缺少 src SVG 输出路径")
         source = '<svg class="diagram-svg" viewBox="0 0 16 9"></svg>'
@@ -1357,15 +1703,18 @@ def parse_svg_diagram(
         if svg_path.suffix.lower() != ".svg":
             messages.error(slide_no, f"{engine} src 必须是 .svg：{raw_source}")
         try:
-            source = svg_path.read_text(encoding="utf-8")
+            svg_payload = _asset_bytes(svg_path, allowed_root, raw_source)
+            if svg_payload is None:
+                raise FileNotFoundError(svg_path)
+            source = svg_payload.decode("utf-8")
         except (OSError, UnicodeError) as error:
             messages.error(slide_no, f"{engine} SVG 不存在或无法读取：{raw_source}（{error}）")
             source = '<svg class="diagram-svg" viewBox="0 0 16 9"></svg>'
 
-    sidecar = read_diagram_sidecar(svg_path) if svg_path and svg_path.is_file() else {}
-    if svg_path and svg_path.is_file():
+    sidecar = read_diagram_sidecar(svg_path, allowed_root) if svg_path and svg_payload is not None else {}
+    if svg_path and svg_payload is not None:
         recorded_hash = str(sidecar.get("svgSha256", ""))
-        actual_hash = sha256_file(svg_path)
+        actual_hash = hashlib.sha256(svg_payload).hexdigest()
         if not sidecar:
             messages.error(slide_no, f"{engine} SVG 缺少 .diagram-build.json 质量报告；请运行 --render-diagrams")
         elif recorded_hash != actual_hash:
@@ -1387,7 +1736,10 @@ def parse_svg_diagram(
                     messages.error(slide_no, f"diagram-design source 不存在：{source_raw}")
                 else:
                     recorded_source_hash = str(sidecar.get("sourceHtmlSha256", ""))
-                    if recorded_source_hash != sha256_file(authored_path):
+                    authored_source = _asset_bytes(authored_path, allowed_root, source_raw)
+                    if authored_source is None:
+                        messages.error(slide_no, f"diagram-design source 不存在：{source_raw}")
+                    elif recorded_source_hash != hashlib.sha256(authored_source).hexdigest():
                         messages.error(slide_no, "diagram-design HTML 与 SVG 质量报告不一致；请重新运行 --render-diagrams")
             expected_semantic_hash = mermaid_semantic_hash(definition)
             if str(sidecar.get("mermaidSourceHash", "")) != expected_semantic_hash:
@@ -1441,7 +1793,7 @@ def parse_svg_diagram(
         metrics["minimumSafeMargin"] = round(safe_margin, 2)
         if safe_margin + 0.05 < required_margin:
             messages.error(slide_no, f"{engine} SVG 安全边距 {safe_margin:g}px，低于要求 {required_margin:g}px")
-    elif svg_path and svg_path.is_file():
+    elif svg_path and svg_payload is not None:
         messages.error(slide_no, f"{engine} SVG 质量报告缺少安全边距数据")
 
     prefix = f"diagram-p{slide_no}-{engine}-{sha256_text(raw_source)[:8]}"
@@ -1463,6 +1815,7 @@ def parse_mermaid_block(
     messages: BuildMessages,
     slide_no: int,
     stage_size: tuple[int, int],
+    allowed_root: Path | None = None,
 ) -> Block:
     config, definition = parse_mermaid_fence(raw)
     if config.get("metadata-error"):
@@ -1478,7 +1831,7 @@ def parse_mermaid_block(
     if renderer == "diagram-design" and not str(config.get("source", "")).strip():
         messages.error(slide_no, "renderer: diagram-design 必须提供 source HTML")
     enriched = {**config, "definition": definition}
-    return parse_svg_diagram(enriched, renderer, source_dir, messages, slide_no, stage_size, "mermaid")
+    return parse_svg_diagram(enriched, renderer, source_dir, messages, slide_no, stage_size, "mermaid", allowed_root)
 
 
 def parse_excalidraw_block(
@@ -1487,6 +1840,7 @@ def parse_excalidraw_block(
     messages: BuildMessages,
     slide_no: int,
     stage_size: tuple[int, int],
+    allowed_root: Path | None = None,
 ) -> Block:
     config = parse_key_values(raw)
     raw_scene = str(config.get("source", "")).strip()
@@ -1498,9 +1852,9 @@ def parse_excalidraw_block(
         scene_path = (source_dir / raw_scene).resolve()
         if scene_path.suffix.lower() not in {".excalidraw", ".json"}:
             messages.error(slide_no, f"excalidraw source 必须是 .excalidraw 或 .json：{raw_scene}")
-        elif not scene_path.is_file():
+        elif _asset_bytes(scene_path, allowed_root, raw_scene) is None:
             messages.error(slide_no, f"excalidraw source 不存在：{raw_scene}")
-    return parse_svg_diagram(config, "excalidraw", source_dir, messages, slide_no, stage_size)
+    return parse_svg_diagram(config, "excalidraw", source_dir, messages, slide_no, stage_size, None, allowed_root)
 
 
 def resolve_block_asset(
@@ -1510,11 +1864,13 @@ def resolve_block_asset(
     messages: BuildMessages,
     slide_no: int,
     label: str,
+    allowed_root: Path | None = None,
 ) -> str:
     if raw_source.startswith(REMOTE_ASSET_PREFIXES):
         return raw_source
     absolute = (source_dir / raw_source).resolve()
-    if not absolute.exists():
+    exists = absolute.exists() if allowed_root is None else _asset_bytes(absolute, allowed_root, raw_source) is not None
+    if not exists:
         messages.error(slide_no, f"Archscribe {label}不存在：{raw_source}")
     return relative_asset_href(absolute, output_dir)
 
@@ -1540,6 +1896,7 @@ def validate_archscribe_typography(
     source_dir: Path,
     messages: BuildMessages,
     slide_no: int,
+    allowed_root: Path | None = None,
 ) -> dict[str, float]:
     raw_source = str(config.get("src", "")).strip()
     raw_poster = str(config.get("poster", "")).strip()
@@ -1548,15 +1905,17 @@ def validate_archscribe_typography(
     gif_path = (source_dir / raw_source).resolve()
     poster_path = (source_dir / raw_poster).resolve() if raw_poster else gif_path.with_suffix(".png")
     excalidraw_path = gif_path.with_suffix(".excalidraw")
-    if not poster_path.is_file() or not excalidraw_path.is_file():
+    poster_payload = _asset_bytes(poster_path, allowed_root, str(poster_path))
+    excalidraw_payload = _asset_bytes(excalidraw_path, allowed_root, str(excalidraw_path))
+    if poster_payload is None or excalidraw_payload is None:
         messages.warn(slide_no, "缺少 PNG 或 Excalidraw，无法校验 Archscribe 在 Slide 中的实际字号")
         return {}
-    size = image_size(poster_path)
+    size = image_size_from_bytes(poster_payload, poster_path.suffix.lower())
     if not size:
         messages.warn(slide_no, f"无法读取 Archscribe poster 尺寸：{raw_poster or poster_path.name}")
         return {}
     try:
-        payload = json.loads(excalidraw_path.read_text(encoding="utf-8"))
+        payload = json.loads(excalidraw_payload.decode("utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as error:
         messages.warn(slide_no, f"无法读取 Archscribe Excalidraw 字号：{error}")
         return {}
@@ -1637,7 +1996,8 @@ def validate_archscribe_typography(
         result["minimumSafeMargin"] = round(safe_margin_result, 2)
     cache_path = gif_path.with_suffix(".archscribe-build.json")
     try:
-        delivery_cache = json.loads(cache_path.read_text(encoding="utf-8")) if cache_path.is_file() else {}
+        cache_payload = _asset_bytes(cache_path, allowed_root, str(cache_path))
+        delivery_cache = json.loads(cache_payload.decode("utf-8")) if cache_payload is not None else {}
     except (OSError, UnicodeError, json.JSONDecodeError):
         delivery_cache = {}
     if isinstance(delivery_cache.get("minimumRasterMargin"), (int, float)):
@@ -1661,6 +2021,7 @@ def parse_archscribe(
     output_dir: Path,
     messages: BuildMessages,
     slide_no: int,
+    allowed_root: Path | None = None,
 ) -> Block:
     config = parse_key_values(raw)
     raw_source = str(config.get("src", "")).strip()
@@ -1675,23 +2036,23 @@ def parse_archscribe(
         messages.error(slide_no, "archscribe mask 必须是 x,y,width,height 四个非负数")
     elif raw_mask and not raw_crop:
         messages.error(slide_no, "archscribe mask 必须与 crop 一起使用")
-    typography = validate_archscribe_typography(config, source_dir, messages, slide_no)
+    typography = validate_archscribe_typography(config, source_dir, messages, slide_no, allowed_root)
 
     if not raw_source:
         messages.error(slide_no, "archscribe 代码块缺少 src")
         raw_source = "missing-archscribe-diagram.gif"
     elif not raw_source.lower().endswith(".gif"):
         messages.warn(slide_no, "archscribe src 建议使用 GIF，以保留流程动画")
-    source = resolve_block_asset(raw_source, source_dir, output_dir, messages, slide_no, "动画")
+    source = resolve_block_asset(raw_source, source_dir, output_dir, messages, slide_no, "动画", allowed_root)
 
     if not raw_spec:
         messages.error(slide_no, "archscribe 代码块缺少 spec，无法复现流程图")
     elif not raw_spec.startswith(REMOTE_ASSET_PREFIXES):
-        resolve_block_asset(raw_spec, source_dir, output_dir, messages, slide_no, "配置")
+        resolve_block_asset(raw_spec, source_dir, output_dir, messages, slide_no, "配置", allowed_root)
 
     poster_source = ""
     if raw_poster:
-        poster_source = resolve_block_asset(raw_poster, source_dir, output_dir, messages, slide_no, "静态海报")
+        poster_source = resolve_block_asset(raw_poster, source_dir, output_dir, messages, slide_no, "静态海报", allowed_root)
     else:
         messages.warn(slide_no, "archscribe 代码块未提供 poster；减少动态效果时仍会播放 GIF")
 
@@ -1790,6 +2151,7 @@ def parse_blocks(
     slide_no: int,
     citations: CitationRegistry | None = None,
     diagram_stage_size: tuple[int, int] = (DIAGRAM_STAGE_WIDTH, DIAGRAM_STAGE_HEIGHT),
+    allowed_root: Path | None = None,
 ) -> list[Block]:
     lines = body.splitlines()
     blocks: list[Block] = []
@@ -1828,11 +2190,11 @@ def parse_blocks(
             if language == "chart":
                 blocks.append(parse_chart("\n".join(fenced), messages, slide_no))
             elif language == "mermaid":
-                blocks.append(parse_mermaid_block("\n".join(fenced), source_dir, messages, slide_no, diagram_stage_size))
+                blocks.append(parse_mermaid_block("\n".join(fenced), source_dir, messages, slide_no, diagram_stage_size, allowed_root))
             elif language == "excalidraw":
-                blocks.append(parse_excalidraw_block("\n".join(fenced), source_dir, messages, slide_no, diagram_stage_size))
+                blocks.append(parse_excalidraw_block("\n".join(fenced), source_dir, messages, slide_no, diagram_stage_size, allowed_root))
             elif language == "archscribe":
-                blocks.append(parse_archscribe("\n".join(fenced), source_dir, output_dir, messages, slide_no))
+                blocks.append(parse_archscribe("\n".join(fenced), source_dir, output_dir, messages, slide_no, allowed_root))
             else:
                 label = html.escape(language or "code")
                 code = html.escape("\n".join(fenced))
@@ -1964,7 +2326,16 @@ def resolve_layout(kind: str, requested: str, media: list[Media], blocks: list[B
     return "split"
 
 
-def parse_slide(chunk: str, number: int, deck: dict[str, object], source_dir: Path, output_dir: Path, messages: BuildMessages, citations: CitationRegistry | None = None) -> Slide:
+def parse_slide(
+    chunk: str,
+    number: int,
+    deck: dict[str, object],
+    source_dir: Path,
+    output_dir: Path,
+    messages: BuildMessages,
+    citations: CitationRegistry | None = None,
+    allowed_root: Path | None = None,
+) -> Slide:
     config, cleaned = clean_directive(chunk)
     title, subtitle, body = pop_headings(cleaned)
     kind = config.get("type", "content").lower()
@@ -1974,7 +2345,7 @@ def parse_slide(chunk: str, number: int, deck: dict[str, object], source_dir: Pa
     if not title:
         messages.error(number, "页面缺少一级标题（# 标题）")
         title = f"未命名页面 {number}"
-    media, body_without_media = extract_media(body, source_dir, output_dir, messages, number)
+    media, body_without_media = extract_media(body, source_dir, output_dir, messages, number, allowed_root)
     pure_image = bool_config(config, "pure-image", False)
     if pure_image and kind not in {"cover", "section"}:
         messages.warn(number, "pure-image 只适用于 cover / section 页面，已忽略")
@@ -1988,7 +2359,16 @@ def parse_slide(chunk: str, number: int, deck: dict[str, object], source_dir: Pa
         messages.error(number, "pure-image 页面只支持图片；视频请使用 content 页面")
     fullstage = not bool_config(config, "footer", True)
     diagram_stage_size = (DIAGRAM_STAGE_WIDTH, DIAGRAM_STAGE_HEIGHT) if fullstage else (1700, 716)
-    blocks = parse_blocks(body_without_media, source_dir, output_dir, messages, number, citations, diagram_stage_size)
+    blocks = parse_blocks(
+        body_without_media,
+        source_dir,
+        output_dir,
+        messages,
+        number,
+        citations,
+        diagram_stage_size,
+        allowed_root,
+    )
     requested = config.get("layout", "auto").lower()
     resolved = resolve_layout(kind, requested, media, blocks, messages, number)
     section = config.get("section", "") or str(deck.get("default-section", ""))
@@ -2153,19 +2533,30 @@ def normalize_animation(value: object, messages: BuildMessages, slide_no: int) -
     return {"mode": mode, "order": order[:64], "stepMs": max(40, min(600, step_ms))}
 
 
+_UNSET_LAYOUT_BYTES = object()
+
+
 def load_layout_overrides(
     path: Path | None,
     messages: BuildMessages,
     expected_source_hash: str | None = None,
+    source_bytes: bytes | None | object = _UNSET_LAYOUT_BYTES,
 ) -> dict[str, object]:
     if path is None:
         return {"schemaVersion": EDITOR_SCHEMA_VERSION, "stage": {"width": STAGE_WIDTH, "height": STAGE_HEIGHT}, "slides": {}}
-    if not path.exists():
-        messages.error(None, f"布局覆盖文件不存在：{path}")
-        return {"schemaVersion": EDITOR_SCHEMA_VERSION, "stage": {"width": STAGE_WIDTH, "height": STAGE_HEIGHT}, "slides": {}}
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
+        if source_bytes is _UNSET_LAYOUT_BYTES:
+            if not path.exists():
+                messages.error(None, f"布局覆盖文件不存在：{path}")
+                return {"schemaVersion": EDITOR_SCHEMA_VERSION, "stage": {"width": STAGE_WIDTH, "height": STAGE_HEIGHT}, "slides": {}}
+            raw_source = path.read_bytes()
+        elif source_bytes is None:
+            messages.error(None, f"布局覆盖文件不存在：{path}")
+            return {"schemaVersion": EDITOR_SCHEMA_VERSION, "stage": {"width": STAGE_WIDTH, "height": STAGE_HEIGHT}, "slides": {}}
+        else:
+            raw_source = source_bytes
+        payload = json.loads(raw_source.decode("utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
         messages.error(None, f"无法读取布局覆盖文件：{error}")
         return {"schemaVersion": EDITOR_SCHEMA_VERSION, "stage": {"width": STAGE_WIDTH, "height": STAGE_HEIGHT}, "slides": {}}
     if not isinstance(payload, dict) or not isinstance(payload.get("slides", {}), dict):
@@ -3157,20 +3548,26 @@ def build(
     diagram_node: Path | None = None,
     diagram_chrome: Path | None = None,
     force_diagrams: bool = False,
+    allowed_asset_root: Path | None = None,
+    source_snapshot: str | None = None,
+    discover_overrides: bool = True,
 ) -> int:
     messages = BuildMessages()
     if not TEMPLATE_PATH.exists():
         print(f"ERROR: template missing: {TEMPLATE_PATH}", file=sys.stderr)
         return 2
-    try:
-        # Keep the authored byte-level newline convention for source hashing and
-        # browser round-trips. Path.read_text() enables universal-newline
-        # translation and would make a CRLF deck disagree with its disk hash.
-        with source_path.open("r", encoding="utf-8", newline="") as source_handle:
-            source = source_handle.read()
-    except (OSError, UnicodeError) as error:
-        print(f"ERROR: cannot read Markdown source {source_path}: {error}", file=sys.stderr)
-        return 2
+    if source_snapshot is None:
+        try:
+            # Keep the authored byte-level newline convention for source hashing and
+            # browser round-trips. Path.read_text() enables universal-newline
+            # translation and would make a CRLF deck disagree with its disk hash.
+            with source_path.open("r", encoding="utf-8", newline="") as source_handle:
+                source = source_handle.read()
+        except (OSError, UnicodeError) as error:
+            print(f"ERROR: cannot read Markdown source {source_path}: {error}", file=sys.stderr)
+            return 2
+    else:
+        source = source_snapshot
     authoring_document = parse_authoring_document(source, source_path.name)
     mermaid_specs = find_mermaid_specs(source)
     excalidraw_configs = find_excalidraw_configs(source)
@@ -3225,7 +3622,19 @@ def build(
     if not chunks:
         print("ERROR: no slides found", file=sys.stderr)
         return 2
-    slides = [parse_slide(chunk, index, deck, source_path.parent, output_path.parent, messages, citations) for index, chunk in enumerate(chunks, 1)]
+    slides = [
+        parse_slide(
+            chunk,
+            index,
+            deck,
+            source_path.parent,
+            output_path.parent,
+            messages,
+            citations,
+            allowed_asset_root,
+        )
+        for index, chunk in enumerate(chunks, 1)
+    ]
     for slide, source_slide in zip(slides, authoring_document.slides):
         if slide.slide_id == source_slide.slide_id:
             bind_authoring_metadata(slide, source_slide)
@@ -3253,14 +3662,22 @@ def build(
             messages.error(slide.number, f"页面 id={slide.slide_id} 重复；编辑器覆盖要求每页 ID 唯一")
         seen_ids.add(slide.slide_id)
     resolved_overrides_path = overrides_path
-    if resolved_overrides_path is None:
+    if resolved_overrides_path is None and discover_overrides:
         automatic = source_path.with_suffix(".layout.json")
         if automatic.exists():
             resolved_overrides_path = automatic
+    layout_source_bytes: bytes | None | object = _UNSET_LAYOUT_BYTES
+    if resolved_overrides_path is not None and allowed_asset_root is not None:
+        layout_source_bytes = _asset_bytes(
+            resolved_overrides_path,
+            allowed_asset_root,
+            str(resolved_overrides_path),
+        )
     editor_payload = load_layout_overrides(
         resolved_overrides_path,
         messages,
         authoring_document.revision,
+        layout_source_bytes,
     )
     applied_overrides = apply_layout_overrides(slides, editor_payload, messages)
     density = str(deck.get("density", "reading")).lower()
@@ -3273,7 +3690,7 @@ def build(
     sections = collect_sections(deck, slides, messages)
     section_chapters = collect_section_chapters(sections, slides)
     rendered = "\n".join(render_slide(slide, deck, sections, section_chapters, citations) for slide in slides)
-    static_export_assets = static_export_asset_manifest(rendered, output_path.parent)
+    static_export_assets = static_export_asset_manifest(rendered, output_path.parent, allowed_asset_root)
     title = str(deck.get("title", slides[0].title))
     embedded_editor_config = {
         "schemaVersion": EDITOR_SCHEMA_VERSION,
@@ -3308,7 +3725,9 @@ def build(
             if resolved_overrides_path
             else source_path.with_suffix(".layout.json").name
         )
-        if resolved_overrides_path and resolved_overrides_path.is_file():
+        if isinstance(layout_source_bytes, bytes):
+            authoring_source["layoutSha256"] = hashlib.sha256(layout_source_bytes).hexdigest()
+        elif resolved_overrides_path and resolved_overrides_path.is_file():
             authoring_source["layoutSha256"] = sha256_file(resolved_overrides_path)
     authoring_json = json.dumps(authoring_payload, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
     static_export_assets_json = json.dumps(static_export_assets, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
@@ -3366,8 +3785,10 @@ def build(
         report["diagrams"] = diagram_report
     report_path = output_path.with_suffix(".build.json")
     try:
-        write_text_atomic(output_path, template)
-        write_text_atomic(report_path, json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+        write_text_artifacts_atomic((
+            (output_path, template),
+            (report_path, json.dumps(report, ensure_ascii=False, indent=2) + "\n"),
+        ))
     except OSError as error:
         print(f"ERROR: cannot write build artifacts: {error}", file=sys.stderr)
         return 2

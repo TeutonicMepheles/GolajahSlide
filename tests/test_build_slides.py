@@ -7,8 +7,10 @@ import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import build_slides
 
@@ -1244,6 +1246,258 @@ gallery-display: tabs
             if os.name != "nt":
                 self.assertEqual(target.stat().st_mode & 0o777, 0o644)
             self.assertEqual(list(target.parent.glob(f".{target.name}.*.tmp")), [])
+
+    def test_static_manifest_hashes_and_embeds_one_opened_payload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            asset = root / "asset.png"
+            payload = b"one immutable opened payload"
+            asset.write_bytes(payload)
+            with (
+                mock.patch.object(build_slides, "sha256_file", side_effect=AssertionError("reopened for hash")),
+                mock.patch.object(build_slides, "local_data_uri", side_effect=AssertionError("reopened for data URI")),
+            ):
+                manifest = build_slides.static_export_asset_manifest(
+                    '<img src="asset.png">',
+                    root,
+                    root,
+                )
+            digest = build_slides.hashlib.sha256(payload).hexdigest()
+            self.assertEqual(manifest["sources"], {"asset.png": digest})
+            self.assertEqual(
+                manifest["assets"][digest],
+                "data:image/png;base64," + build_slides.base64.b64encode(payload).decode("ascii"),
+            )
+
+    def test_static_manifest_does_not_follow_post_check_symlink_swap(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            asset = root / "asset.png"
+            outside = root.parent / f"{root.name}-outside.png"
+            asset.write_bytes(b"inside")
+            outside.write_bytes(b"outside-secret")
+            self.addCleanup(outside.unlink, missing_ok=True)
+            original_open = build_slides.os.open
+            swapped = False
+
+            def open_then_swap(path, flags, mode=0o777, *, dir_fd=None):
+                nonlocal swapped
+                descriptor = original_open(path, flags, mode, dir_fd=dir_fd)
+                if not swapped and dir_fd is None and Path(path) == root.resolve():
+                    asset.unlink()
+                    asset.symlink_to(outside)
+                    swapped = True
+                return descriptor
+
+            with mock.patch.object(build_slides.os, "open", side_effect=open_then_swap):
+                manifest = build_slides.static_export_asset_manifest(
+                    '<img src="asset.png">',
+                    root,
+                    root,
+                )
+            self.assertTrue(swapped)
+            self.assertEqual(manifest["sources"], {})
+            self.assertNotIn("outside-secret", json.dumps(manifest))
+
+    def test_rooted_static_manifest_rejects_local_svg_reference(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "nested.png").write_bytes(b"nested")
+            (root / "asset.svg").write_text(
+                '<svg xmlns="http://www.w3.org/2000/svg"><image href="nested.png"/></svg>',
+                encoding="utf-8",
+            )
+            with self.assertRaises(build_slides.UnsafeAssetReferenceError):
+                build_slides.static_export_asset_manifest(
+                    '<img src="asset.svg">',
+                    root,
+                    root,
+                )
+
+    def test_build_report_commit_failure_restores_previous_artifact_pair(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            report = root / "index.build.json"
+            markdown.write_text("# 新页面\n\n正文。\n", encoding="utf-8")
+            output.write_text("old html", encoding="utf-8")
+            report.write_text("old report", encoding="utf-8")
+            original_replace = build_slides.os.replace
+            failed = False
+
+            def fail_new_report_commit(source, destination):
+                nonlocal failed
+                if (
+                    not failed
+                    and Path(destination) == report
+                    and Path(source).name.endswith(".tmp")
+                ):
+                    failed = True
+                    raise OSError("injected report commit failure")
+                return original_replace(source, destination)
+
+            with mock.patch.object(build_slides.os, "replace", side_effect=fail_new_report_commit):
+                result = build_slides.build(markdown, output, strict=True)
+
+            self.assertTrue(failed)
+            self.assertEqual(result, 2)
+            self.assertEqual(output.read_text(encoding="utf-8"), "old html")
+            self.assertEqual(report.read_text(encoding="utf-8"), "old report")
+            self.assertEqual(list(root.glob(".*.tmp")), [])
+            self.assertEqual(list(root.glob(".*.bak")), [])
+
+    def test_artifact_backup_failure_never_replaces_original_with_empty_slot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first = root / "first.txt"
+            second = root / "second.txt"
+            first.write_text("first old", encoding="utf-8")
+            second.write_text("second old", encoding="utf-8")
+            original_backup = build_slides._backup_slot
+            failed = False
+
+            def fail_second_backup(path):
+                nonlocal failed
+                if not failed and Path(path) == second:
+                    failed = True
+                    raise OSError("injected backup move failure")
+                return original_backup(path)
+
+            with (
+                mock.patch.object(build_slides, "_backup_slot", side_effect=fail_second_backup),
+                self.assertRaises(OSError),
+            ):
+                build_slides.write_text_artifacts_atomic((
+                    (first, "first new"),
+                    (second, "second new"),
+                ))
+
+            self.assertTrue(failed)
+            self.assertEqual(first.read_text(encoding="utf-8"), "first old")
+            self.assertEqual(second.read_text(encoding="utf-8"), "second old")
+            self.assertEqual(list(root.glob(".*.tmp")), [])
+            self.assertEqual(list(root.glob(".*.bak")), [])
+
+    def test_overlapping_artifact_pairs_are_serialized(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            html = root / "index.html"
+            report = root / "index.build.json"
+            first_entered = threading.Event()
+            release_first = threading.Event()
+            second_entered = threading.Event()
+            original_write = build_slides._write_text_artifacts_locked
+            entry_count = 0
+            entry_guard = threading.Lock()
+
+            def controlled_write(entries):
+                nonlocal entry_count
+                with entry_guard:
+                    entry_count += 1
+                    current = entry_count
+                if current == 1:
+                    first_entered.set()
+                    self.assertTrue(release_first.wait(5), "timed out releasing first artifact writer")
+                else:
+                    second_entered.set()
+                return original_write(entries)
+
+            errors = []
+
+            def write_pair(label):
+                try:
+                    build_slides.write_text_artifacts_atomic(((html, f"{label}-html"), (report, f"{label}-report")))
+                except Exception as error:  # pragma: no cover - surfaced by assertion below.
+                    errors.append(error)
+
+            with mock.patch.object(build_slides, "_write_text_artifacts_locked", side_effect=controlled_write):
+                first = threading.Thread(target=write_pair, args=("A",))
+                second = threading.Thread(target=write_pair, args=("B",))
+                first.start()
+                self.assertTrue(first_entered.wait(5), "first artifact writer did not enter")
+                second.start()
+                self.assertFalse(second_entered.wait(0.1), "second writer entered before the first released its lock")
+                release_first.set()
+                first.join(5)
+                second.join(5)
+
+            self.assertFalse(first.is_alive() or second.is_alive())
+            self.assertEqual(errors, [])
+            self.assertTrue(second_entered.is_set())
+            self.assertEqual(html.read_text(encoding="utf-8"), "B-html")
+            self.assertEqual(report.read_text(encoding="utf-8"), "B-report")
+
+    def test_artifact_rollback_does_not_overwrite_external_newer_content(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            html = root / "index.html"
+            report = root / "index.build.json"
+            html.write_text("old-html", encoding="utf-8")
+            report.write_text("old-report", encoding="utf-8")
+            original_replace = build_slides.os.replace
+
+            def fail_report_after_external_html_write(source, destination):
+                if Path(destination) == report and Path(source).name.endswith(".tmp"):
+                    html.write_text("external-newer-html", encoding="utf-8")
+                    raise OSError("injected report commit failure")
+                return original_replace(source, destination)
+
+            with (
+                mock.patch.object(
+                    build_slides.os,
+                    "replace",
+                    side_effect=fail_report_after_external_html_write,
+                ),
+                self.assertRaises(OSError) as raised,
+            ):
+                build_slides.write_text_artifacts_atomic((
+                    (html, "new-html"),
+                    (report, "new-report"),
+                ))
+
+            self.assertEqual(html.read_text(encoding="utf-8"), "external-newer-html")
+            self.assertEqual(report.read_text(encoding="utf-8"), "old-report")
+            self.assertTrue(
+                any("rollback skipped" in note for note in getattr(raised.exception, "__notes__", ())),
+                getattr(raised.exception, "__notes__", ()),
+            )
+            self.assertEqual(list(root.glob(".*.tmp")), [])
+            self.assertEqual(list(root.glob(".*.bak")), [])
+
+    def test_artifact_success_verification_detects_external_mixed_pair(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            html = root / "index.html"
+            report = root / "index.build.json"
+            html.write_text("old-html", encoding="utf-8")
+            report.write_text("old-report", encoding="utf-8")
+            original_replace = build_slides.os.replace
+
+            def mutate_html_after_report_commit(source, destination):
+                result = original_replace(source, destination)
+                if Path(destination) == report and Path(source).name.endswith(".tmp"):
+                    html.write_text("external-newer-html", encoding="utf-8")
+                return result
+
+            with (
+                mock.patch.object(build_slides.os, "replace", side_effect=mutate_html_after_report_commit),
+                self.assertRaises(OSError) as raised,
+            ):
+                build_slides.write_text_artifacts_atomic((
+                    (html, "new-html"),
+                    (report, "new-report"),
+                ))
+
+            self.assertIn("artifact changed during commit verification", str(raised.exception))
+            self.assertEqual(html.read_text(encoding="utf-8"), "external-newer-html")
+            self.assertEqual(report.read_text(encoding="utf-8"), "old-report")
+            self.assertTrue(
+                any("rollback skipped" in note for note in getattr(raised.exception, "__notes__", ())),
+                getattr(raised.exception, "__notes__", ()),
+            )
+            self.assertEqual(list(root.glob(".*.tmp")), [])
+            self.assertEqual(list(root.glob(".*.bak")), [])
 
 
 if __name__ == "__main__":

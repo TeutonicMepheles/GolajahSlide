@@ -137,6 +137,16 @@ python3 build_slides.py examples/archscribe/slides.md -o examples/archscribe/ind
 
 向 AI 提供观众、沟通目标、核心结论、已知证据、素材路径、页数和使用场景，再要求它先规划每页的沟通任务，确认后生成 Markdown。可直接复用的提示词见 [Markdown 内容规范：与 AI 协作](docs/MARKDOWN-SPEC.md#14-与-ai-协作编写-slide)。
 
+需要让 Hermes 等 Agent 直接盘点、检索、生成质量报告或安全修改演示稿时，使用 JSON-first Agent CLI；同一入口也可作为本地 stdio MCP server：
+
+```bash
+python3 golajah_slide_agent.py inspect examples/basic/slides.md
+python3 golajah_slide_agent.py audit examples/basic/slides.md
+python3 golajah_slide_agent.py mcp --root /absolute/path/to/deck-directory
+```
+
+内容写入默认只返回 diff；实际保存必须提供刚读取到的源文件 SHA-256，存在布局 sidecar 时还需提供其 SHA-256。完整命令、operation schema、Hermes 配置和安全边界见 [Agent CLI and MCP](docs/AGENT-TOOLS.md)。
+
 ## License
 
 [MIT](LICENSE)

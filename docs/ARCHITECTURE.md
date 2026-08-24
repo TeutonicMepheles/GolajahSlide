@@ -17,11 +17,14 @@ GolajahSlide has two runtimes:
 
 The boundary between them is generated HTML plus embedded JSON and `data-*` attributes. Browser features must not depend on Python implementation details, and Python features must not reproduce browser state machines.
 
+`golajah_slide_agent.py` is an adapter around the build runtime, not a third rendering runtime. Its CLI and stdio MCP interfaces reuse the lossless authoring model and builder, add revision/path guards, and never become an alternate Markdown parser.
+
 ## Source ownership
 
 | Path | Ownership |
 |---|---|
 | `build_slides.py` | Compatible CLI and current build-runtime composition root |
+| `golajah_slide_agent.py` | JSON-first Agent service, CLI, safe edit transaction, and local stdio MCP adapter |
 | `src/web/features/<feature>/` | Browser Feature behavior, styles, public contract, and local documentation |
 | `templates/deck.html` | Browser composition shell and shared markup only |
 | `harnesses/<feature>/` | Minimal executable scenario for one Feature |
@@ -36,6 +39,7 @@ Feature source fragments are composed into `templates/deck.html` during the Pyth
 ```text
 composition shell -> features -> shared browser primitives
 build orchestration -> compiler capabilities -> core models/diagnostics
+Agent adapters -> lossless authoring model + build orchestration
 ```
 
 - Feature internals are private by default.
