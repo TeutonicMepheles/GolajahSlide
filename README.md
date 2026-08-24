@@ -1,164 +1,368 @@
 # GolajahSlide
 
-一个零第三方依赖的 Markdown → HTML Slides 构建器。它将结构化 Markdown 编译为固定 1920×1080 的单文件演示页面，并提供自动布局、演示控制、页面编辑器、布局覆盖和构建诊断。
+[中文](#中文) · [English](#english)
 
-## 快速开始
+把 Markdown 做成可编辑、可演示、可交付的 16:9 单文件 HTML 幻灯片。
 
-需要 Python 3.10 或更高版本，不需要安装 npm 或 Python 包。
+Turn Markdown into an editable, presentation-ready, self-contained 16:9 HTML deck.
+
+---
+
+## 中文
+
+### 适合谁
+
+GolajahSlide 面向希望专注内容与视觉的设计师、讲师和内容创作者。你用 Markdown 整理结构，用浏览器调整版式，最终只需交付一个 HTML 文件。
+
+- 固定 1920×1080 画布，适合投影和录屏
+- 自动安排文字、图片、视频、Gallery、表格和图表
+- 在浏览器中编辑内容、版式、品牌 Logo 和 Chapter
+- 导出单文件 HTML、静态 PDF 或 PowerPoint
+- 可用 CLI 或 MCP 让 AI Agent 安全检查和修改文稿
+- 演示现场不依赖网络、在线字体或 JavaScript 框架
+
+### 安装
+
+#### 基础安装：只做普通幻灯片
+
+需要：
+
+- macOS、Windows 或 Linux
+- Python 3.10 或更高版本
+- Chrome、Edge 或 Safari 等现代浏览器
+
+下载项目后进入目录，不需要安装 Python 包：
 
 ```bash
+git clone https://github.com/TeutonicMepheles/GolajahSlide.git
+cd GolajahSlide
 python3 build_slides.py
 ```
 
-默认读取 `examples/basic/slides.md`，生成：
+默认会把 `examples/basic/slides.md` 生成成：
 
-- `examples/basic/index.html`
-- `examples/basic/index.build.json`
+- `examples/basic/index.html`：可直接打开和交付的演示稿
+- `examples/basic/index.build.json`：构建检查报告
 
-也可以构建自己的演示：
-
-```bash
-python3 build_slides.py path/to/slides.md -o path/to/index.html
-```
-
-正式交付前使用严格模式：
+构建自己的文稿：
 
 ```bash
 python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 ```
 
-## 仓库结构
+`--strict` 会把设计警告也视为失败，建议在正式交付前使用。
 
-```text
-.
-├── build_slides.py
-├── golajah_slide_agent.py      # JSON-first Agent CLI 与 stdio MCP 入口
-├── src/
-│   └── web/
-│       └── features/       # 浏览器 Feature 的行为、样式和契约
-├── templates/
-│   └── deck.html           # 最终 HTML 的组合壳
-├── docs/
-│   ├── ARCHITECTURE.md
-│   ├── AGENT-TOOLS.md
-│   ├── plans/
-│   ├── MARKDOWN-SPEC.md
-│   └── LAYOUT-SPEC.md
-├── harnesses/              # 每个交互 Feature 的最小可运行场景
-├── examples/
-│   └── basic/
-│       ├── slides.md
-│       ├── slides.layout.json
-│       ├── index.html
-│       ├── index.build.json
-│       └── assets/
-└── tests/                   # Python 契约/集成测试与真实浏览器测试
+#### 可选安装：重新生成 Mermaid / Excalidraw 图表
+
+只有在图表源码发生变化时，才需要 Node.js 20+ 和项目锁定的 Mermaid CLI 等工具：
+
+```bash
+npm install
+python3 build_slides.py path/to/slides.md -o path/to/index.html --render-diagrams --strict
 ```
 
-工程边界、依赖方向和 Feature 完成条件见[架构说明](docs/ARCHITECTURE.md)；实施中的功能及状态见 [Plan 索引](docs/plans/README.md)。
+平时构建会直接使用已经生成的 SVG，不需要 Node.js。
 
-## 工作方式
+### 推荐搭配
 
-1. 按照 [Markdown 内容规范](docs/MARKDOWN-SPEC.md) 编写页面。
-2. 构建并在浏览器中打开 HTML。
-3. 按 `E` 打开页面编辑器，编辑文本/Callout/图片与 Chapter 归属，或调整布局、区域、正文排版与动画顺序。
-4. 点击“保存改动”安全写回 Markdown、同名 `.layout.json` 与新增资产；也可仅导出布局覆盖。
-5. 重新构建；构建器会自动读取同目录的覆盖文件。
-6. 查看 `.build.json`，处理警告和错误。
+| 工具 | 推荐用途 | 是否必需 |
+|---|---|---:|
+| [Obsidian](https://obsidian.md/) | 管理 Markdown、图片、视频和资料；适合用文件夹组织一套演示稿 | 否 |
+| [Mermaid CLI](https://github.com/mermaid-js/mermaid-cli) | 从 Mermaid 文本生成规整流程图；已由 `npm install` 按项目版本安装 | 仅重新生成图表时 |
+| Chrome / Edge | 预览、编辑、全屏演示和导出 | 建议 |
+| Codex / Hermes 等 AI Agent | 盘点内容、查找页面、审校和生成可审阅的修改 | 否 |
+| Git | 保存版本、审阅差异和协作 | 建议 |
 
-编辑器打开时优先选中当前页的图片或文字区域；内容和布局是高频分组并默认展开，样式、全局和文件操作默认折叠。整体内容区域的移动与缩放保留为显式的低频选项。
+Obsidian 很适合管理源文件，但图片请使用标准 Markdown 写法：
 
-`slides.layout.json` 只描述一份演示文稿的页面覆盖，不是全局主题配置。布局文件的完整结构见 [布局覆盖规范](docs/LAYOUT-SPEC.md)。
+```markdown
+![界面操作示意](assets/demo.png "可选图注")
+```
 
-## 已支持的内容
+不要使用 Obsidian 专有的 `![[demo.png]]` 嵌入语法；GolajahSlide 需要明确、可移植的相对路径。
 
-- 封面页、章节页和内容页
-- 标题、副标题、段落、列表和内容卡片
-- GFM 表格、callout 和代码块
-- PNG、JPEG、GIF、WebP、SVG 与远程图片
-- `bar`、`line`、`donut` 单序列轻量图表
-- 可选 Archscribe 动态流程图（GIF 动画、PNG 减少动态效果降级、Excalidraw 可编辑源文件）
-- 自动选择文字、左右图文、大图、画廊、表格和图表布局
-- 图片缩放、拖拽、全屏和临时标注
-- 独立视频、Gallery Tab 和 Gallery 并列视频的统一全屏播放入口
-- 页面级布局、坐标、正文样式和动画顺序覆盖
-- 编辑模式新增/排序/跨页移动文本块与 Callout，上传/拖放/粘贴图片，并切换多图并列或 Gallery
-- 编辑模式调整当前页 Chapter item，保存后安全写回 Markdown、布局 sidecar 与新增资产
-- 默认无动效的 PDF 与 PowerPoint 静态导出；另可实验性导出带原生淡化页间转场的 PPTX。Gallery 隐藏 Tab 展开为附加页，两种 PPTX 每页均为保真的全画幅静态图
-- 构建期内容密度检查与浏览器运行时溢出诊断
-- 页脚 Section 子章节导航（悬浮向上展开，点击跳转到子章节首个 Page）
+### 设计师工作流
 
-## 演示操作
+1. 复制 `examples/basic/`，把 `slides.md` 和 `assets/` 放在同一项目文件夹中。
+2. 按 [Markdown 内容规范](docs/MARKDOWN-SPEC.md) 编写页面；通常让 `layout: auto` 自动排版。
+3. 运行严格构建，打开生成的 `index.html`。
+4. 按 `E` 打开编辑器，调整文字、图片、Callout、Chapter、布局和样式。
+5. 点击“保存改动”写回 Markdown、布局文件和新增资产，然后重新构建。
+6. 检查 `.build.json`，并在电脑和手机尺寸下浏览重点页面。
+7. 交付单个 HTML；如需要评审稿，再从编辑器导出 PDF 或 PowerPoint。
+
+编辑器保存前会校验源文件，避免覆盖在别处已经修改过的 Markdown。保存后必须重新构建，新的 HTML 和检查报告才会更新。
+
+### 常用 CLI
+
+```bash
+# 查看全部参数
+python3 build_slides.py --help
+
+# 构建默认示例
+python3 build_slides.py
+
+# 构建指定文稿
+python3 build_slides.py slides.md -o index.html
+
+# 正式交付检查
+python3 build_slides.py slides.md -o index.html --strict
+
+# 图表源码变化后重新生成 SVG
+python3 build_slides.py slides.md -o index.html --render-diagrams --strict
+```
+
+图表详细写法见 [DIAGRAMS.md](docs/DIAGRAMS.md)，布局覆盖见 [LAYOUT-SPEC.md](docs/LAYOUT-SPEC.md)。
+
+### Agent CLI 与 MCP
+
+`golajah_slide_agent.py` 为 Codex、Hermes 或其他 Agent 提供结构化工具。它适合在不把整份长文稿放进对话的情况下查找、审校和修改页面。
+
+常用 CLI：
+
+```bash
+# 盘点标题、页面、Section、稳定 ID 和文件哈希
+python3 golajah_slide_agent.py inspect examples/basic/slides.md
+
+# 检查内容与构建问题，不改文件
+python3 golajah_slide_agent.py audit examples/basic/slides.md
+
+# 查找相关页面
+python3 golajah_slide_agent.py search examples/basic/slides.md --query "设计原则"
+
+# 查看 Agent CLI 帮助
+python3 golajah_slide_agent.py --help
+```
+
+启动本地 stdio MCP Server：
+
+```bash
+python3 golajah_slide_agent.py mcp --root /absolute/path/to/deck-directory
+```
+
+常见 MCP Host 配置：
+
+```json
+{
+  "mcpServers": {
+    "golajah_slide": {
+      "command": "/absolute/path/to/python3",
+      "args": [
+        "/absolute/path/to/GolajahSlide/golajah_slide_agent.py",
+        "mcp",
+        "--root",
+        "/absolute/path/to/deck-directory"
+      ]
+    }
+  }
+}
+```
+
+建议先只开放 inspect、search、get 和 audit 等只读工具。编辑默认返回 diff；真正写入时需要最新的源文件 SHA-256，避免覆盖他人的改动。完整命令和 Hermes 配置见 [Agent CLI and MCP](docs/AGENT-TOOLS.md)。
+
+### 演示与导出
 
 - 下一页：`→`、`↓`、`PageDown`、空格或向左滑动
 - 上一页：`←`、`↑`、`PageUp` 或向右滑动
 - 首尾页：`Home` / `End`
 - 页面编辑器：`E`
 - 当前视觉全屏：`F`
-- 视频全屏：使用视频右上角的“全屏播放”按钮；换页、切换 Gallery Tab 或进入编辑模式会安全退出
 - 当前视觉标注：`A`
-- 悬浮聚焦开关：`H`（默认开启；Slide 内显示主题色鼠标圆圈，容器使用浅色聚焦，再悬停段落或列表项时使用更深的主题色强调）
-- 页脚章节导航：悬浮或聚焦 Section，使用 `↑` / `↓` 浏览子章节，`Enter` 跳转，`Escape` 关闭
-- 文件导出：页面编辑器的“高级 · 文件”中选择 PDF、默认无动效 PowerPoint，或实验性的带淡化转场 PowerPoint
+- 悬浮聚焦：`H`，默认关闭，可在编辑器中改快捷键
+- Chapter 导航：悬浮或聚焦页脚 Section
+- PDF / PowerPoint：在编辑器“高级 · 文件”中导出
 
-访问 `index.html?debug=1` 可以标记运行时检测到的溢出区域；诊断结果也可通过 `window.__SLIDE_DIAGNOSTICS__` 读取。
+PDF 和默认 PowerPoint 是高保真的静态页面。实验性 PowerPoint 只增加页面间 Fade 转场；两种 PPTX 都不会把 HTML 内容转换成可解组编辑的对象，也不会保留视频或逐对象动画。
 
-悬浮聚焦的技术选型、交互边界与浏览器降级策略见 [演示者悬浮聚焦方案](docs/PRESENTER-FOCUS.md)。
+### 项目导航
 
-## 测试
+- [Markdown 内容规范](docs/MARKDOWN-SPEC.md)
+- [图表与 Mermaid](docs/DIAGRAMS.md)
+- [布局覆盖规范](docs/LAYOUT-SPEC.md)
+- [Agent CLI 与 MCP](docs/AGENT-TOOLS.md)
+- [项目架构](docs/ARCHITECTURE.md)
+- [功能计划索引](docs/plans/README.md)
+- [基础示例](examples/basic/slides.md)
+- [图表示例](examples/diagrams/slides.md)
 
-完整开发验证（Python + 浏览器 Harness）：
+### 开发与验证
 
-```bash
-npm test
-```
-
-也可以分别运行：
-
-```bash
-python3 -m unittest discover -s tests -v
-npm run test:presenter-focus
-npm run test:media-playback
-npm run test:content-authoring
-npm run test:static-export
-```
-
-## 清晰规整的流程图
-
-Mermaid、Diagram Design HTML 与 Excalidraw 都作为构建期源格式，统一导出、校验并以内联 SVG 写入 HTML。发布页面不加载图表渲染器；已有预生成 SVG 时仍可零依赖构建。默认 Mermaid CLI 适合自动布局；在围栏里声明 `renderer: diagram-design`，可保留 Mermaid 语义源，同时使用仓库级 `$golajah-diagram-design` Skill 做面向 Slide 的编辑式重绘。完整协议见 [构建期 SVG 图表方案](docs/DIAGRAMS.md)，可运行内容见 [中文图表示例](examples/diagrams/slides.md)。
-
-安装锁定的构建工具并重新生成 SVG：
+普通用户不需要 npm。只有开发项目、重新生成图表或运行完整测试时才需要：
 
 ```bash
 npm install
-python3 build_slides.py examples/diagrams/slides.md -o examples/diagrams/index.html --render-diagrams --strict
+npm test
 ```
 
-普通构建只读取已提交的 SVG 与质量报告：
+---
+
+## English
+
+### Who it is for
+
+GolajahSlide is for designers, educators, and content creators who want to focus on story and visuals. Structure the deck in Markdown, refine it in the browser, and deliver one HTML file.
+
+- Fixed 1920×1080 stage for projection and recording
+- Automatic layouts for text, images, video, galleries, tables, and diagrams
+- Browser editing for content, layout, branding, and chapters
+- Self-contained HTML plus static PDF and PowerPoint export
+- CLI and MCP tools for safe AI-assisted review and editing
+- No network, web-font, or framework dependency during a presentation
+
+### Installation
+
+#### Basic setup: regular decks
+
+Requirements:
+
+- macOS, Windows, or Linux
+- Python 3.10+
+- A modern browser such as Chrome, Edge, or Safari
+
+No Python package installation is required:
 
 ```bash
-python3 build_slides.py examples/diagrams/slides.md -o examples/diagrams/index.html --strict
+git clone https://github.com/TeutonicMepheles/GolajahSlide.git
+cd GolajahSlide
+python3 build_slides.py
 ```
 
-Archscribe 保留为特殊动画能力，不再作为默认流程图渲染器；见 [Archscribe 动态流程图接入方案](docs/ARCHSCRIBE-INTEGRATION.md)和[动画中文示例](examples/archscribe/slides.md)。
+The default command turns `examples/basic/slides.md` into:
+
+- `examples/basic/index.html`: the presentation and delivery file
+- `examples/basic/index.build.json`: the build report
+
+Build your own deck:
 
 ```bash
-python3 build_slides.py examples/archscribe/slides.md -o examples/archscribe/index.html
+python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 ```
 
-## 与 AI 协作
+`--strict` treats design warnings as failures and is recommended before delivery.
 
-向 AI 提供观众、沟通目标、核心结论、已知证据、素材路径、页数和使用场景，再要求它先规划每页的沟通任务，确认后生成 Markdown。可直接复用的提示词见 [Markdown 内容规范：与 AI 协作](docs/MARKDOWN-SPEC.md#14-与-ai-协作编写-slide)。
+#### Optional setup: regenerate Mermaid / Excalidraw diagrams
 
-需要让 Hermes 等 Agent 直接盘点、检索、生成质量报告或安全修改演示稿时，使用 JSON-first Agent CLI；同一入口也可作为本地 stdio MCP server：
+Node.js 20+ and the pinned Mermaid CLI toolchain are needed only when diagram sources change:
+
+```bash
+npm install
+python3 build_slides.py path/to/slides.md -o path/to/index.html --render-diagrams --strict
+```
+
+Regular builds reuse generated SVG files and do not need Node.js.
+
+### Recommended tools
+
+| Tool | Best for | Required |
+|---|---|---:|
+| [Obsidian](https://obsidian.md/) | Organizing Markdown, media, and research in one deck folder | No |
+| [Mermaid CLI](https://github.com/mermaid-js/mermaid-cli) | Turning Mermaid text into clean flow diagrams; installed at the pinned version by `npm install` | Only for diagram rendering |
+| Chrome / Edge | Previewing, editing, presenting, and exporting | Recommended |
+| Codex / Hermes or another AI Agent | Inventory, search, review, and reviewable deck edits | No |
+| Git | Version history, diff review, and collaboration | Recommended |
+
+Obsidian works well as the source editor, but use portable Markdown image syntax:
+
+```markdown
+![Interface walkthrough](assets/demo.png "Optional caption")
+```
+
+Avoid Obsidian-only `![[demo.png]]` embeds. GolajahSlide expects explicit, portable relative paths.
+
+### Designer workflow
+
+1. Copy `examples/basic/`; keep `slides.md` and `assets/` in one project folder.
+2. Follow the [Markdown guide](docs/MARKDOWN-SPEC.md). Keep `layout: auto` unless the story needs a specific composition.
+3. Run a strict build and open `index.html`.
+4. Press `E` to edit text, images, callouts, chapters, layout, and styles.
+5. Use “Save changes,” then rebuild to refresh the HTML and report.
+6. Review `.build.json` and check important pages at desktop and mobile sizes.
+7. Deliver the single HTML file; export PDF or PowerPoint when a review format is needed.
+
+The editor checks source hashes before saving, so it will not silently overwrite Markdown changed elsewhere.
+
+### Common CLI commands
+
+```bash
+python3 build_slides.py --help
+python3 build_slides.py
+python3 build_slides.py slides.md -o index.html
+python3 build_slides.py slides.md -o index.html --strict
+python3 build_slides.py slides.md -o index.html --render-diagrams --strict
+```
+
+See [DIAGRAMS.md](docs/DIAGRAMS.md) for diagram authoring and [LAYOUT-SPEC.md](docs/LAYOUT-SPEC.md) for layout overrides.
+
+### Agent CLI and MCP
+
+`golajah_slide_agent.py` gives Codex, Hermes, and other agents a structured way to inspect, search, audit, and edit a deck without loading the full Markdown into one conversation.
 
 ```bash
 python3 golajah_slide_agent.py inspect examples/basic/slides.md
 python3 golajah_slide_agent.py audit examples/basic/slides.md
+python3 golajah_slide_agent.py search examples/basic/slides.md --query "design principles"
+python3 golajah_slide_agent.py --help
+```
+
+Start the local stdio MCP server:
+
+```bash
 python3 golajah_slide_agent.py mcp --root /absolute/path/to/deck-directory
 ```
 
-内容写入默认只返回 diff；实际保存必须提供刚读取到的源文件 SHA-256，存在布局 sidecar 时还需提供其 SHA-256。完整命令、operation schema、Hermes 配置和安全边界见 [Agent CLI and MCP](docs/AGENT-TOOLS.md)。
+Typical MCP host configuration:
+
+```json
+{
+  "mcpServers": {
+    "golajah_slide": {
+      "command": "/absolute/path/to/python3",
+      "args": [
+        "/absolute/path/to/GolajahSlide/golajah_slide_agent.py",
+        "mcp",
+        "--root",
+        "/absolute/path/to/deck-directory"
+      ]
+    }
+  }
+}
+```
+
+Start with read-only inspect, search, get, and audit tools. Edits are dry-run diffs by default; a real write requires the latest source SHA-256 to prevent accidental overwrite. See [Agent CLI and MCP](docs/AGENT-TOOLS.md) for the full command set and Hermes setup.
+
+### Presenting and export
+
+- Next: `→`, `↓`, `PageDown`, Space, or swipe left
+- Previous: `←`, `↑`, `PageUp`, or swipe right
+- First / last: `Home` / `End`
+- Editor: `E`
+- Current visual fullscreen: `F`
+- Annotation: `A`
+- Presenter focus: `H`; off by default and configurable in the editor
+- Chapter navigation: hover or focus a footer Section
+- PDF / PowerPoint: Editor → Advanced → File
+
+PDF and the default PowerPoint export are high-fidelity static pages. Experimental PowerPoint adds page-level Fade transitions only. PPTX output remains flattened and does not preserve video or object animation.
+
+### Project guide
+
+- [Markdown authoring](docs/MARKDOWN-SPEC.md)
+- [Diagrams and Mermaid](docs/DIAGRAMS.md)
+- [Layout overrides](docs/LAYOUT-SPEC.md)
+- [Agent CLI and MCP](docs/AGENT-TOOLS.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Feature plan index](docs/plans/README.md)
+- [Basic example](examples/basic/slides.md)
+- [Diagram example](examples/diagrams/slides.md)
+
+### Development and validation
+
+Regular users do not need npm. Install it only for project development, diagram regeneration, or the full test suite:
+
+```bash
+npm install
+npm test
+```
 
 ## License
 
