@@ -7,7 +7,7 @@
 | [Static PDF and PowerPoint Export](2026-08-24-static-pdf-pptx-export.md) | Implemented | Browser-native static PDF/PPTX export | 编辑模式一键导出无动效 16:9 PDF 与高保真静态 PowerPoint | 2026-08-24 |
 | [Content Authoring and Source Save](2026-08-24-content-authoring-and-source-save.md) | Implemented | Structured text/media editing, cross-slide moves and source write-back | 编辑内容可重排、跨页移动并安全回写 Markdown 与资产 | 2026-08-24 |
 | [Global Logo — Per-slide Visibility Exceptions](2026-08-22-global-logo-page-visibility.md) | Implemented | Per-slide visibility metadata for the existing global logo | 全局 Logo 保持统一配置，指定页可显式单独隐藏 | 2026-08-24 |
-| [Native Media Playback](2026-08-22-media-playback.md) | Implemented | Self-contained native video and tab-aware autoplay | 本地视频内嵌为单 HTML，并只在可见页面或 Tab 内播放 | 2026-08-24 |
+| [Native Media Playback](2026-08-22-media-playback.md) | Implemented | Self-contained native video, fullscreen and tab-aware autoplay | 本地视频内嵌为单 HTML，支持独立/Gallery 统一全屏并只在可见页面或 Tab 内播放 | 2026-08-24 |
 | [Slide Authoring Controls](2026-08-22-slide-authoring-controls.md) | Implemented | Pure-image structural slides, named Gallery tabs, Callout titles and heading citations | 提供显式、向后兼容的页面创作控制 | 2026-08-24 |
 | [Global Logo — Editor Upload and Global Visibility](2026-08-21-global-logo.md) | Implemented | Global upper-right logo, editor upload/toggle/resize, persistence, Harness and browser validation | 页面右上角提供可全局开关、上传和调整尺寸的自包含 Logo | 2026-08-21 |
 | [Footer Chapter Navigation](2026-08-14-footer-chapter-navigation.md) | Implemented | Section/Chapter metadata, footer popover, keyboard navigation, Harness and browser validation | 悬浮页脚 Section 向上展开纵向子章节列表，点击跳转到子章节首个 Page | 2026-08-14 |

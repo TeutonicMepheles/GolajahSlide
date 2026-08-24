@@ -22,9 +22,11 @@ const staticExport = new StaticDeckExport({
   deckTitle: layoutEditor.deckTitle,
   mount: "#editorStaticExportMount",
   assetManifest: JSON.parse(document.getElementById("deckStaticExportAssets").textContent),
+  beforeCapture: () => mediaPlayback.exitFullscreen({restoreFocus: false}),
   sanitizeClone: clone => {
     layoutEditor.prepareClone(clone);
     visualWidgetManager.sanitizeClone(clone);
+    mediaPlayback.sanitizeClone(clone);
   }
 });
 window.__SLIDE_STATIC_EXPORT__ = staticExport;
@@ -35,11 +37,13 @@ Static Export does not read Layout Editor persistence or Python build models. It
 ## Public API
 
 - `snapshotPlan()` returns the ordered source-slide and Gallery-variant manifest.
-- `renderFrames(plan?)` creates static JPEG byte arrays without packaging or downloading.
+- `renderFrames(plan?)` runs `beforeCapture()` before deriving a default Gallery plan, then creates static JPEG byte arrays without packaging or downloading.
 - `exportPdf({download = true})` returns the PDF Blob and result metadata.
 - `exportPptx({download = true})` returns the PPTX Blob and result metadata.
 - `lastResult` records format, filename, page count, byte size, source Slide count, and the static manifest.
 - `prepareClone(clone)` clears transient busy/progress/result UI before the existing HTML-download path serializes a deck.
+- Media Playback participates through its public `sanitizeClone(clone)` contract so transient video fullscreen controls, overlays, and moved shells never reach PDF/PPTX frames.
+- The async `beforeCapture()` collaborator exits a live fallback fullscreen surface before each frame is cloned, so the original video shell is always back under its Slide.
 
 The mount emits bubbling `static-export:start`, `progress`, `complete`, and `error` events.
 

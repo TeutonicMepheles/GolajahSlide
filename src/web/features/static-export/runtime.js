@@ -1,9 +1,10 @@
     class StaticDeckExport {
-      constructor({slides, deckTitle, mount, sanitizeClone, assetManifest} = {}) {
+      constructor({slides, deckTitle, mount, sanitizeClone, beforeCapture, assetManifest} = {}) {
         this.slides = slides ? [...slides] : [...document.querySelectorAll(".slide")];
         this.deckTitle = String(deckTitle || document.title || "GolajahSlide");
         this.mount = typeof mount === "string" ? document.querySelector(mount) : mount;
         this.sanitizeClone = typeof sanitizeClone === "function" ? sanitizeClone : null;
+        this.beforeCapture = typeof beforeCapture === "function" ? beforeCapture : null;
         this.assetManifest = this.normalizeAssetManifest(assetManifest);
         this.stageSize = {width: 1920, height: 1080};
         this.slideSize = {width: 12192000, height: 6858000};
@@ -153,9 +154,10 @@
         if (this.busy) throw new Error("已有导出任务正在进行");
         this.setBusy(true);
         this.setStatus("正在准备无动效静态导出…", "working");
-        const plan = this.snapshotPlan();
-        this.emit("start", {format, pages: plan.length, sourceSlides: this.slides.length});
         try {
+          if (this.beforeCapture) await this.beforeCapture();
+          const plan = this.snapshotPlan();
+          this.emit("start", {format, pages: plan.length, sourceSlides: this.slides.length});
           const frames = await this.renderFrames(plan);
           this.updateProgress(plan.length, plan.length, format === "pdf" ? "正在封装 PDF…" : "正在封装 PowerPoint…");
           await new Promise(resolve => requestAnimationFrame(() => resolve()));
@@ -190,7 +192,9 @@
         }
       }
 
-      async renderFrames(plan = this.snapshotPlan()) {
+      async renderFrames(plan = null) {
+        if (this.beforeCapture) await this.beforeCapture();
+        if (!plan) plan = this.snapshotPlan();
         if (!plan.length) throw new Error("演示文稿没有可导出的页面");
         if (document.fonts?.ready) await document.fonts.ready;
         const frames = [];
@@ -210,6 +214,7 @@
       }
 
       async renderFrame(entry) {
+        if (this.beforeCapture) await this.beforeCapture();
         const clone = entry.slide.cloneNode(true);
         if (this.sanitizeClone) this.sanitizeClone(clone);
         clone.classList.add("active", "visible", "static-export-slide");

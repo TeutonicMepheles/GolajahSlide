@@ -714,7 +714,8 @@ Second page.
         self.assertIn("event.metaKey || event.ctrlKey || event.altKey", template)
         self.assertIn('event.key === "Escape" && this.layoutEditor.active', template)
         self.assertIn("Math.abs(dx) > Math.abs(dy) * 1.25", template)
-        self.assertIn("if (this.layoutEditor.active || event.target.closest", template)
+        self.assertIn("this.mediaPlayback?.isFullscreen || event.target.closest", template)
+        self.assertIn('[data-visual-widget],[data-slide-video-shell],.layout-editor-panel', template)
         self.assertIn("file.size > 4 * 1024 * 1024", template)
         self.assertIn('["ArrowLeft", "ArrowRight", "Home", "End"]', template)
 
@@ -918,7 +919,16 @@ Second page.
         self.assertIn("{{MEDIA_PLAYBACK_CSS}}", template)
         self.assertIn("{{MEDIA_PLAYBACK_RUNTIME}}", template)
         self.assertIn("class MediaPlayback", runtime)
+        self.assertIn("requestFullscreen", runtime)
+        self.assertIn("webkitEnterFullscreen", runtime)
+        self.assertIn("pendingRecord", runtime)
+        self.assertIn('aria-modal", "true', runtime)
+        self.assertIn("sanitizeClone", runtime)
+        self.assertIn("video-fullscreen-button", runtime)
+        self.assertIn("data-video-fullscreen", runtime)
         self.assertIn(".video-media", style)
+        self.assertIn(".video-fullscreen-button", style)
+        self.assertIn(".is-video-fullscreen", style)
 
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -991,6 +1001,8 @@ footer: false
         self.assertIn("class StaticDeckExport", runtime)
         self.assertIn("buildPdf(frames)", runtime)
         self.assertIn("buildPptx(frames)", runtime)
+        self.assertIn("beforeCapture", runtime)
+        self.assertIn("async renderFrames(plan = null)", runtime)
         self.assertIn("animation: none !important", runtime)
         self.assertIn("static-export-progress", style)
 
@@ -1042,6 +1054,7 @@ footer: false
             self.assertEqual(digest, build_slides.sha256_file(image))
             self.assertRegex(manifest["assets"][digest], r"^data:image/svg\+xml;base64,")
             self.assertIn("new StaticDeckExport", rendered)
+            self.assertIn("beforeCapture: () => mediaPlayback.exitFullscreen", rendered)
             self.assertIn("window.__SLIDE_STATIC_EXPORT__", rendered)
             self.assertIn('id="editorExportPdf"', rendered)
             self.assertIn('id="editorExportPptx"', rendered)

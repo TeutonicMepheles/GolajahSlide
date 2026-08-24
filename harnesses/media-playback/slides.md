@@ -50,6 +50,22 @@ footer: false
 ---
 
 <!-- slide
+id: grid-manual-videos
+type: content
+layout: gallery
+gallery-display: grid
+footer: false
+-->
+# 并列视频 Gallery
+## 每个手动播放视频都应有独立的全屏入口
+
+![左侧测试视频](assets/sample.mp4 "左侧视频")
+
+![右侧测试视频](assets/sample.mp4 "右侧视频")
+
+---
+
+<!-- slide
 id: after-autoplay-video
 type: content
 layout: text

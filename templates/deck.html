@@ -1483,6 +1483,7 @@
             }
             return;
           }
+          if (event.target.closest?.("[data-slide-video-shell]")) return;
           if (event.target.closest?.("input, textarea, select, button, a, [contenteditable=true]")) return;
           if (event.key === " " && this.active?.isAnnotating) {
             this.spacePressed = true;
@@ -2650,6 +2651,7 @@
           this.setAnimationMode(false);
         }
         this.presentation?.widgetManager.setEditing(active || this.textMode);
+        this.presentation?.mediaPlayback?.setEditing(active || this.textMode);
         this.presentation?.fit();
         this.refreshPanel();
         requestAnimationFrame(() => {
@@ -2668,6 +2670,7 @@
           this.presentation.editing = false;
           this.presentation.stage.removeAttribute("contenteditable");
           this.presentation.widgetManager.setEditing(this.active);
+          this.presentation.mediaPlayback?.setEditing(this.active);
         }
         const button = document.getElementById("editorTextMode");
         button.setAttribute("aria-pressed", "false");
@@ -2883,10 +2886,14 @@
         const y = (innerHeight - 1080 * scale) / 2;
         this.stage.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
         this.stage.dataset.scale = String(scale);
+        this.mediaPlayback?.syncControlScale();
       }
       show(next, updateHash = true) {
         const resolved = (next + this.slides.length) % this.slides.length;
-        if (resolved !== this.current) this.widgetManager.handleSlideChange();
+        if (resolved !== this.current) {
+          this.widgetManager.handleSlideChange();
+          this.mediaPlayback?.handleSlideChange();
+        }
         this.current = resolved;
         this.slides.forEach((slide, index) => {
           slide.classList.toggle("active", index === this.current);
@@ -2905,6 +2912,7 @@
         const clone = document.documentElement.cloneNode(true);
         this.layoutEditor.prepareClone(clone);
         this.widgetManager.sanitizeClone(clone);
+        this.mediaPlayback?.sanitizeClone(clone);
         const source = "<!doctype html>\n" + clone.outerHTML;
         const link = document.createElement("a");
         link.href = URL.createObjectURL(new Blob([source], {type: "text/html"}));
@@ -2919,7 +2927,7 @@
           if (Number.isFinite(target)) this.show(target - 1, false);
         });
         addEventListener("keydown", event => {
-          if (event.defaultPrevented || this.widgetManager.fullscreenWidget) return;
+          if (event.defaultPrevented || this.widgetManager.fullscreenWidget || this.mediaPlayback?.isFullscreen) return;
           if (event.key === "Escape" && this.layoutEditor.active) {
             event.preventDefault();
             this.layoutEditor.setActive(false);
@@ -2933,7 +2941,7 @@
           else if (event.key === "e" || event.key === "E") this.toggleEdit();
         });
         addEventListener("wheel", event => {
-          if (this.layoutEditor.active || event.target.closest?.("[data-visual-widget],.layout-editor-panel") || this.locked || Math.abs(event.deltaY) < 18) return;
+          if (this.layoutEditor.active || this.mediaPlayback?.isFullscreen || event.target.closest?.("[data-visual-widget],[data-slide-video-shell],.layout-editor-panel") || this.locked || Math.abs(event.deltaY) < 18) return;
           this.locked = true;
           this.step(event.deltaY > 0 ? 1 : -1);
           setTimeout(() => this.locked = false, 420);
@@ -3009,6 +3017,7 @@
     const citations = new Citations();
     const presentation = new SlidePresentation(visualWidgetManager, layoutEditor, presenterFocus, globalLogo);
     const mediaPlayback = new MediaPlayback();
+    presentation.mediaPlayback = mediaPlayback;
     const contentAuthoring = new ContentAuthoring({
       stage: presentation.stage,
       presentation,
@@ -3024,9 +3033,11 @@
       deckTitle: layoutEditor.deckTitle,
       mount: "#editorStaticExportMount",
       assetManifest: embeddedStaticExportAssets,
+      beforeCapture: () => mediaPlayback.exitFullscreen({restoreFocus: false}),
       sanitizeClone: clone => {
         layoutEditor.prepareClone(clone);
         visualWidgetManager.sanitizeClone(clone);
+        mediaPlayback.sanitizeClone(clone);
       }
     });
     layoutEditor.staticExport = staticExport;
