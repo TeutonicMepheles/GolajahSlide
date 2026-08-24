@@ -27,7 +27,8 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
+from urllib.request import url2pathname
 
 
 ROOT = Path(__file__).resolve().parent
@@ -46,6 +47,8 @@ TEMPLATE_FRAGMENT_PATHS = {
     "{{MEDIA_PLAYBACK_RUNTIME}}": WEB_FEATURE_ROOT / "media-playback" / "runtime.js",
     "{{CONTENT_AUTHORING_CSS}}": WEB_FEATURE_ROOT / "content-authoring" / "style.css",
     "{{CONTENT_AUTHORING_RUNTIME}}": WEB_FEATURE_ROOT / "content-authoring" / "runtime.js",
+    "{{STATIC_EXPORT_CSS}}": WEB_FEATURE_ROOT / "static-export" / "style.css",
+    "{{STATIC_EXPORT_RUNTIME}}": WEB_FEATURE_ROOT / "static-export" / "runtime.js",
 }
 STAGE_WIDTH = 1920
 STAGE_HEIGHT = 1080
@@ -70,6 +73,11 @@ EXCALIDRAW_FENCE_RE = re.compile(r"(?ms)^```excalidraw[ \t]*\n(.*?)^```[ \t]*$")
 REMOTE_ASSET_PREFIXES = ("http://", "https://", "data:")
 VIDEO_MIME_TYPES = {".mp4": "video/mp4", ".webm": "video/webm"}
 IMAGE_MIME_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
+STATIC_EXPORT_IMAGE_MIME_TYPES = {
+    **IMAGE_MIME_TYPES,
+    ".gif": "image/gif",
+    ".svg": "image/svg+xml",
+}
 DIAGRAM_BLOCK_KINDS = {"chart", "mermaid", "excalidraw", "archscribe"}
 SVG_NS = "http://www.w3.org/2000/svg"
 XLINK_NS = "http://www.w3.org/1999/xlink"
@@ -323,6 +331,62 @@ def relative_asset_href(path: Path, output_dir: Path) -> str:
 
 def local_data_uri(path: Path, mime_type: str) -> str:
     return f"data:{mime_type};base64,{base64.b64encode(path.read_bytes()).decode('ascii')}"
+
+
+def static_export_asset_manifest(rendered: str, output_dir: Path) -> dict[str, object]:
+    """Embed local raster/SVG bytes once so file:// snapshots stay origin-clean."""
+    candidates: set[str] = set()
+    for match in re.finditer(r'(?is)\b(?:src|poster)\s*=\s*["\']([^"\']+)["\']', rendered):
+        candidates.add(html.unescape(match.group(1)).strip())
+    # SVG <image> resources use href/xlink:href. Do not scan generic href:
+    # ordinary Markdown links must never cause arbitrary local files to be read.
+    for image_tag in re.finditer(r"(?is)<image\b[^>]*>", rendered):
+        for match in re.finditer(r'(?is)\b(?:href|xlink:href)\s*=\s*["\']([^"\']+)["\']', image_tag.group(0)):
+            candidates.add(html.unescape(match.group(1)).strip())
+    for match in re.finditer(r'(?is)\bsrcset\s*=\s*["\']([^"\']+)["\']', rendered):
+        for source in html.unescape(match.group(1)).split(","):
+            candidate = source.strip().split()[0] if source.strip() else ""
+            if candidate:
+                candidates.add(candidate)
+    style_fragments = [match.group(2) for match in re.finditer(r'(?is)\bstyle\s*=\s*(["\'])(.*?)\1', rendered)]
+    style_fragments.extend(match.group(1) for match in re.finditer(r"(?is)<style\b[^>]*>(.*?)</style>", rendered))
+    for fragment in style_fragments:
+        for match in re.finditer(r'(?is)url\(\s*["\']?([^"\')]+)', html.unescape(fragment)):
+            candidates.add(match.group(1).strip())
+
+    sources: dict[str, str] = {}
+    assets: dict[str, str] = {}
+    for source in sorted(candidates):
+        parsed = urlsplit(source)
+        if not source or source.startswith(("#", "data:", "blob:")) or parsed.scheme in {"http", "https"}:
+            continue
+        suffix = Path(unquote(parsed.path)).suffix.lower()
+        mime_type = STATIC_EXPORT_IMAGE_MIME_TYPES.get(suffix)
+        if not mime_type:
+            continue
+        if parsed.scheme == "file":
+            file_path = parsed.path
+            if parsed.netloc and parsed.netloc != "localhost":
+                file_path = f"//{parsed.netloc}{file_path}"
+            asset_path = Path(url2pathname(file_path))
+        elif parsed.scheme:
+            continue
+        else:
+            # Keep lexical `..` traversal intact before macOS resolves `/var`
+            # or `/tmp` to their `/private/...` aliases.
+            asset_path = Path(os.path.abspath(output_dir / unquote(parsed.path)))
+        if not asset_path.is_file():
+            continue
+        digest = sha256_file(asset_path)
+        sources[source] = digest
+        if digest not in assets:
+            assets[digest] = local_data_uri(asset_path, mime_type)
+    return {
+        "schemaVersion": "1.0",
+        "sources": sources,
+        "assets": assets,
+        "bytes": sum(len(value) for value in assets.values()),
+    }
 
 
 def format_report_path(path: Path) -> str:
@@ -3209,6 +3273,7 @@ def build(
     sections = collect_sections(deck, slides, messages)
     section_chapters = collect_section_chapters(sections, slides)
     rendered = "\n".join(render_slide(slide, deck, sections, section_chapters, citations) for slide in slides)
+    static_export_assets = static_export_asset_manifest(rendered, output_path.parent)
     title = str(deck.get("title", slides[0].title))
     embedded_editor_config = {
         "schemaVersion": EDITOR_SCHEMA_VERSION,
@@ -3246,6 +3311,7 @@ def build(
         if resolved_overrides_path and resolved_overrides_path.is_file():
             authoring_source["layoutSha256"] = sha256_file(resolved_overrides_path)
     authoring_json = json.dumps(authoring_payload, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
+    static_export_assets_json = json.dumps(static_export_assets, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
     layout_output_name = (
         resolved_overrides_path.name
         if resolved_overrides_path
@@ -3268,6 +3334,7 @@ def build(
         "{{EDITOR_CONFIG}}": editor_json,
         "{{AUTHORING_MODEL}}": authoring_json,
         "{{AUTHORING_MODEL_JSON}}": authoring_json,
+        "{{STATIC_EXPORT_ASSETS}}": static_export_assets_json,
     }
     for key, value in replacements.items():
         template = template.replace(key, value)

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
+  <title id="title">右侧测试图</title>
+  <desc id="desc">橙色背景与 RIGHT 文字用于静态导出 Harness。</desc>
+  <rect width="1200" height="720" rx="48" fill="#fff3df"/>
+  <rect x="150" y="170" width="380" height="380" rx="72" fill="#f28e2b"/>
+  <text x="790" y="395" text-anchor="middle" font-family="Arial, sans-serif" font-size="104" font-weight="700" fill="#111111">RIGHT</text>
+</svg>

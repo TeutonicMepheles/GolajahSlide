@@ -743,6 +743,7 @@
 {{PRESENTER_FOCUS_CSS}}
 {{CITATIONS_CSS}}
 {{CONTENT_AUTHORING_CSS}}
+{{STATIC_EXPORT_CSS}}
     .slide[data-editor-typography="true"] :is(.text-card p, .text-card li, .code-card code, .data-table td) {
       line-height: var(--editor-body-line-height) !important;
       color: var(--editor-body-color) !important;
@@ -1254,6 +1255,7 @@
       <details class="editor-category" data-editor-category="advanced" data-editor-frequency="low">
         <summary><span class="editor-category-copy"><strong>文件与高级操作</strong><small>导入导出、构建与重置</small></span><span class="editor-category-frequency" aria-hidden="true">低频</span></summary>
         <div class="editor-category-body">
+          <div id="editorStaticExportMount"></div>
           <section class="editor-group">
             <div class="editor-label">交给生成器</div>
             <div class="editor-button-row">
@@ -1281,6 +1283,7 @@
   <div class="editor-toast" id="editorToast" role="status"></div>
   <script id="deckEditorConfig" type="application/json">{{EDITOR_CONFIG}}</script>
   <script id="deckAuthoringModel" type="application/json">{{AUTHORING_MODEL}}</script>
+  <script id="deckStaticExportAssets" type="application/json">{{STATIC_EXPORT_ASSETS}}</script>
   <script>
     /* ===========================================
        STANDARD IMAGE / CHART / TABLE VIEWER
@@ -2841,6 +2844,7 @@
         clone.querySelectorAll("[data-author-edit-key]").forEach(node => node.removeAttribute("data-author-edit-key"));
         clone.querySelectorAll(".is-author-selected").forEach(node => node.classList.remove("is-author-selected"));
         clone.querySelectorAll("[aria-selected='true'][data-author-item-id]").forEach(node => node.removeAttribute("aria-selected"));
+        this.staticExport?.prepareClone(clone);
       }
     }
 
@@ -2850,6 +2854,7 @@
 {{GLOBAL_LOGO_RUNTIME}}
 {{MEDIA_PLAYBACK_RUNTIME}}
 {{CONTENT_AUTHORING_RUNTIME}}
+{{STATIC_EXPORT_RUNTIME}}
 
     /* ===========================================
        PRESENTATION CONTROLLER
@@ -2994,7 +2999,9 @@
     }
 
     let embeddedEditorConfig = {};
+    let embeddedStaticExportAssets = {};
     try { embeddedEditorConfig = JSON.parse(document.getElementById("deckEditorConfig")?.textContent || "{}"); } catch (_) { /* invalid embedded data falls back to empty */ }
+    try { embeddedStaticExportAssets = JSON.parse(document.getElementById("deckStaticExportAssets")?.textContent || "{}"); } catch (_) { /* invalid embedded data is reported only if an asset is needed */ }
     const visualWidgetManager = new SlideVisualWidgetManager();
     const layoutEditor = new SlideLayoutEditor(embeddedEditorConfig);
     const presenterFocus = new PresenterFocus(layoutEditor.shortcuts.presenterFocus);
@@ -3012,6 +3019,17 @@
     });
     presentation.contentAuthoring = contentAuthoring;
     layoutEditor.contentAuthoring = contentAuthoring;
+    const staticExport = new StaticDeckExport({
+      slides: presentation.slides,
+      deckTitle: layoutEditor.deckTitle,
+      mount: "#editorStaticExportMount",
+      assetManifest: embeddedStaticExportAssets,
+      sanitizeClone: clone => {
+        layoutEditor.prepareClone(clone);
+        visualWidgetManager.sanitizeClone(clone);
+      }
+    });
+    layoutEditor.staticExport = staticExport;
     const footerChapterNavigation = new FooterChapterNavigation(presentation);
     window.__SLIDE_LAYOUT_EDITOR__ = layoutEditor;
     window.__SLIDE_PRESENTER_FOCUS__ = presenterFocus;
@@ -3019,6 +3037,7 @@
     window.__SLIDE_GLOBAL_LOGO__ = globalLogo;
     window.__SLIDE_MEDIA_PLAYBACK__ = mediaPlayback;
     window.__SLIDE_CONTENT_AUTHORING__ = contentAuthoring;
+    window.__SLIDE_STATIC_EXPORT__ = staticExport;
     window.__SLIDE_PRESENTATION__ = presentation;
     window.__SLIDE_FOOTER_CHAPTER_NAVIGATION__ = footerChapterNavigation;
     document.querySelectorAll("[data-media-tabs]").forEach(shell => new MediaTabs(shell));

@@ -980,6 +980,75 @@ footer: false
             self.assertIn('<video autoplay loop muted playsinline preload="auto" data-slide-video data-video-autoplay', rendered)
             self.assertNotIn('<video controls', rendered)
 
+    def test_static_export_feature_is_composed_with_deduplicated_local_assets(self):
+        template = build_slides.TEMPLATE_PATH.read_text(encoding="utf-8")
+        style = build_slides.TEMPLATE_FRAGMENT_PATHS["{{STATIC_EXPORT_CSS}}"].read_text(encoding="utf-8")
+        runtime = build_slides.TEMPLATE_FRAGMENT_PATHS["{{STATIC_EXPORT_RUNTIME}}"].read_text(encoding="utf-8")
+        self.assertIn("{{STATIC_EXPORT_CSS}}", template)
+        self.assertIn("{{STATIC_EXPORT_RUNTIME}}", template)
+        self.assertIn('id="editorStaticExportMount"', template)
+        self.assertIn('id="deckStaticExportAssets"', template)
+        self.assertIn("class StaticDeckExport", runtime)
+        self.assertIn("buildPdf(frames)", runtime)
+        self.assertIn("buildPptx(frames)", runtime)
+        self.assertIn("animation: none !important", runtime)
+        self.assertIn("static-export-progress", style)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            assets = root / "assets"
+            assets.mkdir()
+            image = assets / "shared.svg"
+            image.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720"><rect width="1200" height="720" fill="#6f60e5"/></svg>', encoding="utf-8")
+            private_link = assets / "linked-only.svg"
+            private_link.write_text('<svg xmlns="http://www.w3.org/2000/svg"><text>must not be embedded</text></svg>', encoding="utf-8")
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            markdown.write_text("""<!-- slide
+id: first
+layout: media
+footer: false
+-->
+# 第一页
+
+![相同图片](assets/shared.svg)
+
+[仅作为普通链接的本地 SVG](assets/linked-only.svg)
+
+普通正文中的 url(assets/linked-only.svg) 也不得触发素材读取。
+
+---
+
+<!-- slide
+id: second
+layout: media
+footer: false
+-->
+# 第二页
+
+![相同图片](assets/shared.svg)
+""", encoding="utf-8")
+
+            self.assertEqual(build_slides.build(markdown, output, strict=True), 0)
+            rendered = output.read_text(encoding="utf-8")
+            match = re.search(r'<script id="deckStaticExportAssets" type="application/json">(.*?)</script>', rendered, re.S)
+            self.assertIsNotNone(match)
+            manifest = json.loads(match.group(1))
+            self.assertEqual(manifest["schemaVersion"], "1.0")
+            self.assertEqual(len(manifest["sources"]), 1)
+            self.assertEqual(len(manifest["assets"]), 1)
+            self.assertNotIn("assets/linked-only.svg", manifest["sources"])
+            digest = next(iter(manifest["sources"].values()))
+            self.assertEqual(digest, build_slides.sha256_file(image))
+            self.assertRegex(manifest["assets"][digest], r"^data:image/svg\+xml;base64,")
+            self.assertIn("new StaticDeckExport", rendered)
+            self.assertIn("window.__SLIDE_STATIC_EXPORT__", rendered)
+            self.assertIn('id="editorExportPdf"', rendered)
+            self.assertIn('id="editorExportPptx"', rendered)
+            self.assertNotIn("{{STATIC_EXPORT_CSS}}", rendered)
+            self.assertNotIn("{{STATIC_EXPORT_RUNTIME}}", rendered)
+            self.assertNotIn("{{STATIC_EXPORT_ASSETS}}", rendered)
+
     def test_authoring_document_preserves_exact_source_and_utf16_ranges(self):
         source = (
             "\ufeff---\r\ntitle: 可逆模型\r\n---\r\n\r\n"

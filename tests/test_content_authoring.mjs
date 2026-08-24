@@ -87,8 +87,9 @@ try {
     layout: Boolean(document.querySelector('[data-editor-category="layout"] #editorLayout')),
     appearance: Boolean(document.querySelector('[data-editor-category="appearance"] #editorAnimationMode')),
     global: Boolean(document.querySelector('[data-editor-category="global"] #editorLogoEnabled')),
-    advanced: Boolean(document.querySelector('[data-editor-category="advanced"] #editorExport'))
-  })), {content: true, layout: true, appearance: true, global: true, advanced: true});
+    advanced: Boolean(document.querySelector('[data-editor-category="advanced"] #editorExport')),
+    staticExport: Boolean(document.querySelector('[data-editor-category="advanced"] #editorExportPdf'))
+  })), {content: true, layout: true, appearance: true, global: true, advanced: true, staticExport: true});
 
   const downloadedCategoryDefaults = await page.evaluate(() => {
     const content = document.querySelector('[data-editor-category="content"]');
@@ -105,13 +106,17 @@ try {
     advanced.open = false;
     const panel = clone.querySelector("#layoutEditorPanel");
     const edit = clone.querySelector("#edit");
+    const exportMount = clone.querySelector("#editorStaticExportMount");
     return {
       categories,
       panelHidden: panel.getAttribute("aria-hidden"),
       panelInert: panel.hasAttribute("inert"),
       editExpanded: edit.getAttribute("aria-expanded"),
       editLabel: edit.getAttribute("aria-label"),
-      cleanBody: !clone.querySelector("body").classList.contains("editor-open")
+      cleanBody: !clone.querySelector("body").classList.contains("editor-open"),
+      exportBusy: exportMount.getAttribute("aria-busy"),
+      exportProgressHidden: exportMount.querySelector("#editorStaticExportProgress").hidden,
+      exportButtonsEnabled: [...exportMount.querySelectorAll("#editorExportPdf,#editorExportPptx")].every(button => !button.disabled)
     };
   });
   assert.deepEqual(downloadedCategoryDefaults, {
@@ -126,7 +131,10 @@ try {
     panelInert: true,
     editExpanded: "false",
     editLabel: "打开页面编辑器",
-    cleanBody: true
+    cleanBody: true,
+    exportBusy: "false",
+    exportProgressHidden: true,
+    exportButtonsEnabled: true
   });
 
   await page.evaluate(() => window.__SLIDE_LAYOUT_EDITOR__.setActive(true));
