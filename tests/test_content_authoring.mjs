@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import {execFile} from "node:child_process";
 import {existsSync} from "node:fs";
-import {mkdir, mkdtemp, rm} from "node:fs/promises";
+import {copyFile, mkdir, mkdtemp, readFile, rm, writeFile} from "node:fs/promises";
 import {dirname, resolve} from "node:path";
 import {fileURLToPath, pathToFileURL} from "node:url";
 import {promisify} from "node:util";
@@ -62,6 +62,25 @@ try {
     localStorage.removeItem(keys.legacy);
     localStorage.removeItem(keys.layout);
   }, cacheKeys);
+
+  const normalizedGhostDraft = await page.evaluate(() => {
+    const feature = window.__SLIDE_CONTENT_AUTHORING__;
+    localStorage.setItem(feature.draftKey(), JSON.stringify({
+      schemaVersion: "1.0",
+      baseSourceSha256: feature.source.sha256,
+      revision: 7,
+      operations: [{op: "set-chapter", slideId: "authoring-gallery", chapter: "视觉 Chapter", revision: 7}]
+    }));
+    return feature.draftKey();
+  });
+  await page.reload({waitUntil: "load"});
+  await page.waitForFunction(() => Boolean(window.__SLIDE_CONTENT_AUTHORING__));
+  assert.deepEqual(await page.evaluate(key => ({
+    chapter: window.__SLIDE_CONTENT_AUTHORING__.slideStates.get("authoring-gallery").chapter,
+    dirty: window.__SLIDE_CONTENT_AUTHORING__.dirty,
+    operations: window.__SLIDE_CONTENT_AUTHORING__.operations,
+    draft: localStorage.getItem(key)
+  }), normalizedGhostDraft), {chapter: "视觉 Chapter", dirty: false, operations: [], draft: null});
 
   await page.keyboard.press("e");
   await page.waitForFunction(() => document.body.classList.contains("editor-open") && document.activeElement?.id === "editorClose");
@@ -176,18 +195,27 @@ try {
   const compactPanel = await page.evaluate(() => {
     const panel = document.getElementById("layoutEditorPanel");
     const body = panel.querySelector(".layout-editor-body");
+    const chapterCreate = panel.querySelector("[data-author-chapter-create]");
+    chapterCreate.hidden = false;
     const panelRect = panel.getBoundingClientRect();
     const summaries = [...panel.querySelectorAll("[data-editor-category] > summary")].map(summary => {
       const rect = summary.getBoundingClientRect();
       return {left: rect.left, right: rect.right};
     });
     body.scrollTop = body.scrollHeight;
+    const chapterCreateRect = chapterCreate.getBoundingClientRect();
+    const chapterInputRect = chapterCreate.querySelector("input").getBoundingClientRect();
+    chapterCreate.hidden = true;
     return {
       clientWidth: body.clientWidth,
       scrollWidth: body.scrollWidth,
       panelLeft: panelRect.left,
       panelRight: panelRect.right,
       viewportWidth: innerWidth,
+      chapterCreateLeft: chapterCreateRect.left,
+      chapterCreateRight: chapterCreateRect.right,
+      chapterInputLeft: chapterInputRect.left,
+      chapterInputRight: chapterInputRect.right,
       summaries,
       maxScrollTop: body.scrollHeight - body.clientHeight,
       scrollTop: body.scrollTop
@@ -195,6 +223,8 @@ try {
   });
   assert(compactPanel.scrollWidth <= compactPanel.clientWidth + 1, `narrow editor should not overflow horizontally: ${JSON.stringify(compactPanel)}`);
   assert(compactPanel.panelLeft >= -1 && compactPanel.panelRight <= compactPanel.viewportWidth + 1, `narrow editor should stay inside viewport: ${JSON.stringify(compactPanel)}`);
+  assert(compactPanel.chapterCreateLeft >= compactPanel.panelLeft - 1 && compactPanel.chapterCreateRight <= compactPanel.panelRight + 1, `chapter creator should stay inside panel: ${JSON.stringify(compactPanel)}`);
+  assert(compactPanel.chapterInputLeft >= compactPanel.panelLeft - 1 && compactPanel.chapterInputRight <= compactPanel.panelRight + 1, `chapter input should stay inside panel: ${JSON.stringify(compactPanel)}`);
   assert(compactPanel.summaries.every(rect => rect.left >= compactPanel.panelLeft - 1 && rect.right <= compactPanel.panelRight + 1), `category summaries should stay inside panel: ${JSON.stringify(compactPanel)}`);
   assert(compactPanel.maxScrollTop > 0 && compactPanel.scrollTop >= compactPanel.maxScrollTop - 1, `advanced category should be vertically reachable: ${JSON.stringify(compactPanel)}`);
   await page.evaluate(() => window.__SLIDE_LAYOUT_EDITOR__.setActive(false));
@@ -277,12 +307,225 @@ try {
     visual: {x: 0, y: 0, width: 1920, height: 1080}
   });
 
+  const chapterInitial = await page.evaluate(() => {
+    const feature = window.__SLIDE_CONTENT_AUTHORING__;
+    const presentation = window.__SLIDE_PRESENTATION__;
+    presentation.show(1, false);
+    window.__SLIDE_LAYOUT_EDITOR__.setActive(true);
+    const state = feature.slideStates.get("authoring-gallery");
+    return {
+      section: document.querySelector("[data-author-section-name]").textContent,
+      value: document.querySelector("[data-author-chapter-select]").value,
+      options: [...document.querySelector("[data-author-chapter-select]").options].map(option => ({
+        value: option.value,
+        text: option.textContent
+      })),
+      basicItems: feature.chapterItemsForSlide("authoring-gallery"),
+      advancedItems: feature.chapterItemsForSlide("authoring-target"),
+      layoutChanged: state.layoutChanged,
+      galleryChanged: state.galleryChanged
+    };
+  });
+  assert.equal(chapterInitial.section, "基础 Section");
+  assert.equal(chapterInitial.value, "视觉 Chapter");
+  assert.deepEqual(chapterInitial.basicItems.map(item => [item.title, item.page]), [
+    ["共享 Chapter", 1],
+    ["视觉 Chapter", 2]
+  ]);
+  assert.deepEqual(chapterInitial.advancedItems.map(item => [item.title, item.page]), [["共享 Chapter", 3]]);
+  assert(chapterInitial.options.some(option => option.value === "" && option.text.includes("使用页面标题")));
+  assert(chapterInitial.options.some(option => option.value === "共享 Chapter" && option.text.includes("P.1")));
+  assert.deepEqual({layoutChanged: chapterInitial.layoutChanged, galleryChanged: chapterInitial.galleryChanged}, {layoutChanged: false, galleryChanged: false});
+
+  await page.select("[data-author-chapter-select]", "共享 Chapter");
+  await page.waitForFunction(() => window.__SLIDE_CONTENT_AUTHORING__.slideStates.get("authoring-gallery").chapter === "共享 Chapter");
+  await page.click('[data-author-action="show-new-chapter"]');
+  await page.type("[data-author-chapter-input]", "新增 $& Chapter");
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => window.__SLIDE_CONTENT_AUTHORING__.slideStates.get("authoring-gallery").chapter === "新增 $& Chapter");
+  const chapterCreated = await page.evaluate(() => {
+    const feature = window.__SLIDE_CONTENT_AUTHORING__;
+    const state = feature.slideStates.get("authoring-gallery");
+    let unsafeCode = "";
+    try { feature.setChapterItem(state.id, "坏\nChapter"); } catch (error) { unsafeCode = error.message; }
+    let unicodeLineCode = "";
+    try { feature.setChapterItem(state.id, `坏${String.fromCharCode(0x2028)}Chapter`); } catch (error) { unicodeLineCode = error.message; }
+    return {
+      serialized: feature.serializeMarkdown(),
+      chapter: state.chapter,
+      dataset: state.element.dataset.chapter,
+      options: feature.chapterItemsForSlide(state.id).map(item => item.title),
+      unsafeCode,
+      unicodeLineCode,
+      layoutChanged: state.layoutChanged,
+      galleryChanged: state.galleryChanged,
+      compactDeleted: feature.writeSlideDirectives("<!-- slide chapter: 旧值 -->\n# 单行指令", {chapter: null}),
+      colonCompactDeleted: feature.writeSlideDirectives("<!-- slide: chapter: 旧值 -->\n# 冒号紧凑指令", {chapter: null}),
+      colonMultilineDeleted: feature.writeSlideDirectives("<!-- slide\n: chapter: 旧值\n-->\n# 冒号多行指令", {chapter: null}),
+      inlineClosingReplacement: feature.writeSlideDirectives("<!-- slide\nid: safe\nchapter: 旧值 -->\n# 同行结束", {chapter: "新 $& 值"}),
+      inlineClosingDeleted: feature.writeSlideDirectives("<!-- slide\nid: safe\nchapter: 旧值 -->\n# 同行删除", {chapter: null}),
+      safeReplacement: feature.writeSlideDirectives("<!-- slide\r\nid: safe\r\nchapter: 旧值\r\n-->\r\n# CRLF", {chapter: "新 $& 值"}),
+      scalarOn: feature.writeSlideDirectives("<!-- slide\nid: scalar\n-->\n# 标量", {chapter: "On"})
+    };
+  });
+  assert.equal(chapterCreated.chapter, "新增 $& Chapter");
+  assert.equal(chapterCreated.dataset, "新增 $& Chapter");
+  assert(chapterCreated.options.includes("新增 $& Chapter"));
+  assert.match(chapterCreated.serialized, /chapter: "新增 \$& Chapter"/);
+  assert.match(chapterCreated.serialized, /移动图片后需要重新计算媒体数和布局。\n\n---\n\n<!-- slide/);
+  assert.match(chapterCreated.unsafeCode, /单行/);
+  assert.match(chapterCreated.unicodeLineCode, /单行/);
+  assert.deepEqual({layoutChanged: chapterCreated.layoutChanged, galleryChanged: chapterCreated.galleryChanged}, {layoutChanged: false, galleryChanged: false});
+  assert.doesNotMatch(chapterCreated.compactDeleted, /chapter:/i);
+  assert.doesNotMatch(chapterCreated.colonCompactDeleted, /chapter:/i);
+  assert.doesNotMatch(chapterCreated.colonMultilineDeleted, /chapter:/i);
+  assert.match(chapterCreated.inlineClosingReplacement, /chapter: "新 \$& 值"\n-->/);
+  assert.match(chapterCreated.inlineClosingDeleted, /id: safe\n-->/);
+  assert.doesNotMatch(chapterCreated.inlineClosingDeleted, /chapter:/i);
+  assert.match(chapterCreated.safeReplacement, /chapter: "新 \$& 值"/);
+  assert.match(chapterCreated.scalarOn, /chapter: "On"/);
+
+  await page.evaluate(() => window.__SLIDE_CONTENT_AUTHORING__.setChapterItem("authoring-gallery", "视觉 Chapter"));
+  await page.waitForFunction(() => !window.__SLIDE_CONTENT_AUTHORING__.slideStates.get("authoring-gallery").chapterChanged);
+  const chapterReverted = await page.evaluate(() => {
+    const feature = window.__SLIDE_CONTENT_AUTHORING__;
+    const state = feature.slideStates.get("authoring-gallery");
+    return {
+      chapter: state.chapter,
+      changed: state.changed,
+      dirty: feature.dirty,
+      chapterOperations: feature.operations.filter(operation => operation.op === "set-chapter"),
+      draft: localStorage.getItem(feature.draftKey())
+    };
+  });
+  assert.deepEqual(chapterReverted, {
+    chapter: "视觉 Chapter",
+    changed: false,
+    dirty: false,
+    chapterOperations: [],
+    draft: null
+  });
+
+  await page.select("[data-author-chapter-select]", "");
+  await page.waitForFunction(() => window.__SLIDE_CONTENT_AUTHORING__.slideStates.get("authoring-gallery").chapter === "");
+  const chapterFallback = await page.evaluate(() => {
+    const feature = window.__SLIDE_CONTENT_AUTHORING__;
+    const state = feature.slideStates.get("authoring-gallery");
+    const source = feature.serializeMarkdown();
+    const slide = /id: authoring-gallery[\s\S]*?(?=\n---\n)/.exec(source)?.[0] || "";
+    return {
+      chapter: state.chapter,
+      chapterChanged: state.chapterChanged,
+      slide,
+      operation: feature.operations.filter(operation => operation.op === "set-chapter").at(-1)
+    };
+  });
+  assert.equal(chapterFallback.chapter, "");
+  assert.equal(chapterFallback.chapterChanged, true);
+  assert.doesNotMatch(chapterFallback.slide, /^chapter:/m);
+  assert.equal(chapterFallback.operation.chapter, "");
+
+  const crossPageSelection = await page.evaluate(() => {
+    const feature = window.__SLIDE_CONTENT_AUTHORING__;
+    const presentation = window.__SLIDE_PRESENTATION__;
+    feature.setActive(true);
+    presentation.show(1, false);
+    const imageId = feature.slideStates.get("authoring-gallery").itemIds.find(id => feature.items.get(id)?.kind === "image");
+    feature.select(imageId);
+    presentation.show(2, false);
+    const selectedAfterNavigation = feature.selectedId;
+    const normalContext = feature.importContext(feature.panel, "upload");
+    feature.selectedId = imageId;
+    const defensiveContext = feature.importContext(feature.panel, "paste");
+    feature.select(null);
+    feature.setActive(false);
+    window.__SLIDE_LAYOUT_EDITOR__.setActive(false);
+    presentation.show(0, false);
+    return {selectedAfterNavigation, normalContext, defensiveContext};
+  });
+  assert.equal(crossPageSelection.selectedAfterNavigation, null);
+  assert.deepEqual(crossPageSelection.normalContext, {
+    source: "upload",
+    slideId: "authoring-target",
+    targetItemId: null,
+    intent: "append"
+  });
+  assert.deepEqual(crossPageSelection.defensiveContext, {
+    source: "paste",
+    slideId: "authoring-target",
+    targetItemId: null,
+    intent: "append"
+  });
+
+  const asynchronousImportSelection = await page.evaluate(async () => {
+    const feature = window.__SLIDE_CONTENT_AUTHORING__;
+    const presentation = window.__SLIDE_PRESENTATION__;
+    feature.setActive(true);
+    presentation.show(1, false);
+    const gallery = feature.slideStates.get("authoring-gallery");
+    const imageId = gallery.itemIds.find(id => feature.items.get(id)?.kind === "image");
+    feature.select(imageId);
+    const context = feature.importContext(feature.panel, "upload");
+    let releaseValidation;
+    const originalValidate = feature.validateRasterFile;
+    const originalDataUrl = feature.dataUrl;
+    const originalReplace = feature.replaceMediaItem;
+    feature.validateRasterFile = () => new Promise(resolve => {
+      releaseValidation = () => resolve({mime: "image/png", width: 1, height: 1});
+    });
+    feature.dataUrl = async () => "data:image/png;base64,iVBORw0KGgo=";
+    feature.replaceMediaItem = function (itemId, values, options = {}) {
+      return originalReplace.call(this, itemId, values, {...options, record: false});
+    };
+    const file = new File([Uint8Array.from([0x89, 0x50, 0x4e, 0x47])], "deferred.png", {type: "image/png"});
+    const pending = feature.importRasterFiles([file], context);
+    await Promise.resolve();
+    presentation.show(2, false);
+    const selectedAfterNavigation = feature.selectedId;
+    releaseValidation();
+    const result = await pending;
+    const selectedAfterCompletion = feature.selectedId;
+    const hiddenSelectionCount = gallery.element.querySelectorAll(".is-author-selected").length;
+    feature.validateRasterFile = originalValidate;
+    feature.dataUrl = originalDataUrl;
+    feature.replaceMediaItem = originalReplace;
+    feature.setActive(false);
+    window.__SLIDE_LAYOUT_EDITOR__.setActive(false);
+    presentation.show(0, false);
+    return {selectedAfterNavigation, selectedAfterCompletion, hiddenSelectionCount, replacements: result.items.map(item => item.replacement)};
+  });
+  assert.deepEqual(asynchronousImportSelection, {
+    selectedAfterNavigation: null,
+    selectedAfterCompletion: null,
+    hiddenSelectionCount: 0,
+    replacements: [true]
+  });
+
+  await page.reload({waitUntil: "load"});
+  await page.waitForFunction(() => Boolean(window.__SLIDE_CONTENT_AUTHORING__));
+  const restoredChapterDraft = await page.evaluate(() => {
+    const feature = window.__SLIDE_CONTENT_AUTHORING__;
+    const state = feature.slideStates.get("authoring-gallery");
+    return {
+      chapter: state.chapter,
+      chapterChanged: state.chapterChanged,
+      dirty: feature.dirty,
+      operations: feature.operations.filter(operation => operation.op === "set-chapter")
+    };
+  });
+  assert.equal(restoredChapterDraft.chapter, "");
+  assert.equal(restoredChapterDraft.chapterChanged, true);
+  assert.equal(restoredChapterDraft.dirty, true);
+  assert.equal(restoredChapterDraft.operations.length, 1);
+  assert.equal(restoredChapterDraft.operations[0].chapter, "");
+
   const interaction = await page.evaluate(async () => {
     const feature = window.__SLIDE_CONTENT_AUTHORING__;
     feature.setActive(true);
     const first = feature.slideStates.get("authoring-first");
     const gallery = feature.slideStates.get("authoring-gallery");
     const target = feature.slideStates.get("authoring-target");
+    feature.setChapterItem(gallery.id, "On");
     const firstTextId = first.itemIds.find(id => feature.items.get(id)?.kind === "text");
     const calloutId = first.itemIds.find(id => feature.items.get(id)?.kind === "callout");
     const addedId = feature.addTextBlock(first.id, {}, {select: false});
@@ -361,6 +604,7 @@ try {
         galleryChanged: gallery.layoutChanged,
         targetChanged: target.layoutChanged
       },
+      chapter: gallery.chapter,
       markdownWithTabs,
       markdown,
       sanitizedMarkdown,
@@ -382,6 +626,7 @@ try {
   assert.equal(interaction.imported.items[0].replacement, false);
   assert.equal(interaction.pendingAssets, 1);
   assert.deepEqual(interaction.layouts, {gallery: "split", target: "gallery", galleryChanged: true, targetChanged: true});
+  assert.equal(interaction.chapter, "On");
   assert.deepEqual(interaction.targetAfterImport, {media: "2", blocks: "1", layout: "gallery", tabs: 2});
   assert.match(interaction.markdown, /### 标题\n\n正文/);
   assert.match(interaction.markdown, /> \[!TIP\] 可移动 Callout/);
@@ -529,6 +774,8 @@ try {
       result,
       savedSource,
       savedLayout,
+      savedAssetPath: assetEntry.path,
+      savedAssetBytes: [...savedAsset],
       assetSignature: [...savedAsset.slice(0, 8)],
       verifiedHash,
       conflictCode,
@@ -550,12 +797,30 @@ try {
   assert.notDeepEqual(saveResult.savedLayout.slides["authoring-target"].regions.copy, {x: 140, y: 230, width: 1600, height: 650});
   assert.deepEqual(saveResult.savedLayout.slides["authoring-target"].typography, {lineHeight: 1.5, color: "#222222", bold: false});
   assert.match(saveResult.savedSource, /assets\/authoring\/[0-9a-f]{16}-pasted-example\.png/);
+  assert.match(saveResult.savedSource, /chapter: "On"/);
   assert.deepEqual(saveResult.assetSignature, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   assert.equal(saveResult.conflictCode, "SOURCE_CONFLICT");
   assert.equal(saveResult.conflictUnchanged, true);
   assert.equal(saveResult.addedLayoutConflictCode, "SOURCE_CONFLICT");
   assert.equal(saveResult.addedLayoutUnchanged, true);
   assert.equal(saveResult.removedLayoutConflictCode, "SOURCE_CONFLICT");
+
+  const savedDeckRoot = resolve(outputRoot, "saved-deck");
+  const savedSourcePath = resolve(savedDeckRoot, "slides.md");
+  const savedOutputPath = resolve(savedDeckRoot, "index.html");
+  await mkdir(resolve(savedDeckRoot, "assets"), {recursive: true});
+  await copyFile(resolve(projectRoot, "harnesses/content-authoring/assets/left.svg"), resolve(savedDeckRoot, "assets/left.svg"));
+  await copyFile(resolve(projectRoot, "harnesses/content-authoring/assets/right.svg"), resolve(savedDeckRoot, "assets/right.svg"));
+  await mkdir(dirname(resolve(savedDeckRoot, saveResult.savedAssetPath)), {recursive: true});
+  await writeFile(savedSourcePath, saveResult.savedSource, "utf8");
+  await writeFile(resolve(savedDeckRoot, saveResult.savedAssetPath), Buffer.from(saveResult.savedAssetBytes));
+  await execFileAsync(
+    pythonExecutable,
+    [resolve(projectRoot, "build_slides.py"), savedSourcePath, "-o", savedOutputPath, "--strict"],
+    {cwd: projectRoot, windowsHide: true}
+  );
+  const rebuiltSavedDeck = await readFile(savedOutputPath, "utf8");
+  assert.match(rebuiltSavedDeck, /data-slide-id="authoring-gallery"[^>]*data-chapter="On"/);
 
   console.log("Content authoring browser test passed.");
 } finally {

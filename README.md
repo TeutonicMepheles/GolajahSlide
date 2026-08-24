@@ -59,8 +59,8 @@ python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 
 1. 按照 [Markdown 内容规范](docs/MARKDOWN-SPEC.md) 编写页面。
 2. 构建并在浏览器中打开 HTML。
-3. 按 `E` 打开页面编辑器，调整布局、区域、正文排版与动画顺序。
-4. 导出与 Markdown 同名的 `.layout.json` 文件。
+3. 按 `E` 打开页面编辑器，编辑文本/Callout/图片与 Chapter 归属，或调整布局、区域、正文排版与动画顺序。
+4. 点击“保存改动”安全写回 Markdown、同名 `.layout.json` 与新增资产；也可仅导出布局覆盖。
 5. 重新构建；构建器会自动读取同目录的覆盖文件。
 6. 查看 `.build.json`，处理警告和错误。
 
@@ -77,6 +77,9 @@ python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 - 自动选择文字、左右图文、大图、画廊、表格和图表布局
 - 图片缩放、拖拽、全屏和临时标注
 - 页面级布局、坐标、正文样式和动画顺序覆盖
+- 编辑模式新增/排序/跨页移动文本块与 Callout，上传/拖放/粘贴图片，并切换多图并列或 Gallery
+- 编辑模式调整当前页 Chapter item，保存后安全写回 Markdown、布局 sidecar 与新增资产
+- 默认无动效的 PDF 与 PowerPoint 静态导出
 - 构建期内容密度检查与浏览器运行时溢出诊断
 - 页脚 Section 子章节导航（悬浮向上展开，点击跳转到子章节首个 Page）
 
@@ -90,6 +93,7 @@ python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 - 当前视觉标注：`A`
 - 悬浮聚焦开关：`H`（默认开启；Slide 内显示主题色鼠标圆圈，容器使用浅色聚焦，再悬停段落或列表项时使用更深的主题色强调）
 - 页脚章节导航：悬浮或聚焦 Section，使用 `↑` / `↓` 浏览子章节，`Enter` 跳转，`Escape` 关闭
+- 静态导出：页面编辑器的“高级 · 文件”中选择 PDF 或 PowerPoint
 
 访问 `index.html?debug=1` 可以标记运行时检测到的溢出区域；诊断结果也可通过 `window.__SLIDE_DIAGNOSTICS__` 读取。
 

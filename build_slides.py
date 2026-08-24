@@ -2763,16 +2763,25 @@ def render_copy(blocks: list[Block], class_name: str = "text-grid") -> str:
     return f'<div class="{class_name} count-{count}{focus}">' + "".join(block.html for block in blocks) + "</div>"
 
 
+def effective_section_memberships(sections: list[str], slides: list[Slide]) -> list[str]:
+    known = set(sections)
+    current_section = sections[0] if sections else ""
+    memberships: list[str] = []
+    for slide in slides:
+        if slide.section:
+            if slide.section not in known:
+                memberships.append("")
+                continue
+            current_section = slide.section
+        memberships.append(current_section if current_section in known else "")
+    return memberships
+
+
 def collect_section_chapters(sections: list[str], slides: list[Slide]) -> dict[str, list[dict[str, object]]]:
     chapters: dict[str, list[dict[str, object]]] = {section: [] for section in sections}
     seen: dict[str, set[str]] = {section: set() for section in sections}
-    current_section = sections[0] if sections else ""
-    for slide in slides:
-        if slide.section:
-            if slide.section not in chapters:
-                continue
-            current_section = slide.section
-        if not current_section or current_section not in chapters:
+    for slide, current_section in zip(slides, effective_section_memberships(sections, slides)):
+        if not current_section:
             continue
         title = slide.chapter or slide.title
         if not title or title in seen[current_section]:
@@ -3718,6 +3727,11 @@ def build(
     }
     editor_json = json.dumps(embedded_editor_config, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
     authoring_payload = authoring_document_payload(authoring_document)
+    payload_slides = authoring_payload.get("slides")
+    if isinstance(payload_slides, list):
+        for payload_slide, effective_section in zip(payload_slides, effective_section_memberships(sections, slides)):
+            if isinstance(payload_slide, dict):
+                payload_slide["effectiveSection"] = effective_section
     authoring_source = authoring_payload.get("source")
     if isinstance(authoring_source, dict):
         authoring_source["layoutName"] = (

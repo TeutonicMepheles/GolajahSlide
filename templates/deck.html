@@ -2902,7 +2902,7 @@
         document.getElementById("currentPage").textContent = String(this.current + 1);
         document.title = `${this.current + 1}/${this.slides.length} · ${this.slides[this.current].dataset.title || this.layoutEditor.deckTitle}`;
         this.layoutEditor.onSlideChange();
-        this.contentAuthoring?.refreshPanel();
+        this.contentAuthoring?.onSlideChange();
         if (updateHash) history.replaceState(null, "", `#${this.current + 1}`);
       }
       step(delta) { this.show(this.current + delta); }

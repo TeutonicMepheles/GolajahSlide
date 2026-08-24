@@ -94,6 +94,10 @@
             titleRange: this.normalizeRange(authored.titleRange),
             subtitleRange: this.normalizeRange(authored.subtitleRange),
             config: authored.config && typeof authored.config === "object" ? {...authored.config} : {},
+            section: String(authored.effectiveSection ?? element.dataset.section ?? authored.config?.section ?? ""),
+            chapter: String(authored.config?.chapter || element.dataset.chapter || ""),
+            baseChapter: String(authored.config?.chapter || element.dataset.chapter || ""),
+            chapterChanged: false,
             layoutResolved: String(element.dataset.layoutResolved || authored.layoutResolved || authored.config?.layout || "text"),
             layoutChanged: false,
             galleryDisplay: authored.galleryDisplay === "tabs" ? "tabs" : "grid",
@@ -101,6 +105,7 @@
             itemIds: [],
             baseItemIds: [],
             galleryChanged: false,
+            contentChanged: false,
             changed: false
           };
           this.slideStates.set(id, state);
@@ -197,6 +202,18 @@
             <div><div class="editor-label">结构化内容 <span>当前页</span></div><p class="editor-help">选择内容后可编辑、排序或移动到相邻页。</p></div>
             <button type="button" class="editor-button" data-author-action="toggle-mode" aria-pressed="false">内容模式</button>
           </div>
+          <section class="content-authoring-chapter" data-author-chapter-panel>
+            <label class="editor-label" for="editorChapterItem">Chapter item <span data-author-section-name>当前 Section</span></label>
+            <select class="editor-select" id="editorChapterItem" data-author-chapter-select></select>
+            <div class="editor-button-row content-authoring-chapter-actions">
+              <button type="button" class="editor-button" data-author-action="show-new-chapter">＋ 新增 item</button>
+            </div>
+            <div class="content-authoring-chapter-create" data-author-chapter-create hidden>
+              <input type="text" maxlength="80" autocomplete="off" placeholder="输入新的 Chapter item 名称" data-author-chapter-input aria-label="新的 Chapter item 名称">
+              <button type="button" class="editor-button primary" data-author-action="add-chapter">新增并归属</button>
+            </div>
+            <p class="editor-help" data-author-chapter-help>保存并重新构建后，页脚 Chapter 导航会同步更新。</p>
+          </section>
           <div class="editor-button-row content-authoring-add-row">
             <button type="button" class="editor-button primary" data-author-action="add-text">＋ 文本块</button>
             <button type="button" class="editor-button" data-author-action="add-callout">＋ Callout</button>
@@ -229,6 +246,9 @@
         this.saveButton = root.querySelector('[data-author-action="save"]');
         this.modeButton = root.querySelector('[data-author-action="toggle-mode"]');
         this.imageInput = root.querySelector("[data-author-image-input]");
+        this.chapterSelect = root.querySelector("[data-author-chapter-select]");
+        this.chapterCreate = root.querySelector("[data-author-chapter-create]");
+        this.chapterInput = root.querySelector("[data-author-chapter-input]");
       }
 
       bind() {
@@ -250,6 +270,11 @@
         if (this.panel) {
           this.panel.addEventListener("click", event => this.handlePanelClick(event), {signal});
           this.panel.addEventListener("change", event => this.handlePanelChange(event), {signal});
+          this.panel.addEventListener("keydown", event => {
+            if (event.key !== "Enter" || event.isComposing || event.keyCode === 229 || !event.target.matches("[data-author-chapter-input]")) return;
+            event.preventDefault();
+            this.addChapterFromInput();
+          }, {signal});
           this.orderList.addEventListener("dragstart", event => this.handleOrderDragStart(event), {signal});
           this.orderList.addEventListener("dragover", event => this.handleOrderDragOver(event), {signal});
           this.orderList.addEventListener("drop", event => this.handleOrderDrop(event), {signal});
@@ -401,12 +426,14 @@
       }
 
       importContext(target, source) {
+        const currentSlideId = this.currentSlideId();
         const node = target.closest?.("[data-author-item-id]");
         const selected = node?.dataset.authorItemId || this.selectedId;
-        const selectedItem = this.items.get(selected);
+        const candidate = this.items.get(selected);
+        const selectedItem = candidate?.slideId === currentSlideId ? candidate : null;
         return {
           source,
-          slideId: selectedItem?.slideId || this.currentSlideId(),
+          slideId: selectedItem?.slideId || currentSlideId,
           targetItemId: ContentAuthoring.mediaKinds.has(selectedItem?.kind) ? selectedItem.id : null,
           intent: ContentAuthoring.mediaKinds.has(selectedItem?.kind) ? "replace" : "append"
         };
@@ -435,6 +462,7 @@
 
       async importRasterFiles(files, context = {}) {
         const accepted = [];
+        const targetSlideId = context.slideId || this.currentSlideId();
         let replaceTarget = context.intent === "replace" ? context.targetItemId : null;
         for (const file of files) {
           const raster = await this.validateRasterFile(file);
@@ -442,7 +470,9 @@
           const relativePath = `assets/authoring/${this.safeAssetName(file.name, raster.mime)}`;
           this.registerPendingAsset({assetId, blob: file, mime: raster.mime, relativePath});
           const preview = await this.dataUrl(file);
-          if (replaceTarget && ContentAuthoring.mediaKinds.has(this.items.get(replaceTarget)?.kind)) {
+          const replacement = this.items.get(replaceTarget);
+          const selectResult = targetSlideId === this.currentSlideId();
+          if (replaceTarget && replacement?.slideId === targetSlideId && ContentAuthoring.mediaKinds.has(replacement.kind)) {
             this.replaceMediaItem(replaceTarget, {
               assetId,
               sourcePath: relativePath,
@@ -451,11 +481,11 @@
               preview,
               width: raster.width,
               height: raster.height
-            });
+            }, {select: selectResult});
             accepted.push({itemId: replaceTarget, assetId, replacement: true});
             replaceTarget = null;
           } else {
-            const itemId = this.appendMediaItem(context.slideId || this.currentSlideId(), {
+            const itemId = this.appendMediaItem(targetSlideId, {
               assetId,
               sourcePath: relativePath,
               alt: this.assetLabel(file.name),
@@ -463,7 +493,7 @@
               preview,
               width: raster.width,
               height: raster.height
-            });
+            }, {select: selectResult});
             accepted.push({itemId, assetId, replacement: false});
           }
         }
@@ -544,9 +574,9 @@
         this.widgetManager?.unregister?.(oldNode);
         oldNode?.replaceWith(node);
         this.nodes.set(itemId, node);
-        this.slideStates.get(item.slideId).changed = true;
+        this.markContentChanged(this.slideStates.get(item.slideId));
         this.commitMutation({op: "replace-media", itemId, baseHash: item.baseHash, item: this.itemSnapshot(item)}, [item.slideId], options);
-        this.select(itemId, {force: true});
+        if (options.select !== false) this.select(itemId, {force: true});
         return itemId;
       }
 
@@ -580,9 +610,9 @@
         this.items.set(item.id, item);
         this.nodes.set(item.id, this.createMediaNode(item, values.preview || ""));
         this.insertInLane(state, item.id, null);
-        state.changed = true;
+        this.markContentChanged(state);
         this.commitMutation({op: "add-media", slideId, item: this.itemSnapshot(item)}, [slideId], options);
-        this.select(item.id, {force: true});
+        if (options.select !== false) this.select(item.id, {force: true});
         return item.id;
       }
 
@@ -632,6 +662,8 @@
         else if (action === "select") this.select(target.closest("[data-author-order-item]")?.dataset.authorOrderItem);
         else if (action === "order-up") this.reorderByDelta(target.closest("[data-author-order-item]")?.dataset.authorOrderItem, -1);
         else if (action === "order-down") this.reorderByDelta(target.closest("[data-author-order-item]")?.dataset.authorOrderItem, 1);
+        else if (action === "show-new-chapter") this.showChapterCreator();
+        else if (action === "add-chapter") this.addChapterFromInput();
         else if (action === "save") void this.save();
       }
 
@@ -642,9 +674,40 @@
           event.target.value = "";
           return;
         }
+        if (event.target.matches("[data-author-chapter-select]")) {
+          try {
+            this.setChapterItem(this.currentSlideId(), event.target.value);
+          } catch (error) {
+            this.reportError(error, "Chapter item 更新失败");
+            this.refreshPanel();
+          }
+          return;
+        }
         const input = event.target.closest("[data-author-input]");
         if (!input || !this.selectedId) return;
         this.updateField(this.selectedId, input.dataset.authorInput, input.value);
+      }
+
+      showChapterCreator() {
+        if (!this.chapterCreate || !this.chapterInput) return;
+        this.chapterCreate.hidden = false;
+        this.chapterInput.value = "";
+        this.chapterInput.focus();
+      }
+
+      addChapterFromInput() {
+        if (!this.chapterInput || this.chapterCreate?.hidden) return false;
+        try {
+          const value = this.normalizeChapterName(this.chapterInput.value, {allowEmpty: false});
+          this.setChapterItem(this.currentSlideId(), value);
+          this.chapterInput.value = "";
+          this.chapterCreate.hidden = true;
+          return true;
+        } catch (error) {
+          this.reportError(error, "Chapter item 新增失败");
+          this.chapterInput.focus();
+          return false;
+        }
       }
 
       handleOrderDragStart(event) {
@@ -689,6 +752,63 @@
       currentSlideId() {
         const slide = this.presentation?.slides?.[this.presentation.current] || this.stage.querySelector(".slide.active");
         return slide?.dataset.slideId || this.slideStates.keys().next().value || null;
+      }
+
+      onSlideChange() {
+        const currentSlideId = this.currentSlideId();
+        const selected = this.items.get(this.selectedId);
+        if (selected && selected.slideId !== currentSlideId) this.select(null);
+        else this.refreshPanel();
+        if (this.chapterCreate && !this.chapterCreate.hidden) {
+          this.chapterCreate.hidden = true;
+          if (this.chapterInput) this.chapterInput.value = "";
+        }
+      }
+
+      chapterItemsForSlide(slideId) {
+        const state = this.slideStates.get(slideId);
+        if (!state?.section) return [];
+        const seen = new Set();
+        const items = [];
+        [...this.slideStates.values()]
+          .sort((left, right) => left.index - right.index)
+          .forEach(candidate => {
+            if (candidate.section !== state.section) return;
+            const title = candidate.chapter || candidate.title;
+            if (!title || seen.has(title)) return;
+            seen.add(title);
+            items.push({title, page: candidate.number, slideId: candidate.id});
+          });
+        return items;
+      }
+
+      normalizeChapterName(value, options = {}) {
+        const source = String(value ?? "");
+        if (/[\r\n\v\f\x1c-\x1e\u0085\u2028\u2029]/.test(source)) throw new Error("Chapter item 名称必须为单行文字");
+        const normalized = source.trim();
+        if (!normalized && options.allowEmpty === false) throw new Error("请输入 Chapter item 名称");
+        if (normalized.length > 80) throw new Error("Chapter item 名称不能超过 80 个字符");
+        if (/<!--|-->/.test(normalized)) throw new Error("Chapter item 名称不能包含 HTML 注释边界");
+        return normalized;
+      }
+
+      setChapterItem(slideId, value, options = {}) {
+        const state = this.requireContentSlide(slideId);
+        if (!state.section) throw new Error("当前演示文稿没有可用的 Section，无法设置 Chapter item");
+        const chapter = this.normalizeChapterName(value);
+        if (state.chapter === chapter) return true;
+        state.chapter = chapter;
+        state.chapterChanged = state.chapter !== state.baseChapter;
+        if (chapter) state.config.chapter = chapter;
+        else delete state.config.chapter;
+        state.element.dataset.chapter = chapter;
+        state.changed = state.contentChanged || state.chapterChanged;
+        this.commitMutation(
+          {op: "set-chapter", slideId, chapter},
+          [slideId],
+          {...options, reconcile: false}
+        );
+        return true;
       }
 
       select(itemId, options = {}) {
@@ -748,7 +868,7 @@
           ? this.nextLaneItemId(state, selected.id)
           : null;
         this.insertInLane(state, item.id, beforeItemId);
-        state.changed = true;
+        this.markContentChanged(state);
         this.commitMutation({op: "add", slideId, beforeItemId, item: this.itemSnapshot(item)}, [slideId], options);
         if (options.select !== false) this.select(item.id);
         return item.id;
@@ -804,7 +924,7 @@
         if (item[field] === normalized) return true;
         item[field] = normalized;
         item.dirtyFields.add(field);
-        this.slideStates.get(item.slideId).changed = true;
+        this.markContentChanged(this.slideStates.get(item.slideId));
         if (options.updateDom !== false) this.writeField(this.nodes.get(itemId), item, field, normalized);
         this.commitMutation({op: "update-field", itemId, field, value: normalized, baseHash: item.baseHash}, [item.slideId], options);
         return true;
@@ -835,7 +955,7 @@
           ? lane[laneIndex++]
           : id);
         if (previous.join("\0") === state.itemIds.join("\0")) return true;
-        state.changed = true;
+        this.markContentChanged(state);
         this.commitMutation({op: "reorder", slideId, itemId, beforeItemId}, [slideId], options);
         this.select(itemId, {force: true});
         return true;
@@ -880,8 +1000,8 @@
         const fromSlideId = source.id;
         item.slideId = target.id;
         this.insertInLane(target, itemId, beforeItemId);
-        source.changed = true;
-        target.changed = true;
+        this.markContentChanged(source);
+        this.markContentChanged(target);
         this.commitMutation({op: "move", itemId, fromSlideId, toSlideId: target.id, beforeItemId}, [source.id, target.id], options);
         if (options.navigate !== false) {
           const targetIndex = [...this.slideStates.values()].sort((left, right) => left.index - right.index).findIndex(slide => slide.id === target.id);
@@ -898,7 +1018,7 @@
         if (state.galleryDisplay === normalized) return true;
         state.galleryDisplay = normalized;
         state.galleryChanged = true;
-        state.changed = true;
+        this.markContentChanged(state);
         this.commitMutation({op: "set-gallery-display", slideId, display: normalized}, [slideId], options);
         return true;
       }
@@ -919,6 +1039,12 @@
           if (this.laneFor(this.items.get(id)?.kind) === lane) insertion = index;
         });
         state.itemIds.splice(insertion + 1, 0, itemId);
+      }
+
+      markContentChanged(state) {
+        if (!state) return;
+        state.contentChanged = true;
+        state.changed = true;
       }
 
       laneFor(kind) {
@@ -965,19 +1091,29 @@
 
       commitMutation(operation, slideIds, options = {}) {
         const affected = [...new Set(slideIds.filter(Boolean))];
-        this.reconcileSlides(affected);
+        if (options.reconcile !== false) this.reconcileSlides(affected);
         if (options.record === false) return;
         this.revision += 1;
         const record = {...operation, revision: this.revision};
         const previous = this.operations[this.operations.length - 1];
-        if (record.op === "update-field" && previous?.op === "update-field" && previous.itemId === record.itemId && previous.field === record.field) {
+        if (record.op === "set-chapter") {
+          this.operations = this.operations.filter(candidate => candidate.op !== "set-chapter" || candidate.slideId !== record.slideId);
+          if (this.slideStates.get(record.slideId)?.chapterChanged) this.operations.push(record);
+        } else if (record.op === "update-field" && previous?.op === "update-field" && previous.itemId === record.itemId && previous.field === record.field) {
           this.operations[this.operations.length - 1] = record;
         } else this.operations.push(record);
-        this.dirty = true;
-        this.persistDraft();
-        this.dispatch("change", {revision: this.revision, operation: record, affectedSlideIds: affected, dirty: true});
+        this.dirty = this.operations.length > 0;
+        if (this.dirty) this.persistDraft();
+        else {
+          this.revision = 0;
+          this.clearDraft();
+        }
+        this.dispatch("change", {revision: this.revision, operation: record, affectedSlideIds: affected, dirty: this.dirty});
         this.refreshPanel();
-        if (options.announce !== false) this.setStatus("改动已暂存在本机；点击“保存改动”写回源文件。", "dirty");
+        if (options.announce !== false) this.setStatus(
+          this.dirty ? "改动已暂存在本机；点击“保存改动”写回源文件。" : "已恢复到构建时状态。",
+          this.dirty ? "dirty" : "clean"
+        );
       }
 
       reconcileSlides(slideIds) {
@@ -1145,6 +1281,9 @@
           number: state.number,
           title: state.title,
           subtitle: state.subtitle,
+          section: state.section,
+          chapter: state.chapter,
+          chapterChanged: state.chapterChanged,
           baseHash: state.baseHash,
           layoutResolved: state.layoutResolved,
           layoutChanged: state.layoutChanged,
@@ -1384,6 +1523,7 @@
 
       serializeSlide(state, assetPaths) {
         const base = state.source || this.source.text.slice(state.sourceRange.start, state.sourceRange.end);
+        const trailingWhitespace = /\s*$/.exec(base)?.[0] || "";
         const ranged = state.baseItemIds.map(id => this.items.get(id)).filter(item => item?.sourceRange && item.sourceRange.start >= state.sourceRange.start && item.sourceRange.end <= state.sourceRange.end);
         ranged.sort((left, right) => left.sourceRange.start - right.sourceRange.start);
         const firstStart = ranged.length ? ranged[0].sourceRange.start - state.sourceRange.start : base.length;
@@ -1398,9 +1538,11 @@
         const directives = {};
         if (state.layoutChanged) directives.layout = state.layoutResolved;
         if (state.galleryChanged) directives["gallery-display"] = state.galleryDisplay;
+        if (state.chapterChanged) directives.chapter = state.chapter || null;
         if (Object.keys(directives).length) header = this.writeSlideDirectives(header, directives);
         const body = state.itemIds.map(id => this.serializeItem(this.items.get(id), assetPaths)).filter(Boolean).join("\n\n");
-        return header + (body ? "\n\n" + body : "") + (tail.trim() ? "\n\n" + tail.trimStart() : tail);
+        const serialized = header + (body ? "\n\n" + body : "") + (tail.trim() ? "\n\n" + tail.trimStart() : tail);
+        return serialized.replace(/\s*$/, "") + trailingWhitespace;
       }
 
       serializeItem(item, assetPaths) {
@@ -1445,18 +1587,44 @@
       writeSlideDirectives(header, entries) {
         const directive = /<!--\s*slide\b[\s\S]*?-->/i.exec(header);
         if (!directive) {
+          const authoredEntries = Object.entries(entries).filter(([, value]) => value !== null);
+          if (!authoredEntries.length) return header;
           const leading = /^\s*/.exec(header)?.[0] || "";
-          const lines = Object.entries(entries).map(([key, value]) => `${key}: ${value}`).join("\n");
+          const lines = authoredEntries.map(([key, value]) => `${key}: ${this.directiveScalar(key, value)}`).join("\n");
           return `${leading}<!-- slide\n${lines}\n-->\n${header.slice(leading.length)}`;
         }
-        let updated = directive[0];
+        const parsed = /^<!--\s*slide\b([\s\S]*?)-->$/i.exec(directive[0]);
+        const body = String(parsed?.[1] || "").replace(/\r\n|\r/g, "\n");
+        const lines = body.split("\n");
+        while (lines.length && !lines[0].trim()) lines.shift();
+        while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+        if (lines.length) lines[0] = lines[0].replace(/^[ \t]*:[ \t]*/, "");
         Object.entries(entries).forEach(([key, value]) => {
           const safeKey = String(key).replace(/[^a-z-]/g, "");
-          const expression = new RegExp(`^(\\s*${safeKey}\\s*:)\\s*.*$`, "im");
-          if (expression.test(updated)) updated = updated.replace(expression, `$1 ${value}`);
-          else updated = updated.replace(/\s*-->$/, `\n${safeKey}: ${value}\n-->`);
+          if (!safeKey) return;
+          const expression = new RegExp(`^([ \\t]*${safeKey}[ \\t]*:)[ \\t]*(.*)$`, "i");
+          const matches = [];
+          lines.forEach((line, index) => {
+            const match = expression.exec(line);
+            if (match) matches.push({index, prefix: match[1]});
+          });
+          if (value === null) {
+            matches.reverse().forEach(match => lines.splice(match.index, 1));
+          } else if (matches.length) {
+            const [first, ...duplicates] = matches;
+            lines[first.index] = `${first.prefix} ${this.directiveScalar(safeKey, value)}`;
+            duplicates.reverse().forEach(match => lines.splice(match.index, 1));
+          } else {
+            lines.push(`${safeKey}: ${this.directiveScalar(safeKey, value)}`);
+          }
         });
+        const updated = `<!-- slide\n${lines.join("\n")}\n-->`;
         return header.slice(0, directive.index) + updated + header.slice(directive.index + directive[0].length);
+      }
+
+      directiveScalar(key, value) {
+        const source = String(value ?? "");
+        return key === "chapter" ? `"${source}"` : source;
       }
 
       layoutPayload(value, targetSourceHash) {
@@ -1698,10 +1866,25 @@
             return;
           }
           saved.operations.forEach(operation => this.applyOperation(operation));
-          this.operations = saved.operations.map(operation => structuredClone(operation));
-          this.revision = Number(saved.revision) || this.operations.length;
-          this.dirty = true;
-          this.setStatus("已恢复与当前源码指纹匹配的本地草稿。", "dirty");
+          const latestChapterOperations = new Map();
+          const normalizedOperations = [];
+          saved.operations.forEach(operation => {
+            if (operation.op === "set-chapter") latestChapterOperations.set(operation.slideId, operation);
+            else normalizedOperations.push(structuredClone(operation));
+          });
+          latestChapterOperations.forEach((operation, slideId) => {
+            if (this.slideStates.get(slideId)?.chapterChanged) normalizedOperations.push(structuredClone(operation));
+          });
+          this.operations = normalizedOperations;
+          this.dirty = this.operations.length > 0;
+          this.revision = this.dirty ? (Number(saved.revision) || this.operations.length) : 0;
+          if (this.dirty) {
+            this.persistDraft();
+            this.setStatus("已恢复与当前源码指纹匹配的本地草稿。", "dirty");
+          } else {
+            this.clearDraft();
+            this.setStatus("本地草稿已与构建时状态一致，无需恢复。", "clean");
+          }
         } catch (_) {
           this.storageWarning = "本地内容草稿无法读取，已忽略。";
         }
@@ -1717,7 +1900,7 @@
           const node = this.createBlockNode(item);
           this.nodes.set(item.id, node);
           this.insertInLane(state, item.id, operation.beforeItemId || null);
-          state.changed = true;
+          this.markContentChanged(state);
           this.reconcileSlides([state.id]);
         } else if (operation.op === "update-field") {
           this.updateField(operation.itemId, operation.field, operation.value, options);
@@ -1727,6 +1910,8 @@
           this.moveItem(operation.itemId, operation.toSlideId, operation.beforeItemId || null, options);
         } else if (operation.op === "set-gallery-display") {
           this.setGalleryDisplay(operation.slideId, operation.display, options);
+        } else if (operation.op === "set-chapter") {
+          this.setChapterItem(operation.slideId, operation.chapter || "", options);
         }
       }
 
@@ -1750,10 +1935,39 @@
         gallery.querySelectorAll("[data-author-gallery-display]").forEach(button => {
           button.setAttribute("aria-pressed", String(button.dataset.authorGalleryDisplay === state?.galleryDisplay));
         });
+        this.renderChapterPanel(state, canEdit);
         this.renderOrderList(state);
         this.renderSelection();
         if (this.saveButton) this.saveButton.disabled = !this.dirty || this.needsRebuild;
         if (!this.dirty && !this.storageWarning && !this.staleDraft) this.setStatus("尚无内容改动。", "clean");
+      }
+
+      renderChapterPanel(state, canEdit) {
+        if (!this.chapterSelect) return;
+        const sectionName = this.panel.querySelector("[data-author-section-name]");
+        if (sectionName) sectionName.textContent = state?.section || "无 Section";
+        const previousValue = state?.chapter || "";
+        const defaultOption = document.createElement("option");
+        defaultOption.value = "";
+        defaultOption.textContent = state?.title ? `使用页面标题：${state.title}` : "使用页面标题（默认）";
+        const options = [defaultOption];
+        this.chapterItemsForSlide(state?.id).forEach(item => {
+          if (item.title === state?.title && !state?.chapter) return;
+          const option = document.createElement("option");
+          option.value = item.title;
+          option.textContent = `${item.title} · P.${item.page}`;
+          options.push(option);
+        });
+        this.chapterSelect.replaceChildren(...options);
+        this.chapterSelect.value = previousValue;
+        this.chapterSelect.disabled = !canEdit || !state?.section;
+        const addButton = this.panel.querySelector('[data-author-action="show-new-chapter"]');
+        if (addButton) addButton.disabled = !canEdit || !state?.section;
+        if ((!canEdit || !state?.section) && this.chapterCreate) this.chapterCreate.hidden = true;
+        const help = this.panel.querySelector("[data-author-chapter-help]");
+        if (help) help.textContent = state?.section
+          ? "选择已有 item，或新增并把当前页归入它；保存并重新构建后页脚同步更新。"
+          : "请先在 Markdown 中配置 Section，再设置 Chapter item。";
       }
 
       renderOrderList(state) {

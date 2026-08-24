@@ -2,12 +2,16 @@
 title: Content Authoring Harness
 lang: zh-CN
 density: reading
+sections: ["基础 Section", "进阶 Section"]
+default-section: 基础 Section
 ---
 
 <!-- slide
 id: authoring-first
 type: content
 layout: text
+section: 基础 Section
+chapter: 共享 Chapter
 footer: false
 -->
 # 稳定文字字段
@@ -27,6 +31,7 @@ id: authoring-gallery
 type: content
 layout: gallery
 gallery-display: grid
+chapter: 视觉 Chapter
 footer: false
 -->
 # 双图展示方式
@@ -46,6 +51,8 @@ footer: false
 id: authoring-target
 type: content
 layout: text
+section: 进阶 Section
+chapter: 共享 Chapter
 footer: false
 -->
 # 跨页移动目标

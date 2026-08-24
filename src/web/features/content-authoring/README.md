@@ -6,9 +6,10 @@ Content Authoring owns structured browser edits that must survive a Markdown reb
 
 - Content mode can add a text card with the default title `标题` and body `正文`, or add a Note Callout with `补充说明` and `正文`.
 - Text cards and Callouts can be reordered by drag-and-drop or the accessible up/down buttons.
+- A content slide can select an existing Chapter item from its current Section or create a new name and immediately join it. Clearing the selection restores the page-title fallback. Chapter-only edits do not recompose the slide layout; footer navigation updates after source save and rebuild.
 - Images, text cards, and Callouts can move to the immediately previous or next content slide. The first/last page does not wrap, and structural cover/section pages are not valid destinations. A specialized table/code/diagram page can still receive text, but deliberately does not accept newly appended or moved media because its locked visual stage cannot be recomposed safely in-browser.
 - Two or more images can use `grid` (side-by-side) or `tabs` (Gallery). Tab targets use stable media IDs rather than numeric DOM positions, and the currently visible choice is persisted even when a media move crosses the default three-image threshold.
-- PNG, JPEG, and WebP can be uploaded, dropped, or pasted. The built-in importer checks MIME plus file magic, an 8 MB byte limit, successful decode, a 12,000 px edge limit, and a 40-million-pixel limit. A selected image is replaced; otherwise images are appended.
+- PNG, JPEG, and WebP can be uploaded, dropped, or pasted. The built-in importer checks MIME plus file magic, an 8 MB byte limit, successful decode, a 12,000 px edge limit, and a 40-million-pixel limit. A selected image on the current page is replaced; otherwise images are appended to the current page. Navigation clears an old-page selection, and import context defensively rejects stale cross-page selections.
 - `保存改动` asks for a directory with the File System Access API. It verifies the exact UTF-8 `slides.md` SHA-256 and the layout file's hash plus presence/absence before writing anything, then writes content-addressed assets, layout JSON, and Markdown last. A source/layout conflict never overwrites the disk file.
 - Structural layout changes are written to the Markdown directive and rebased into an existing layout sidecar. The sidecar keeps its content bounds and typography/animation settings while incompatible visual/copy regions are regenerated for the new layout.
 - Unsupported, denied, cancelled, conflicting, or failed direct saves export a `.golajah-edit.json` recovery bundle containing the base source, operation log, target Markdown when serializable, layout payload, and pending assets.
@@ -32,6 +33,8 @@ The build embeds JSON in `#deckAuthoringModel`:
   "slides": [{
     "id": "stable-slide-id",
     "baseHash": "...",
+    "config": {"section": "方案", "chapter": "方案概览"},
+    "effectiveSection": "方案",
     "source": "exact slide source",
     "sourceRange": {"start": 0, "end": 100},
     "galleryDisplay": "grid",
@@ -84,6 +87,8 @@ The runtime creates its Layout Editor group if no `[data-content-authoring-mount
 - `updateField(itemId, field, value)` edits controlled text fields as text, never HTML.
 - `reorderItem(slideId, itemId, beforeItemId)` reorders text/Callout items.
 - `moveItem(itemId, targetSlideId, beforeItemId?)` moves a supported item without wrapping page boundaries.
+- `chapterItemsForSlide(slideId)` projects the current Section's Chapter items in first-page order.
+- `setChapterItem(slideId, name)` assigns a Chapter item; an empty name restores the page-title fallback.
 - `setGalleryDisplay(slideId, "grid"|"tabs")` changes the authored Gallery choice.
 - `importRasterFiles(files, context)` validates and appends/replaces raster images.
 - `replaceMediaItem(...)`, `appendMediaItem(...)`, and `registerPendingAsset(...)` support a custom media UI.
@@ -110,7 +115,7 @@ The fallback composer covers ordinary content pages: 0 media -> `text`, 1 media 
 
 ## Persistence and save adapter
 
-Draft localStorage contains only `{baseSourceSha256, revision, operations}` under a source-specific key. Drafts are replayed only when the current embedded SHA-256 matches. The older Layout Editor cache uses the same source-hash gate for page entries, so ordinal page overrides from a prior build are ignored. A mismatched draft emits `content-authoring:draft-conflict` and is never applied by guessed position. Raster Blob bytes remain in memory (or a supplied media store), not localStorage; therefore a reloaded draft containing unsaved media operations is kept as a conflict record and is not partially replayed.
+Draft localStorage contains only `{baseSourceSha256, revision, operations}` under a source-specific key. Draft operations include `set-chapter` metadata changes and are replayed only when the current embedded SHA-256 matches. The older Layout Editor cache uses the same source-hash gate for page entries, so ordinal page overrides from a prior build are ignored. A mismatched draft emits `content-authoring:draft-conflict` and is never applied by guessed position. Raster Blob bytes remain in memory (or a supplied media store), not localStorage; therefore a reloaded draft containing unsaved media operations is kept as a conflict record and is not partially replayed.
 
 An optional `saveAdapter.save(changeSet, feature)` may replace the native directory flow. It returns:
 
@@ -142,4 +147,4 @@ All events bubble from the deck stage and use the `content-authoring:` prefix:
 - Browser test: `tests/test_content_authoring.mjs`
 - Generator/source-model contracts: `tests/test_build_slides.py`
 
-The browser matrix must cover add/edit, drag and keyboard reorder, grid/tabs switching, text and image moves in both directions, automatic 0/1/2-media layout changes, dynamic Visual Widget/Media Tabs registration without duplicate controls, plain-text paste, raster validation, matching-hash save, source/layout conflicts, write rollback, recovery-bundle fallback, stable-cache rebuild regression, and overflow checks at desktop and narrow viewports.
+The browser matrix must cover add/edit, drag and keyboard reorder, Chapter selection/create/title fallback and draft replay, grid/tabs switching, text and image moves in both directions, automatic 0/1/2-media layout changes, dynamic Visual Widget/Media Tabs registration without duplicate controls, plain-text paste, raster validation, stale-selection import defense, matching-hash save, strict rebuild of saved Markdown, source/layout conflicts, write rollback, recovery-bundle fallback, stable-cache rebuild regression, and overflow checks at desktop and narrow viewports.

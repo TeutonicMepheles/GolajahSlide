@@ -18,6 +18,51 @@
       margin-top: 14px;
     }
 
+    .content-authoring-chapter {
+      min-width: 0;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255,255,255,.1);
+    }
+
+    .content-authoring-chapter .editor-select {
+      box-sizing: border-box;
+      width: 100%;
+    }
+
+    .content-authoring-chapter-actions {
+      margin-top: 8px;
+    }
+
+    .content-authoring-chapter-create {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 7px;
+      margin-top: 8px;
+    }
+
+    .content-authoring-chapter-create[hidden] {
+      display: none;
+    }
+
+    .content-authoring-chapter-create input {
+      box-sizing: border-box;
+      min-width: 0;
+      height: 38px;
+      padding: 0 10px;
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 9px;
+      color: #fff;
+      background: rgba(255,255,255,.075);
+      outline: none;
+      font: inherit;
+    }
+
+    .content-authoring-chapter-create input:focus {
+      border-color: #9B8EFF;
+      box-shadow: 0 0 0 3px rgba(111,96,229,.24);
+    }
+
     .content-authoring-upload {
       width: 100%;
       margin-top: 8px;
@@ -294,8 +339,13 @@
       }
 
       .content-authoring-add-row,
+      .content-authoring-chapter-create,
       .content-authoring-selection .editor-button-row {
         grid-template-columns: minmax(0, 1fr);
+      }
+
+      .content-authoring-chapter-create > button {
+        width: 100%;
       }
 
       .content-authoring-order > li {

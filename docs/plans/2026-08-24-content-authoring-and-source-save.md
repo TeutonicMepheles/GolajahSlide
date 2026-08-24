@@ -19,6 +19,7 @@
 - 支持上传、拖入或粘贴 PNG、JPEG、WebP，以替换占位图、替换现有图片或向当前页追加图片。
 - 两张及以上图片可在编辑器中选择 Tab Gallery 或并列展示。
 - 选中的图片、文本块或 Callout 可移动到上一页或下一页，并同步重算两页布局。
+- 当前页可在编辑模式中选择所属 Chapter item，或输入新名称并把当前页归入新 item；空值恢复为页面标题。
 - “保存改动”优先通过浏览器文件系统授权写回 `slides.md`、同名 `.layout.json` 与新增资产；不可用时下载可重建文件并明确提示。
 - 下载当前 HTML 继续生成单文件、自包含交付物。
 
@@ -51,12 +52,14 @@
 - [x] 布局编辑器在文字页默认进入文字范围，在图文、Gallery 与纯图页默认进入图像范围；同页提交不覆盖用户手动选择的整体内容范围。
 - [x] 高频编辑分组默认展开，低频分组默认折叠；折叠标题支持键盘操作且窄屏无横向溢出。
 - [x] `npm test`、生成物 freshness 与桌面/窄屏浏览器 QA 通过。
+- [x] Chapter item 选择、新增、标题回退、草稿恢复和 Markdown 安全序列化通过浏览器回归。
+- [x] 切页会清理上一页内容选择，上传、拖放和粘贴不会误替换上一页图片。
 
 ## Validation evidence
 
-- `python3 -m unittest discover -s tests -v`: 50 项通过，覆盖源码模型、稳定 ID、UTF-16/CRLF 往返、显式布局文件名与指纹、布局冲突和显式多图布局。
-- `npm run test:content-authoring`: Focused Harness 严格构建并通过浏览器回归，覆盖旧文字/布局缓存隔离、新增/重排、Gallery 切换、跨页移动、布局指令与 sidecar 同步、图片导入、Markdown 安全序列化、文件写回及源码/布局冲突拒绝；同时验证文字/图像默认区域、五类选项归属与展开规则、Space/Enter 键盘折叠、模式安全退出、下载 HTML 状态归一和 375×800 窄屏滚动/溢出。
-- `env PATH="<temporary-python3-shim>:$PATH" npm test`: 全量 Python 与 7 组浏览器/图表测试通过；临时 shim 仅用于本机 `python` 命令兼容，未加入仓库。
+- `python3 -m unittest discover -s tests -v`: 112 项通过，覆盖 Agent CLI/MCP、源码模型、稳定 ID、UTF-16/CRLF 往返、有效 Section 继承、显式布局文件名与指纹、布局冲突和显式多图布局。
+- `npm run test:content-authoring`: Focused Harness 严格构建并通过浏览器回归，覆盖旧文字/布局缓存隔离、新增/重排、Gallery 切换、跨页移动、Chapter 选择/新增/标题回退、同 Section 投影、IME 与 Unicode/标量/directive 安全、净零草稿清理、切页与异步图片导入选择隔离、保存后 strict 重建、布局指令与 sidecar 同步、文件写回及源码/布局冲突拒绝；同时验证文字/图像默认区域、五类选项归属与展开规则和 375×800 窄屏滚动/溢出。
+- `env PATH="<temporary-python3-shim>:$PATH" PUPPETEER_EXECUTABLE_PATH="<Chrome-for-Testing>" npm test`: 112 项 Python 与 8 组浏览器/图表测试全部通过；临时 shim 与浏览器路径仅用于本机验证，未加入仓库。
 - 从当前源重新生成 `examples/basic`、`examples/diagrams` 与 `examples/archscribe` 的 `index.html` / `index.build.json`；三组 strict 构建通过，其中 diagrams 使用 `--render-diagrams`。
 - 真实浏览器检查通过：1920×1080 下新增文本、选中、双图并列/Tab Gallery 与图片显示正常；820×900 和 375×800 下编辑面板无横向溢出；控制台无 error/warning。
 - 应用内浏览器真实点击检查通过：文字页首次打开选中“文字范围”；手动选择“内容范围”并重套预设后保持不变；编辑器开启时翻到 Gallery 自动选中“图像范围”，再回到文字页恢复“文字范围”；控制台无 error/warning。

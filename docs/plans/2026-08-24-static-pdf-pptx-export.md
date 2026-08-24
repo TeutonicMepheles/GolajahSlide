@@ -47,7 +47,7 @@
 
 ## Validation evidence
 
-- `npm test`：51 个 Python 单元测试与 8 组浏览器回归全部通过；覆盖普通链接/正文不会触发本地素材嵌入、逐页内存预算、真实 Blob 下载、4 页 Gallery 展开、1920×1080 JPEG、PDF xref/page tree、合法 OOXML Layout ID、PPTX ZIP/关系/XML、无 timing/transition、无视频媒体、导出前后演示状态不变，以及 375×800 编辑器。
+- `npm test`：112 个 Python 单元测试与 8 组浏览器回归全部通过；覆盖普通链接/正文不会触发本地素材嵌入、逐页内存预算、真实 Blob 下载、4 页 Gallery 展开、1920×1080 JPEG、PDF xref/page tree、合法 OOXML Layout ID、PPTX ZIP/关系/XML、无 timing/transition、无视频媒体、导出前后演示状态不变，以及 375×800 编辑器。
 - `python3 build_slides.py harnesses/static-export/slides.md ... --strict`：3 个源页面严格构建通过，静态计划生成 4 个输出页面。
 - `pdfinfo` 与 `pdftoppm`：PDF 1.4、4 页、每页 960×540 pt，可逐页渲染；4 页渲染图均完成视觉检查，无裁切、空白素材或覆盖层。
 - `unzip -t`、PowerPoint 渲染脚本与 Slide 越界检查：PPTX 全部 ZIP part/CRC 通过，可渲染为 4 页且无越界；4 页渲染图均完成视觉检查。

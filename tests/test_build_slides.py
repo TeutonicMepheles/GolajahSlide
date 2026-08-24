@@ -885,12 +885,13 @@ Second page.
         slides = [
             build_slides.Slide(1, "intro", "content", "开场", "", "基础", "text", "text", {}, [], [], "", "概览"),
             build_slides.Slide(2, "intro-more", "content", "更多开场", "", "基础", "text", "text", {}, [], [], "", "概览"),
-            build_slides.Slide(3, "setup", "content", "配置", "", "基础", "text", "text", {}, [], [], ""),
+            build_slides.Slide(3, "setup", "content", "配置", "", "", "text", "text", {}, [], [], ""),
             build_slides.Slide(4, "advanced", "content", "深入标题", "", "深入", "text", "text", {}, [], [], ""),
         ]
 
         chapters = build_slides.collect_section_chapters(["基础", "深入"], slides)
 
+        self.assertEqual(build_slides.effective_section_memberships(["基础", "深入"], slides), ["基础", "基础", "基础", "深入"])
         self.assertEqual(chapters["基础"], [
             {"title": "概览", "page": 1},
             {"title": "配置", "page": 3},
@@ -1067,7 +1068,8 @@ footer: false
     def test_authoring_document_preserves_exact_source_and_utf16_ranges(self):
         source = (
             "\ufeff---\r\ntitle: 可逆模型\r\n---\r\n\r\n"
-            "<!-- slide\r\nid: first\r\nlayout: gallery\r\ngallery-display: tabs\r\n-->\r\n"
+            "<!-- slide\r\nid: first\r\nlayout: gallery\r\ngallery-display: tabs\r\n"
+            "section: 基础 Section\r\nchapter: 共享 Chapter\r\n-->\r\n"
             "# 第一页😀\r\n## 副标题\r\n\r\n"
             "![图一](assets/one.png \"图注一\")\r\n\r\n"
             "### 文本块\r\n\r\n正文[^source]\r\n\r\n"
@@ -1086,6 +1088,8 @@ footer: false
         self.assertEqual([item.kind for item in document.slides[0].items], ["image", "text", "callout"])
         self.assertEqual([citation.citation_id for citation in document.citations], ["source"])
         self.assertEqual(payload["source"]["offsetEncoding"], "utf-16")
+        self.assertEqual(payload["slides"][0]["config"]["section"], "基础 Section")
+        self.assertEqual(payload["slides"][0]["config"]["chapter"], "共享 Chapter")
         reconstructed = payload["source"]["prefix"]
         for index, slide in enumerate(payload["slides"]):
             reconstructed += slide["source"]
@@ -1235,6 +1239,53 @@ gallery-display: tabs
             self.assertIsNotNone(editor_match)
             editor_payload = json.loads(editor_match.group(1))
             self.assertEqual(editor_payload["sourceHash"], build_slides.sha256_source(source))
+
+    def test_authoring_model_exposes_effective_inherited_sections(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            markdown.write_text("""---
+title: Section inheritance
+sections: ["基础", "深入"]
+---
+
+<!-- slide
+id: first
+section: 基础
+-->
+# 第一页
+
+正文。
+
+---
+
+<!-- slide
+id: inherited
+chapter: 延续章节
+-->
+# 继承页
+
+正文。
+
+---
+
+<!-- slide
+id: advanced
+section: 深入
+-->
+# 深入页
+
+正文。
+""", encoding="utf-8")
+
+            self.assertEqual(build_slides.build(markdown, output, strict=True), 0)
+            rendered = output.read_text(encoding="utf-8")
+            match = re.search(r'<script id="deckAuthoringModel" type="application/json">(.*?)</script>', rendered, re.S)
+            self.assertIsNotNone(match)
+            payload = json.loads(match.group(1))
+            self.assertEqual([slide["effectiveSection"] for slide in payload["slides"]], ["基础", "基础", "深入"])
+            self.assertNotIn("section", payload["slides"][1]["config"])
 
     def test_atomic_writer_replaces_content_without_temp_files(self):
         with tempfile.TemporaryDirectory() as directory:

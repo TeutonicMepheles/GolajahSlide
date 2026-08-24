@@ -6,7 +6,7 @@
 |---|---|---|---|---|
 | [Agent CLI and MCP Bridge](2026-08-24-agent-cli-mcp.md) | Implemented | JSON-first deck operations and stdio MCP for Hermes/agents | Agent 可安全盘点、检索、生成报告、编辑并构建 GolajahSlide | 2026-08-24 |
 | [Static PDF and PowerPoint Export](2026-08-24-static-pdf-pptx-export.md) | Implemented | Browser-native static PDF/PPTX export | 编辑模式一键导出无动效 16:9 PDF 与高保真静态 PowerPoint | 2026-08-24 |
-| [Content Authoring and Source Save](2026-08-24-content-authoring-and-source-save.md) | Implemented | Structured text/media editing, cross-slide moves and source write-back | 编辑内容可重排、跨页移动并安全回写 Markdown 与资产 | 2026-08-24 |
+| [Content Authoring and Source Save](2026-08-24-content-authoring-and-source-save.md) | Implemented | Structured text/media/Chapter editing, cross-slide moves and source write-back | 编辑内容与 Chapter 归属可调整，并安全回写 Markdown 与资产 | 2026-08-24 |
 | [Global Logo — Per-slide Visibility Exceptions](2026-08-22-global-logo-page-visibility.md) | Implemented | Per-slide visibility metadata for the existing global logo | 全局 Logo 保持统一配置，指定页可显式单独隐藏 | 2026-08-24 |
 | [Native Media Playback](2026-08-22-media-playback.md) | Implemented | Self-contained native video, fullscreen and tab-aware autoplay | 本地视频内嵌为单 HTML，支持独立/Gallery 统一全屏并只在可见页面或 Tab 内播放 | 2026-08-24 |
 | [Slide Authoring Controls](2026-08-22-slide-authoring-controls.md) | Implemented | Pure-image structural slides, named Gallery tabs, Callout titles and heading citations | 提供显式、向后兼容的页面创作控制 | 2026-08-24 |
