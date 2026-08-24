@@ -1,0 +1,38 @@
+    .static-export-panel { padding-bottom: 18px; }
+    .static-export-actions .editor-button { min-width: 0; }
+    .static-export-actions #editorExportAnimatedPptx { grid-column: 1 / -1; }
+    .static-export-progress {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 9px;
+      align-items: center;
+      margin-top: 12px;
+      color: rgba(255,255,255,.68);
+      font-size: 11px;
+    }
+    .static-export-progress[hidden] { display: none; }
+    .static-export-progress progress {
+      width: 100%;
+      height: 7px;
+      overflow: hidden;
+      border: 0;
+      border-radius: 999px;
+      background: rgba(255,255,255,.1);
+      accent-color: #9B8EFF;
+    }
+    .static-export-progress progress::-webkit-progress-bar { background: rgba(255,255,255,.1); }
+    .static-export-progress progress::-webkit-progress-value { background: #9B8EFF; }
+    .static-export-status {
+      min-height: 16px;
+      margin: 8px 0 0;
+      color: rgba(255,255,255,.58);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+    .static-export-status[data-state="working"] { color: #DDD8FF; }
+    .static-export-status[data-state="success"] { color: #A9E3BC; }
+    .static-export-status[data-state="error"] { color: #FFB8B8; }
+    @media (max-width: 420px) {
+      .static-export-actions { grid-template-columns: minmax(0, 1fr); }
+      .static-export-actions .editor-button { width: 100%; }
+    }

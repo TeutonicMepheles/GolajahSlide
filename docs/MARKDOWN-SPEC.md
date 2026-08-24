@@ -95,7 +95,11 @@ footer: true
 
 ## 4. 页面编辑器与布局覆盖
 
-构建后的 HTML 自带页面编辑器。按 `E` 或点击控制条中的 `✦`，可以选择布局、调整内容区域、设置正文排版并编排内容出现顺序。编辑结果可导出为与 Markdown 同名的 `.layout.json` 文件，重建时会自动应用。
+构建后的 HTML 自带页面编辑器。按 `E` 或点击控制条中的 `✦`，默认优先进入当前页可编辑的图片或文字区域；整体内容区域保留为显式的低频选项。内容与布局分组默认展开，样式、全局与文件操作默认折叠。内容模式可新增文本块或 Callout、拖拽排序、把文字或图片移到相邻页、上传/拖放/粘贴图片、切换多图并列或 Gallery，并选择当前页在所属 Section 下的 Chapter item；新增 Chapter item 会立即把当前页归入它，选择默认项则恢复页面标题。
+
+“保存改动”会在浏览器授权目录后校验原始 `slides.md` 与布局 sidecar 的 SHA-256，再写入新增资产、布局 JSON，最后写 Markdown；外部文件冲突不会被覆盖。保存后必须重新运行构建器，页脚 Chapter 导航及 `.build.json` 才会同步。只调整布局时仍可导出与 Markdown 同名的 `.layout.json` 文件。
+
+“高级 · 文件”中可直接导出无动效 PDF 或 PowerPoint，也可实验性导出带原生淡化页间转场的 PowerPoint。Gallery 中隐藏的 Tab 会展开为附加页，以避免派生文件遗漏内容。两种 PPTX 的每页都是一张全画幅静态图，优先保持 HTML 版式；实验性版本只增加页面间 Fade，不会转换 HTML 的逐对象动画，也不支持解组编辑或保留视频、GIF、链接。
 
 坐标体系、文件结构、字段范围、优先级和动画键的完整说明见 [Slide 布局覆盖规范](LAYOUT-SPEC.md)。
 
@@ -134,6 +138,8 @@ footer: true
 - 视频默认按 16:9 参与 `split`、`media` 与 `gallery` 布局；建议显式使用 `layout: media` 或 `layout: split`。
 - 播放默认由用户触发；切换离开当前页时会自动暂停，但保留播放位置。
 - 使用 `video-playback: autoplay-loop` 时，视频带 `autoplay loop muted playsinline`，且只在所属页面与 Gallery 面板可见时播放。
+- 独立视频、Gallery Tab 和 Gallery 并列视频都有可键盘操作的“全屏播放”按钮。全屏优先使用 Fullscreen API，iOS/Safari 使用原生视频全屏，其他情况回退到同页遮罩。
+- 换页、隐藏当前 Gallery Tab 或进入编辑模式会安全退出视频全屏，不会把焦点返回已隐藏内容。
 - 如视频旁存在同名 `.png`、`.jpg`、`.jpeg` 或 `.webp`，构建器会把它作为原生 `poster` 首帧预览。
 - `pure-image` 只接受图片，不能用于视频。
 

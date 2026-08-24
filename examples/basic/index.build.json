@@ -26,5 +26,10 @@
     "ids": [
       "kimi-agent-frameworks"
     ]
+  },
+  "authoring": {
+    "schemaVersion": "1.0",
+    "sourceSha256": "289b7e23b83a97e688b86de0b8719aa5603b7d1686a0f306de22fe1d9c2706a4",
+    "slides": 8
   }
 }

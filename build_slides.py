@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import argparse
 import base64
+import contextlib
+import errno
 import hashlib
 import html
 import json
@@ -19,15 +21,23 @@ import math
 import os
 import re
 import shutil
+import stat
 import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
+from urllib.request import url2pathname
+
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - non-POSIX builds retain in-process locking.
+    fcntl = None
 
 
 ROOT = Path(__file__).resolve().parent
@@ -44,6 +54,10 @@ TEMPLATE_FRAGMENT_PATHS = {
     "{{GLOBAL_LOGO_RUNTIME}}": WEB_FEATURE_ROOT / "global-logo" / "runtime.js",
     "{{MEDIA_PLAYBACK_CSS}}": WEB_FEATURE_ROOT / "media-playback" / "style.css",
     "{{MEDIA_PLAYBACK_RUNTIME}}": WEB_FEATURE_ROOT / "media-playback" / "runtime.js",
+    "{{CONTENT_AUTHORING_CSS}}": WEB_FEATURE_ROOT / "content-authoring" / "style.css",
+    "{{CONTENT_AUTHORING_RUNTIME}}": WEB_FEATURE_ROOT / "content-authoring" / "runtime.js",
+    "{{STATIC_EXPORT_CSS}}": WEB_FEATURE_ROOT / "static-export" / "style.css",
+    "{{STATIC_EXPORT_RUNTIME}}": WEB_FEATURE_ROOT / "static-export" / "runtime.js",
 }
 STAGE_WIDTH = 1920
 STAGE_HEIGHT = 1080
@@ -68,6 +82,11 @@ EXCALIDRAW_FENCE_RE = re.compile(r"(?ms)^```excalidraw[ \t]*\n(.*?)^```[ \t]*$")
 REMOTE_ASSET_PREFIXES = ("http://", "https://", "data:")
 VIDEO_MIME_TYPES = {".mp4": "video/mp4", ".webm": "video/webm"}
 IMAGE_MIME_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp"}
+STATIC_EXPORT_IMAGE_MIME_TYPES = {
+    **IMAGE_MIME_TYPES,
+    ".gif": "image/gif",
+    ".svg": "image/svg+xml",
+}
 DIAGRAM_BLOCK_KINDS = {"chart", "mermaid", "excalidraw", "archscribe"}
 SVG_NS = "http://www.w3.org/2000/svg"
 XLINK_NS = "http://www.w3.org/1999/xlink"
@@ -87,6 +106,9 @@ class Media:
     height: int | None = None
     kind: str = "image"
     poster_source: str = ""
+    author_id: str = ""
+    author_base_hash: str = ""
+    author_markdown: str = ""
 
     @property
     def ratio(self) -> float:
@@ -101,6 +123,9 @@ class Block:
     html: str
     text: str = ""
     meta: dict[str, object] = field(default_factory=dict)
+    author_id: str = ""
+    author_base_hash: str = ""
+    author_markdown: str = ""
 
 
 @dataclass
@@ -119,6 +144,77 @@ class Slide:
     raw_body: str
     chapter: str = ""
     editor_override: dict[str, object] = field(default_factory=dict)
+    author_base_hash: str = ""
+
+
+@dataclass(frozen=True)
+class SourceSpan:
+    """A half-open character range in the exact decoded Markdown source."""
+
+    start: int
+    end: int
+
+    def text(self, source: str) -> str:
+        return source[self.start : self.end]
+
+
+@dataclass(frozen=True)
+class AuthoringField:
+    value: str
+    span: SourceSpan | None = None
+
+
+@dataclass(frozen=True)
+class AuthoringItem:
+    item_id: str
+    kind: str
+    span: SourceSpan
+    markdown: str
+    base_hash: str
+    fields: dict[str, AuthoringField] = field(default_factory=dict)
+    movable: bool = True
+
+
+@dataclass(frozen=True)
+class AuthoringDirective:
+    span: SourceSpan
+    entries: dict[str, AuthoringField] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class AuthoringSlide:
+    number: int
+    slide_id: str
+    span: SourceSpan
+    base_hash: str
+    directive: AuthoringDirective | None
+    title: AuthoringField
+    subtitle: AuthoringField
+    items: tuple[AuthoringItem, ...]
+    config: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class AuthoringCitation:
+    citation_id: str
+    span: SourceSpan
+    markdown: str
+    text: str
+    href: str
+
+
+@dataclass(frozen=True)
+class AuthoringDocument:
+    """Lossless source map used by browser authoring; rendering remains separate."""
+
+    source: str
+    source_name: str
+    revision: str
+    newline: str
+    bom: bool
+    frontmatter: SourceSpan | None
+    slides: tuple[AuthoringSlide, ...]
+    citations: tuple[AuthoringCitation, ...]
 
 
 class BuildMessages:
@@ -133,6 +229,26 @@ class BuildMessages:
     def error(self, slide: int | None, message: str) -> None:
         prefix = f"P{slide}: " if slide else ""
         self.errors.append(prefix + message)
+
+
+class AssetBoundaryError(RuntimeError):
+    """An Agent-scoped build attempted to read a generated asset outside its allowed root."""
+
+    def __init__(self, source: str, resolved_path: Path, allowed_root: Path):
+        super().__init__(f"static export asset escapes allowed root: {source}")
+        self.source = source
+        self.resolved_path = resolved_path
+        self.allowed_root = allowed_root
+
+
+class UnsafeAssetReferenceError(RuntimeError):
+    """A rooted SVG attempted to load another local resource."""
+
+    def __init__(self, source: str, path: Path, references: list[str]):
+        super().__init__(f"rooted SVG contains local nested references: {source}")
+        self.source = source
+        self.path = path
+        self.references = references
 
 
 @dataclass(frozen=True)
@@ -214,6 +330,11 @@ def extract_citations(source: str, messages: BuildMessages) -> tuple[str, dict[s
 
 def write_text_atomic(path: Path, source: str) -> None:
     """Replace a text artifact only after its complete contents reach disk."""
+    write_text_artifacts_atomic(((path, source),))
+
+
+def _stage_text_artifact(path: Path, source: str) -> Path:
+    """Write one complete sibling temp file without changing its destination."""
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
         target_mode = path.stat().st_mode & 0o777
@@ -228,11 +349,203 @@ def write_text_atomic(path: Path, source: str) -> None:
             handle.flush()
             os.fsync(handle.fileno())
         os.chmod(temporary_path, target_mode)
-        os.replace(temporary_path, path)
+        return temporary_path
+    except BaseException:
+        temporary_path.unlink(missing_ok=True)
+        raise
     finally:
         if descriptor >= 0:
             os.close(descriptor)
-        temporary_path.unlink(missing_ok=True)
+
+
+def _backup_slot(path: Path) -> Path:
+    """Copy one existing artifact into a sibling recovery slot without moving it."""
+    descriptor, name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".bak", dir=path.parent)
+    backup = Path(name)
+    source_descriptor = -1
+    try:
+        metadata = path.lstat()
+        if stat.S_ISLNK(metadata.st_mode):
+            target = os.readlink(path)
+            os.close(descriptor)
+            descriptor = -1
+            backup.unlink()
+            os.symlink(target, backup)
+        elif stat.S_ISREG(metadata.st_mode):
+            source_descriptor = os.open(
+                path,
+                os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0),
+            )
+            with os.fdopen(source_descriptor, "rb") as source_handle:
+                source_descriptor = -1
+                with os.fdopen(descriptor, "wb") as backup_handle:
+                    descriptor = -1
+                    shutil.copyfileobj(source_handle, backup_handle)
+                    backup_handle.flush()
+                    os.fsync(backup_handle.fileno())
+                    os.fchmod(backup_handle.fileno(), metadata.st_mode & 0o777)
+        else:
+            raise OSError(f"artifact destination is not a regular file or symlink: {path}")
+        return backup
+    except BaseException:
+        if source_descriptor >= 0:
+            os.close(source_descriptor)
+        if descriptor >= 0:
+            os.close(descriptor)
+        backup.unlink(missing_ok=True)
+        raise
+
+
+def _artifact_sha256_if_regular(path: Path) -> str | None:
+    """Fingerprint one destination leaf without following a replacement symlink."""
+    descriptor = -1
+    try:
+        descriptor = os.open(
+            path,
+            os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | getattr(os, "O_NOFOLLOW", 0),
+        )
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            return None
+        digest = hashlib.sha256()
+        with os.fdopen(descriptor, "rb") as handle:
+            descriptor = -1
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
+    except OSError as error:
+        if error.errno in {errno.ENOENT, errno.ENOTDIR, errno.ELOOP}:
+            return None
+        raise
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+
+
+_ARTIFACT_THREAD_LOCK_GUARD = threading.Lock()
+_ARTIFACT_THREAD_LOCKS: dict[str, threading.RLock] = {}
+
+
+@contextlib.contextmanager
+def _artifact_write_locks(paths: Iterable[Path]):
+    """Serialize every overlapping artifact destination in-process and on POSIX."""
+    keys = sorted({str(Path(path).expanduser().resolve(strict=False)) for path in paths})
+    with _ARTIFACT_THREAD_LOCK_GUARD:
+        thread_locks = [_ARTIFACT_THREAD_LOCKS.setdefault(key, threading.RLock()) for key in keys]
+    for lock in thread_locks:
+        lock.acquire()
+
+    handles = []
+    try:
+        if fcntl is not None:
+            user = str(os.getuid()) if hasattr(os, "getuid") else "default"
+            lock_directory = Path(tempfile.gettempdir()) / f"golajah-slide-artifact-locks-{user}"
+            lock_directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+            for key in keys:
+                lock_path = lock_directory / f"{hashlib.sha256(key.encode('utf-8')).hexdigest()}.lock"
+                handle = lock_path.open("a+b")
+                try:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+                except BaseException:
+                    handle.close()
+                    raise
+                handles.append(handle)
+        yield
+    finally:
+        for handle in reversed(handles):
+            try:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            finally:
+                handle.close()
+        for lock in reversed(thread_locks):
+            lock.release()
+
+
+def write_text_artifacts_atomic(artifacts: Iterable[tuple[Path, str]]) -> None:
+    """Commit related text artifacts together, restoring prior files on failure.
+
+    POSIX has no multi-file rename primitive, so this stages every byte before
+    touching a destination and uses sibling backups for best-effort rollback.
+    In particular, a report commit failure cannot leave a newly generated HTML
+    file behind.
+    """
+    entries = tuple((Path(path), source) for path, source in artifacts)
+    if not entries:
+        return
+    if len({path for path, _ in entries}) != len(entries):
+        raise ValueError("artifact destinations must be unique")
+    with _artifact_write_locks(path for path, _ in entries):
+        _write_text_artifacts_locked(entries)
+
+
+def _write_text_artifacts_locked(entries: tuple[tuple[Path, str], ...]) -> None:
+    """Stage and commit artifacts while their destination locks are held."""
+    staged: dict[Path, Path] = {}
+    committed_hashes: dict[Path, str] = {}
+    backups: dict[Path, Path] = {}
+    committed: set[Path] = set()
+    commit_complete = False
+    try:
+        for path, source in entries:
+            staged[path] = _stage_text_artifact(path, source)
+            staged_hash = _artifact_sha256_if_regular(staged[path])
+            if staged_hash is None:  # pragma: no cover - mkstemp always creates a regular file.
+                raise OSError(f"staged artifact is not a regular file: {staged[path]}")
+            committed_hashes[path] = staged_hash
+        for path, _ in entries:
+            if path.exists() or path.is_symlink():
+                backup = _backup_slot(path)
+                backups[path] = backup
+        for path, _ in entries:
+            os.replace(staged[path], path)
+            committed.add(path)
+        for path, _ in entries:
+            actual_hash = _artifact_sha256_if_regular(path)
+            if actual_hash != committed_hashes[path]:
+                raise OSError(
+                    f"artifact changed during commit verification: {path} "
+                    f"(expected {committed_hashes[path]}, actual {actual_hash})"
+                )
+        commit_complete = True
+    except BaseException as error:
+        rollback_errors: list[str] = []
+        for path, _ in reversed(entries):
+            backup = backups.get(path)
+            try:
+                if path in committed:
+                    actual_hash = _artifact_sha256_if_regular(path)
+                    if actual_hash != committed_hashes[path]:
+                        rollback_errors.append(
+                            f"{path}: rollback skipped because another process changed the artifact"
+                        )
+                        if backup is not None:
+                            backup.unlink(missing_ok=True)
+                            backups.pop(path, None)
+                        continue
+                    if backup is not None and (backup.exists() or backup.is_symlink()):
+                        os.replace(backup, path)
+                        backups.pop(path, None)
+                    else:
+                        path.unlink(missing_ok=True)
+                elif backup is not None:
+                    backup.unlink(missing_ok=True)
+                    backups.pop(path, None)
+            except OSError as rollback_error:
+                rollback_errors.append(f"{path}: {rollback_error}")
+        if rollback_errors and hasattr(error, "add_note"):
+            error.add_note("artifact rollback incomplete: " + "; ".join(rollback_errors))
+        raise
+    finally:
+        for temporary_path in staged.values():
+            try:
+                temporary_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+        if commit_complete:
+            for backup in backups.values():
+                try:
+                    backup.unlink(missing_ok=True)
+                except OSError:
+                    pass
 
 
 def relative_asset_href(path: Path, output_dir: Path) -> str:
@@ -242,8 +555,160 @@ def relative_asset_href(path: Path, output_dir: Path) -> str:
         return path.as_uri()
 
 
-def local_data_uri(path: Path, mime_type: str) -> str:
-    return f"data:{mime_type};base64,{base64.b64encode(path.read_bytes()).decode('ascii')}"
+def local_data_uri(path: Path, mime_type: str, allowed_root: Path | None = None) -> str:
+    payload = _asset_bytes(path, allowed_root, str(path))
+    if payload is None:
+        raise FileNotFoundError(path)
+    return f"data:{mime_type};base64,{base64.b64encode(payload).decode('ascii')}"
+
+
+def _svg_local_references(payload: bytes) -> list[str]:
+    try:
+        source = payload.decode("utf-8")
+    except UnicodeError:
+        return []
+    candidates: list[str] = []
+    candidates.extend(
+        html.unescape(match.group(1)).strip()
+        for match in re.finditer(r'(?is)\b(?:href|xlink:href|src|poster)\s*=\s*["\']([^"\']+)["\']', source)
+    )
+    for match in re.finditer(r'(?is)\bsrcset\s*=\s*["\']([^"\']+)["\']', source):
+        candidates.extend(
+            entry.strip().split()[0]
+            for entry in html.unescape(match.group(1)).split(",")
+            if entry.strip()
+        )
+    candidates.extend(
+        html.unescape(match.group(1)).strip()
+        for match in re.finditer(r'(?is)url\(\s*["\']?([^"\')]+)', source)
+    )
+    unsafe: list[str] = []
+    for candidate in candidates:
+        parsed = urlsplit(candidate)
+        if (
+            not candidate
+            or candidate.startswith("#")
+            or candidate.lower().startswith(("data:image/", "http://", "https://", "blob:"))
+            or (not parsed.scheme and parsed.path == "" and parsed.fragment)
+        ):
+            continue
+        unsafe.append(candidate)
+    return unsafe
+
+
+def _asset_bytes(asset_path: Path, allowed_root: Path | None, source: str) -> bytes | None:
+    """Read one regular asset once, without following post-check symlink swaps."""
+    if allowed_root is None:
+        try:
+            with asset_path.open("rb") as handle:
+                if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
+                    return None
+                return handle.read()
+        except (FileNotFoundError, IsADirectoryError):
+            return None
+
+    resolved_root = allowed_root.resolve()
+    resolved_asset = asset_path.resolve(strict=False)
+    try:
+        relative = resolved_asset.relative_to(resolved_root)
+    except ValueError as error:
+        raise AssetBoundaryError(source, resolved_asset, resolved_root) from error
+    if not relative.parts:
+        return None
+
+    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_CLOEXEC", 0)
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    opened: list[int] = []
+    try:
+        current = os.open(resolved_root, directory_flags | nofollow)
+        opened.append(current)
+        for component in relative.parts[:-1]:
+            current = os.open(component, directory_flags | nofollow, dir_fd=current)
+            opened.append(current)
+        descriptor = os.open(
+            relative.parts[-1],
+            os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | nofollow,
+            dir_fd=current,
+        )
+        opened.append(descriptor)
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            return None
+        opened.pop()
+        with os.fdopen(descriptor, "rb") as handle:
+            payload = handle.read()
+        if resolved_asset.suffix.lower() == ".svg":
+            references = _svg_local_references(payload)
+            if references:
+                raise UnsafeAssetReferenceError(source, resolved_asset, references[:10])
+        return payload
+    except OSError as error:
+        if error.errno in {errno.ENOENT, errno.ENOTDIR, errno.ELOOP}:
+            return None
+        raise
+    finally:
+        for descriptor in reversed(opened):
+            os.close(descriptor)
+
+
+def static_export_asset_manifest(
+    rendered: str,
+    output_dir: Path,
+    allowed_root: Path | None = None,
+) -> dict[str, object]:
+    """Embed local raster/SVG bytes once so file:// snapshots stay origin-clean."""
+    candidates: set[str] = set()
+    for match in re.finditer(r'(?is)\b(?:src|poster)\s*=\s*["\']([^"\']+)["\']', rendered):
+        candidates.add(html.unescape(match.group(1)).strip())
+    # SVG <image> resources use href/xlink:href. Do not scan generic href:
+    # ordinary Markdown links must never cause arbitrary local files to be read.
+    for image_tag in re.finditer(r"(?is)<image\b[^>]*>", rendered):
+        for match in re.finditer(r'(?is)\b(?:href|xlink:href)\s*=\s*["\']([^"\']+)["\']', image_tag.group(0)):
+            candidates.add(html.unescape(match.group(1)).strip())
+    for match in re.finditer(r'(?is)\bsrcset\s*=\s*["\']([^"\']+)["\']', rendered):
+        for source in html.unescape(match.group(1)).split(","):
+            candidate = source.strip().split()[0] if source.strip() else ""
+            if candidate:
+                candidates.add(candidate)
+    style_fragments = [match.group(2) for match in re.finditer(r'(?is)\bstyle\s*=\s*(["\'])(.*?)\1', rendered)]
+    style_fragments.extend(match.group(1) for match in re.finditer(r"(?is)<style\b[^>]*>(.*?)</style>", rendered))
+    for fragment in style_fragments:
+        for match in re.finditer(r'(?is)url\(\s*["\']?([^"\')]+)', html.unescape(fragment)):
+            candidates.add(match.group(1).strip())
+
+    sources: dict[str, str] = {}
+    assets: dict[str, str] = {}
+    for source in sorted(candidates):
+        parsed = urlsplit(source)
+        if not source or source.startswith(("#", "data:", "blob:")) or parsed.scheme in {"http", "https"}:
+            continue
+        suffix = Path(unquote(parsed.path)).suffix.lower()
+        mime_type = STATIC_EXPORT_IMAGE_MIME_TYPES.get(suffix)
+        if not mime_type:
+            continue
+        if parsed.scheme == "file":
+            file_path = parsed.path
+            if parsed.netloc and parsed.netloc != "localhost":
+                file_path = f"//{parsed.netloc}{file_path}"
+            asset_path = Path(url2pathname(file_path))
+        elif parsed.scheme:
+            continue
+        else:
+            # Keep lexical `..` traversal intact before macOS resolves `/var`
+            # or `/tmp` to their `/private/...` aliases.
+            asset_path = Path(os.path.abspath(output_dir / unquote(parsed.path)))
+        payload = _asset_bytes(asset_path, allowed_root, source)
+        if payload is None:
+            continue
+        digest = hashlib.sha256(payload).hexdigest()
+        sources[source] = digest
+        if digest not in assets:
+            assets[digest] = f"data:{mime_type};base64,{base64.b64encode(payload).decode('ascii')}"
+    return {
+        "schemaVersion": "1.0",
+        "sources": sources,
+        "assets": assets,
+        "bytes": sum(len(value) for value in assets.values()),
+    }
 
 
 def format_report_path(path: Path) -> str:
@@ -307,12 +772,435 @@ def sha256_text(*parts: str) -> str:
     return digest.hexdigest()
 
 
-def sha256_file(path: Path) -> str:
+def sha256_file(path: Path, allowed_root: Path | None = None) -> str:
     digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
+    if allowed_root is not None:
+        payload = _asset_bytes(path, allowed_root, str(path))
+        if payload is None:
+            raise FileNotFoundError(path)
+        digest.update(payload)
+    else:
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
     return digest.hexdigest()
+
+
+def sha256_source(source: str) -> str:
+    """Hash exact UTF-8 source without the separators used by sha256_text()."""
+    return hashlib.sha256(source.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
+class _SourceLine:
+    start: int
+    content_end: int
+    end: int
+    text: str
+
+
+def _source_lines(source: str) -> list[_SourceLine]:
+    lines: list[_SourceLine] = []
+    for match in re.finditer(r"[^\r\n]*(?:\r\n|\r|\n|$)", source):
+        raw = match.group(0)
+        if not raw:
+            break
+        if raw.endswith("\r\n"):
+            content_end = match.end() - 2
+        elif raw.endswith(("\r", "\n")):
+            content_end = match.end() - 1
+        else:
+            content_end = match.end()
+        lines.append(_SourceLine(match.start(), content_end, match.end(), source[match.start() : content_end]))
+    return lines
+
+
+def _trim_source_span(source: str, start: int, end: int) -> SourceSpan:
+    while start < end and source[start].isspace():
+        start += 1
+    while end > start and source[end - 1].isspace():
+        end -= 1
+    return SourceSpan(start, end)
+
+
+def _overlaps(span: SourceSpan, start: int, end: int) -> bool:
+    return span.start < end and start < span.end
+
+
+def _directive_source(raw: str, absolute_start: int) -> tuple[AuthoringDirective, dict[str, str]]:
+    match = DIRECTIVE_RE.search(raw)
+    if not match:
+        raise ValueError("slide directive missing")
+    entries: dict[str, AuthoringField] = {}
+    config: dict[str, str] = {}
+    inner = match.group(1)
+    inner_start = absolute_start + match.start(1)
+    for entry in re.finditer(r"(?m)^[ \t]*([^#:\r\n][^:\r\n]*?):[ \t]*(.*?)[ \t]*(?=\r?$)", inner):
+        key = entry.group(1).strip().lower().replace("_", "-")
+        raw_value = entry.group(2)
+        value = str(parse_scalar(raw_value))
+        value_start = inner_start + entry.start(2)
+        value_end = inner_start + entry.end(2)
+        entries[key] = AuthoringField(value, SourceSpan(value_start, value_end))
+        config[key] = value
+    return AuthoringDirective(
+        SourceSpan(absolute_start + match.start(), absolute_start + match.end()),
+        entries,
+    ), config
+
+
+def _citation_source_nodes(source: str, lines: list[_SourceLine]) -> tuple[AuthoringCitation, ...]:
+    citations: list[AuthoringCitation] = []
+    fence: str | None = None
+    for line in lines:
+        stripped = line.text.strip()
+        fence_match = re.match(r"^(`{3,}|~{3,})", stripped)
+        if fence:
+            if stripped.startswith(fence):
+                fence = None
+            continue
+        if fence_match:
+            fence = fence_match.group(1)[0] * len(fence_match.group(1))
+            continue
+        match = CITATION_DEFINITION_RE.match(line.text)
+        if not match:
+            continue
+        citation_id, raw = match.groups()
+        link = CITATION_MARKDOWN_LINK_RE.search(raw)
+        if link:
+            link_label, href = link.groups()
+            text = raw[: link.start()].rstrip(" —–-:：") or link_label
+        else:
+            bare = CITATION_BARE_URL_RE.search(raw)
+            if not bare:
+                continue
+            href = bare.group(1).rstrip(".,;，。；")
+            text = raw[: bare.start()].rstrip(" —–-:：") or href
+        citations.append(AuthoringCitation(
+            citation_id,
+            SourceSpan(line.start, line.end),
+            source[line.start : line.end],
+            text,
+            href,
+        ))
+    return tuple(citations)
+
+
+def _authoring_slide_spans(source: str, lines: list[_SourceLine], body_start: int) -> list[SourceSpan]:
+    separators: list[SourceSpan] = []
+    fence: str | None = None
+    for line in lines:
+        if line.end <= body_start:
+            continue
+        stripped = line.text.strip()
+        fence_match = re.match(r"^(`{3,}|~{3,})", stripped)
+        if fence:
+            if stripped.startswith(fence):
+                fence = None
+            continue
+        if fence_match:
+            fence = fence_match.group(1)[0] * len(fence_match.group(1))
+            continue
+        if stripped == "---":
+            separators.append(SourceSpan(line.start, line.end))
+    spans: list[SourceSpan] = []
+    cursor = body_start
+    for separator in separators:
+        if source[cursor : separator.start].strip():
+            spans.append(SourceSpan(cursor, separator.start))
+        cursor = separator.end
+    if source[cursor:].strip():
+        spans.append(SourceSpan(cursor, len(source)))
+    return spans
+
+
+def _authoring_item_kind_for_fence(stripped: str) -> str:
+    marker = re.match(r"^(`{3,}|~{3,})(.*)$", stripped)
+    language = marker.group(2).strip().lower() if marker else ""
+    return language if language in {"chart", "mermaid", "excalidraw", "archscribe"} else "code"
+
+
+def _parse_authoring_items(
+    source: str,
+    slide_span: SourceSpan,
+    slide_id: str,
+    ignored: list[SourceSpan],
+) -> tuple[AuthoringItem, ...]:
+    lines = [line for line in _source_lines(source) if slide_span.start <= line.start and line.end <= slide_span.end]
+
+    def is_ignored(line: _SourceLine) -> bool:
+        return any(_overlaps(span, line.start, line.end) for span in ignored)
+
+    def is_table(index: int) -> bool:
+        if index + 1 >= len(lines) or is_ignored(lines[index + 1]):
+            return False
+        return "|" in lines[index].text.strip() and bool(TABLE_DIVIDER_RE.match(lines[index + 1].text))
+
+    def special(index: int) -> bool:
+        if index >= len(lines) or is_ignored(lines[index]):
+            return True
+        stripped = lines[index].text.strip()
+        if not stripped:
+            return False
+        return bool(
+            stripped.startswith(("### ", "```", "~~~", ">"))
+            or IMAGE_RE.match(stripped)
+            or is_table(index)
+        )
+
+    provisional: list[tuple[str, SourceSpan, dict[str, AuthoringField], bool]] = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if is_ignored(line) or not line.text.strip():
+            i += 1
+            continue
+        stripped = line.text.strip()
+        image = IMAGE_RE.match(stripped)
+        if image:
+            alt, raw_source, caption = image.groups()
+            suffix = Path(urlsplit(raw_source).path).suffix.lower()
+            kind = "video" if suffix in VIDEO_MIME_TYPES else "image"
+            stripped_offset = line.text.index(stripped)
+            fields: dict[str, AuthoringField] = {
+                "alt": AuthoringField(alt),
+                "source": AuthoringField(raw_source),
+                "caption": AuthoringField(caption or alt),
+            }
+            if image.start(3) >= 0:
+                fields["caption"] = AuthoringField(
+                    caption or "",
+                    SourceSpan(
+                        line.start + stripped_offset + image.start(3),
+                        line.start + stripped_offset + image.end(3),
+                    ),
+                )
+            provisional.append((kind, SourceSpan(line.start, line.end), fields, True))
+            i += 1
+            continue
+        if stripped.startswith(("```", "~~~")):
+            start = line.start
+            marker = re.match(r"^(`{3,}|~{3,})", stripped)
+            fence = marker.group(1)[0] * len(marker.group(1)) if marker else "```"
+            kind = _authoring_item_kind_for_fence(stripped)
+            i += 1
+            while i < len(lines):
+                closing = lines[i]
+                i += 1
+                if closing.text.strip().startswith(fence):
+                    break
+            provisional.append((kind, SourceSpan(start, lines[i - 1].end), {}, False))
+            continue
+        if is_table(i):
+            start = line.start
+            i += 2
+            while i < len(lines) and not is_ignored(lines[i]) and "|" in lines[i].text and lines[i].text.strip():
+                i += 1
+            provisional.append(("table", SourceSpan(start, lines[i - 1].end), {}, False))
+            continue
+        if stripped.startswith(">"):
+            start = line.start
+            quoted_lines: list[_SourceLine] = []
+            while i < len(lines) and not is_ignored(lines[i]) and lines[i].text.strip().startswith(">"):
+                quoted_lines.append(lines[i])
+                i += 1
+            quoted = [item.text.strip()[1:].strip() for item in quoted_lines]
+            marker = re.fullmatch(r"\[!([A-Za-z]+)\](?:\s+(.+))?", quoted[0]) if quoted else None
+            kind_name = marker.group(1).lower() if marker else "note"
+            defaults = {"tip": "方法提示", "note": "补充说明", "warning": "风险提示", "quote": "关键结论", "question": "思考问题"}
+            title = (marker.group(2) if marker else None) or defaults.get(kind_name, "关键结论")
+            body_lines = quoted[1:] if marker else quoted
+            fields = {
+                "title": AuthoringField(title),
+                "body": AuthoringField("\n".join(body_lines)),
+                "callout-kind": AuthoringField(kind_name),
+            }
+            provisional.append(("callout", SourceSpan(start, quoted_lines[-1].end), fields, True))
+            continue
+        start = line.start
+        fields: dict[str, AuthoringField] = {}
+        if stripped.startswith("### "):
+            prefix = line.text.index("### ") + 4
+            title_span = _trim_source_span(source, line.start + prefix, line.content_end)
+            fields["title"] = AuthoringField(title_span.text(source), title_span)
+            i += 1
+        while i < len(lines):
+            if is_ignored(lines[i]):
+                break
+            if lines[i].text.strip() and special(i):
+                break
+            i += 1
+        end = lines[i - 1].end if i and lines[i - 1].end > start else line.end
+        body_start = line.end if "title" in fields else start
+        body_span = _trim_source_span(source, body_start, end)
+        fields["body"] = AuthoringField(body_span.text(source), body_span if body_span.start < body_span.end else None)
+        provisional.append(("text", SourceSpan(start, end), fields, True))
+
+    duplicate_counts: dict[tuple[str, str], int] = {}
+    items: list[AuthoringItem] = []
+    safe_slide_id = re.sub(r"[^0-9A-Za-z_-]+", "-", slide_id).strip("-") or "slide"
+    for kind, span, fields, movable in provisional:
+        markdown = span.text(source)
+        base_hash = sha256_source(markdown)
+        duplicate_key = (kind, base_hash)
+        duplicate_counts[duplicate_key] = duplicate_counts.get(duplicate_key, 0) + 1
+        duplicate_suffix = f"-{duplicate_counts[duplicate_key]}" if duplicate_counts[duplicate_key] > 1 else ""
+        item_id = f"{safe_slide_id}-{kind}-{base_hash[:12]}{duplicate_suffix}"
+        items.append(AuthoringItem(item_id, kind, span, markdown, base_hash, fields, movable))
+    return tuple(items)
+
+
+def parse_authoring_document(source: str, source_name: str = "slides.md") -> AuthoringDocument:
+    """Scan the Markdown dialect without normalizing or discarding source text.
+
+    The browser receives semantic IDs and hashes, but Python remains the only
+    owner of source offsets. A save must present ``revision`` and be rejected
+    when the file changed, preventing stale ranges from corrupting another node.
+    """
+    lines = _source_lines(source)
+    bom = source.startswith("\ufeff")
+    newline = "\r\n" if "\r\n" in source else ("\r" if "\r" in source and "\n" not in source else "\n")
+    frontmatter: SourceSpan | None = None
+    body_start = 1 if bom else 0
+    if lines:
+        first_text = lines[0].text[1:] if bom and lines[0].text.startswith("\ufeff") else lines[0].text
+        if first_text == "---":
+            for line in lines[1:]:
+                if line.text.strip() == "---":
+                    frontmatter = SourceSpan(1 if bom else lines[0].start, line.end)
+                    body_start = line.end
+                    break
+    citations = _citation_source_nodes(source, lines)
+    slide_spans = _authoring_slide_spans(source, lines, body_start)
+    slides: list[AuthoringSlide] = []
+    citation_spans = [citation.span for citation in citations]
+    for number, slide_span in enumerate(slide_spans, 1):
+        raw = slide_span.text(source)
+        directive: AuthoringDirective | None = None
+        config: dict[str, str] = {}
+        directive_match = DIRECTIVE_RE.search(raw)
+        if directive_match:
+            directive, config = _directive_source(raw, slide_span.start)
+        title = AuthoringField("")
+        subtitle = AuthoringField("")
+        for line in lines:
+            if line.start < slide_span.start or line.end > slide_span.end:
+                continue
+            if directive and _overlaps(directive.span, line.start, line.end):
+                continue
+            if not title.value and line.text.startswith("# "):
+                value_span = _trim_source_span(source, line.start + 2, line.content_end)
+                title = AuthoringField(value_span.text(source), value_span)
+            elif not subtitle.value and line.text.startswith("## "):
+                value_span = _trim_source_span(source, line.start + 3, line.content_end)
+                subtitle = AuthoringField(value_span.text(source), value_span)
+        slide_id = slide_identifier(config, number)
+        ignored = citation_spans + ([directive.span] if directive else [])
+        if title.span:
+            title_line = next((line for line in lines if line.start <= title.span.start < line.end), None)
+            if title_line:
+                ignored.append(SourceSpan(title_line.start, title_line.end))
+        if subtitle.span:
+            subtitle_line = next((line for line in lines if line.start <= subtitle.span.start < line.end), None)
+            if subtitle_line:
+                ignored.append(SourceSpan(subtitle_line.start, subtitle_line.end))
+        items = _parse_authoring_items(source, slide_span, slide_id, ignored)
+        slides.append(AuthoringSlide(
+            number,
+            slide_id,
+            slide_span,
+            sha256_source(raw),
+            directive,
+            title,
+            subtitle,
+            items,
+            config,
+        ))
+    return AuthoringDocument(
+        source,
+        source_name,
+        sha256_source(source),
+        newline,
+        bom,
+        frontmatter,
+        tuple(slides),
+        citations,
+    )
+
+
+def authoring_document_payload(document: AuthoringDocument) -> dict[str, object]:
+    """Return the versioned, JSON-safe contract consumed by editor Features."""
+    utf16_offsets = [0]
+    units = 0
+    for character in document.source:
+        units += 2 if ord(character) > 0xFFFF else 1
+        utf16_offsets.append(units)
+
+    def source_range(span: SourceSpan | None) -> dict[str, int] | None:
+        if span is None:
+            return None
+        return {"start": utf16_offsets[span.start], "end": utf16_offsets[span.end]}
+
+    slides: list[dict[str, object]] = []
+    for slide in document.slides:
+        media_count = sum(item.kind in {"image", "video"} for item in slide.items)
+        configured_display = slide.config.get("gallery-display", "").strip().lower()
+        gallery_display = configured_display if configured_display in {"grid", "tabs"} else ("tabs" if media_count >= 3 else "grid")
+        items: list[dict[str, object]] = []
+        for item in slide.items:
+            fields = {name: field.value for name, field in item.fields.items()}
+            field_ranges = {
+                name: source_range(field.span)
+                for name, field in item.fields.items()
+                if field.span is not None
+            }
+            items.append({
+                "id": item.item_id,
+                "kind": item.kind,
+                **fields,
+                "markdown": item.markdown,
+                "baseHash": item.base_hash,
+                "movable": item.movable,
+                "sourceRange": source_range(item.span),
+                "fieldRanges": field_ranges,
+            })
+        slides.append({
+            "id": slide.slide_id,
+            "number": slide.number,
+            "baseHash": slide.base_hash,
+            "title": slide.title.value,
+            "subtitle": slide.subtitle.value,
+            "galleryDisplay": gallery_display,
+            "source": slide.span.text(document.source),
+            "sourceRange": source_range(slide.span),
+            "titleRange": source_range(slide.title.span),
+            "subtitleRange": source_range(slide.subtitle.span),
+            "directiveRange": source_range(slide.directive.span) if slide.directive else None,
+            "config": dict(slide.config),
+            "items": items,
+        })
+    first_start = document.slides[0].span.start if document.slides else len(document.source)
+    last_end = document.slides[-1].span.end if document.slides else first_start
+    separators = [
+        document.source[left.span.end : right.span.start]
+        for left, right in zip(document.slides, document.slides[1:])
+    ]
+    return {
+        "schemaVersion": "1.0",
+        "source": {
+            "name": document.source_name,
+            "sha256": document.revision,
+            "text": document.source,
+            "newline": document.newline,
+            "bom": document.bom,
+            "offsetEncoding": "utf-16",
+            "prefix": document.source[:first_start],
+            "suffix": document.source[last_end:],
+            "separators": separators,
+            "frontmatterRange": source_range(document.frontmatter),
+        },
+        "slides": slides,
+    }
 
 
 def mermaid_renderer(spec: dict[str, object]) -> str:
@@ -515,10 +1403,11 @@ def sanitize_inline_svg(
     return "\n".join(line.rstrip() for line in serialized.splitlines())
 
 
-def read_diagram_sidecar(svg_path: Path) -> dict[str, object]:
+def read_diagram_sidecar(svg_path: Path, allowed_root: Path | None = None) -> dict[str, object]:
     path = svg_path.with_suffix(".diagram-build.json")
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        source = _asset_bytes(path, allowed_root, str(path))
+        payload = json.loads(source.decode("utf-8")) if source is not None else {}
     except (OSError, UnicodeError, json.JSONDecodeError):
         return {}
     return payload if isinstance(payload, dict) else {}
@@ -638,12 +1527,7 @@ def read_webp_size(data: bytes) -> tuple[int, int] | None:
     return None
 
 
-def image_size(path: Path) -> tuple[int, int] | None:
-    try:
-        data = path.read_bytes()
-    except OSError:
-        return None
-    suffix = path.suffix.lower()
+def image_size_from_bytes(data: bytes, suffix: str) -> tuple[int, int] | None:
     if suffix == ".svg":
         return read_svg_size(data)
     if data.startswith(b"\x89PNG\r\n\x1a\n") and len(data) >= 24:
@@ -657,7 +1541,22 @@ def image_size(path: Path) -> tuple[int, int] | None:
     return None
 
 
-def extract_media(body: str, source_dir: Path, output_dir: Path, messages: BuildMessages, slide_no: int) -> tuple[list[Media], str]:
+def image_size(path: Path, allowed_root: Path | None = None) -> tuple[int, int] | None:
+    try:
+        data = _asset_bytes(path, allowed_root, str(path))
+    except OSError:
+        return None
+    return image_size_from_bytes(data, path.suffix.lower()) if data is not None else None
+
+
+def extract_media(
+    body: str,
+    source_dir: Path,
+    output_dir: Path,
+    messages: BuildMessages,
+    slide_no: int,
+    allowed_root: Path | None = None,
+) -> tuple[list[Media], str]:
     media: list[Media] = []
     kept: list[str] = []
     for line in body.splitlines():
@@ -676,20 +1575,25 @@ def extract_media(body: str, source_dir: Path, output_dir: Path, messages: Build
                 messages.warn(slide_no, f"远程图片无法在构建期读取比例，将按 16:9 处理：{raw_source}")
         else:
             absolute = (source_dir / raw_source).resolve()
-            if not absolute.exists():
+            payload = _asset_bytes(absolute, allowed_root, raw_source)
+            if payload is None:
                 messages.error(slide_no, f"媒体不存在：{raw_source}")
                 size = None
                 output_source = relative_asset_href(absolute, output_dir)
             elif kind == "video":
                 size = None
-                output_source = local_data_uri(absolute, VIDEO_MIME_TYPES[suffix])
+                output_source = f"data:{VIDEO_MIME_TYPES[suffix]};base64,{base64.b64encode(payload).decode('ascii')}"
                 for poster_suffix in (".png", ".jpg", ".jpeg", ".webp"):
                     poster_path = absolute.with_suffix(poster_suffix)
-                    if poster_path.is_file():
-                        poster_source = local_data_uri(poster_path, IMAGE_MIME_TYPES[poster_suffix])
+                    poster_payload = _asset_bytes(poster_path, allowed_root, str(poster_path))
+                    if poster_payload is not None:
+                        poster_source = (
+                            f"data:{IMAGE_MIME_TYPES[poster_suffix]};base64,"
+                            f"{base64.b64encode(poster_payload).decode('ascii')}"
+                        )
                         break
             else:
-                size = image_size(absolute)
+                size = image_size_from_bytes(payload, absolute.suffix.lower())
                 if not size:
                     messages.warn(slide_no, f"无法读取图片尺寸，将按 16:9 处理：{raw_source}")
                 output_source = relative_asset_href(absolute, output_dir)
@@ -778,12 +1682,14 @@ def parse_svg_diagram(
     slide_no: int,
     stage_size: tuple[int, int],
     block_kind: str | None = None,
+    allowed_root: Path | None = None,
 ) -> Block:
     raw_source = str(config.get("src", "")).strip()
     title = str(config.get("title", f"{engine} 流程图")).strip() or f"{engine} 流程图"
     alt = str(config.get("alt", title)).strip() or title
     caption = str(config.get("caption", "")).strip()
     metrics: dict[str, object] = {"engine": engine, "src": raw_source}
+    svg_payload: bytes | None = None
     if not raw_source:
         messages.error(slide_no, f"{engine} 代码块缺少 src SVG 输出路径")
         source = '<svg class="diagram-svg" viewBox="0 0 16 9"></svg>'
@@ -797,15 +1703,18 @@ def parse_svg_diagram(
         if svg_path.suffix.lower() != ".svg":
             messages.error(slide_no, f"{engine} src 必须是 .svg：{raw_source}")
         try:
-            source = svg_path.read_text(encoding="utf-8")
+            svg_payload = _asset_bytes(svg_path, allowed_root, raw_source)
+            if svg_payload is None:
+                raise FileNotFoundError(svg_path)
+            source = svg_payload.decode("utf-8")
         except (OSError, UnicodeError) as error:
             messages.error(slide_no, f"{engine} SVG 不存在或无法读取：{raw_source}（{error}）")
             source = '<svg class="diagram-svg" viewBox="0 0 16 9"></svg>'
 
-    sidecar = read_diagram_sidecar(svg_path) if svg_path and svg_path.is_file() else {}
-    if svg_path and svg_path.is_file():
+    sidecar = read_diagram_sidecar(svg_path, allowed_root) if svg_path and svg_payload is not None else {}
+    if svg_path and svg_payload is not None:
         recorded_hash = str(sidecar.get("svgSha256", ""))
-        actual_hash = sha256_file(svg_path)
+        actual_hash = hashlib.sha256(svg_payload).hexdigest()
         if not sidecar:
             messages.error(slide_no, f"{engine} SVG 缺少 .diagram-build.json 质量报告；请运行 --render-diagrams")
         elif recorded_hash != actual_hash:
@@ -827,7 +1736,10 @@ def parse_svg_diagram(
                     messages.error(slide_no, f"diagram-design source 不存在：{source_raw}")
                 else:
                     recorded_source_hash = str(sidecar.get("sourceHtmlSha256", ""))
-                    if recorded_source_hash != sha256_file(authored_path):
+                    authored_source = _asset_bytes(authored_path, allowed_root, source_raw)
+                    if authored_source is None:
+                        messages.error(slide_no, f"diagram-design source 不存在：{source_raw}")
+                    elif recorded_source_hash != hashlib.sha256(authored_source).hexdigest():
                         messages.error(slide_no, "diagram-design HTML 与 SVG 质量报告不一致；请重新运行 --render-diagrams")
             expected_semantic_hash = mermaid_semantic_hash(definition)
             if str(sidecar.get("mermaidSourceHash", "")) != expected_semantic_hash:
@@ -881,7 +1793,7 @@ def parse_svg_diagram(
         metrics["minimumSafeMargin"] = round(safe_margin, 2)
         if safe_margin + 0.05 < required_margin:
             messages.error(slide_no, f"{engine} SVG 安全边距 {safe_margin:g}px，低于要求 {required_margin:g}px")
-    elif svg_path and svg_path.is_file():
+    elif svg_path and svg_payload is not None:
         messages.error(slide_no, f"{engine} SVG 质量报告缺少安全边距数据")
 
     prefix = f"diagram-p{slide_no}-{engine}-{sha256_text(raw_source)[:8]}"
@@ -903,6 +1815,7 @@ def parse_mermaid_block(
     messages: BuildMessages,
     slide_no: int,
     stage_size: tuple[int, int],
+    allowed_root: Path | None = None,
 ) -> Block:
     config, definition = parse_mermaid_fence(raw)
     if config.get("metadata-error"):
@@ -918,7 +1831,7 @@ def parse_mermaid_block(
     if renderer == "diagram-design" and not str(config.get("source", "")).strip():
         messages.error(slide_no, "renderer: diagram-design 必须提供 source HTML")
     enriched = {**config, "definition": definition}
-    return parse_svg_diagram(enriched, renderer, source_dir, messages, slide_no, stage_size, "mermaid")
+    return parse_svg_diagram(enriched, renderer, source_dir, messages, slide_no, stage_size, "mermaid", allowed_root)
 
 
 def parse_excalidraw_block(
@@ -927,6 +1840,7 @@ def parse_excalidraw_block(
     messages: BuildMessages,
     slide_no: int,
     stage_size: tuple[int, int],
+    allowed_root: Path | None = None,
 ) -> Block:
     config = parse_key_values(raw)
     raw_scene = str(config.get("source", "")).strip()
@@ -938,9 +1852,9 @@ def parse_excalidraw_block(
         scene_path = (source_dir / raw_scene).resolve()
         if scene_path.suffix.lower() not in {".excalidraw", ".json"}:
             messages.error(slide_no, f"excalidraw source 必须是 .excalidraw 或 .json：{raw_scene}")
-        elif not scene_path.is_file():
+        elif _asset_bytes(scene_path, allowed_root, raw_scene) is None:
             messages.error(slide_no, f"excalidraw source 不存在：{raw_scene}")
-    return parse_svg_diagram(config, "excalidraw", source_dir, messages, slide_no, stage_size)
+    return parse_svg_diagram(config, "excalidraw", source_dir, messages, slide_no, stage_size, None, allowed_root)
 
 
 def resolve_block_asset(
@@ -950,11 +1864,13 @@ def resolve_block_asset(
     messages: BuildMessages,
     slide_no: int,
     label: str,
+    allowed_root: Path | None = None,
 ) -> str:
     if raw_source.startswith(REMOTE_ASSET_PREFIXES):
         return raw_source
     absolute = (source_dir / raw_source).resolve()
-    if not absolute.exists():
+    exists = absolute.exists() if allowed_root is None else _asset_bytes(absolute, allowed_root, raw_source) is not None
+    if not exists:
         messages.error(slide_no, f"Archscribe {label}不存在：{raw_source}")
     return relative_asset_href(absolute, output_dir)
 
@@ -980,6 +1896,7 @@ def validate_archscribe_typography(
     source_dir: Path,
     messages: BuildMessages,
     slide_no: int,
+    allowed_root: Path | None = None,
 ) -> dict[str, float]:
     raw_source = str(config.get("src", "")).strip()
     raw_poster = str(config.get("poster", "")).strip()
@@ -988,15 +1905,17 @@ def validate_archscribe_typography(
     gif_path = (source_dir / raw_source).resolve()
     poster_path = (source_dir / raw_poster).resolve() if raw_poster else gif_path.with_suffix(".png")
     excalidraw_path = gif_path.with_suffix(".excalidraw")
-    if not poster_path.is_file() or not excalidraw_path.is_file():
+    poster_payload = _asset_bytes(poster_path, allowed_root, str(poster_path))
+    excalidraw_payload = _asset_bytes(excalidraw_path, allowed_root, str(excalidraw_path))
+    if poster_payload is None or excalidraw_payload is None:
         messages.warn(slide_no, "缺少 PNG 或 Excalidraw，无法校验 Archscribe 在 Slide 中的实际字号")
         return {}
-    size = image_size(poster_path)
+    size = image_size_from_bytes(poster_payload, poster_path.suffix.lower())
     if not size:
         messages.warn(slide_no, f"无法读取 Archscribe poster 尺寸：{raw_poster or poster_path.name}")
         return {}
     try:
-        payload = json.loads(excalidraw_path.read_text(encoding="utf-8"))
+        payload = json.loads(excalidraw_payload.decode("utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError) as error:
         messages.warn(slide_no, f"无法读取 Archscribe Excalidraw 字号：{error}")
         return {}
@@ -1077,7 +1996,8 @@ def validate_archscribe_typography(
         result["minimumSafeMargin"] = round(safe_margin_result, 2)
     cache_path = gif_path.with_suffix(".archscribe-build.json")
     try:
-        delivery_cache = json.loads(cache_path.read_text(encoding="utf-8")) if cache_path.is_file() else {}
+        cache_payload = _asset_bytes(cache_path, allowed_root, str(cache_path))
+        delivery_cache = json.loads(cache_payload.decode("utf-8")) if cache_payload is not None else {}
     except (OSError, UnicodeError, json.JSONDecodeError):
         delivery_cache = {}
     if isinstance(delivery_cache.get("minimumRasterMargin"), (int, float)):
@@ -1101,6 +2021,7 @@ def parse_archscribe(
     output_dir: Path,
     messages: BuildMessages,
     slide_no: int,
+    allowed_root: Path | None = None,
 ) -> Block:
     config = parse_key_values(raw)
     raw_source = str(config.get("src", "")).strip()
@@ -1115,23 +2036,23 @@ def parse_archscribe(
         messages.error(slide_no, "archscribe mask 必须是 x,y,width,height 四个非负数")
     elif raw_mask and not raw_crop:
         messages.error(slide_no, "archscribe mask 必须与 crop 一起使用")
-    typography = validate_archscribe_typography(config, source_dir, messages, slide_no)
+    typography = validate_archscribe_typography(config, source_dir, messages, slide_no, allowed_root)
 
     if not raw_source:
         messages.error(slide_no, "archscribe 代码块缺少 src")
         raw_source = "missing-archscribe-diagram.gif"
     elif not raw_source.lower().endswith(".gif"):
         messages.warn(slide_no, "archscribe src 建议使用 GIF，以保留流程动画")
-    source = resolve_block_asset(raw_source, source_dir, output_dir, messages, slide_no, "动画")
+    source = resolve_block_asset(raw_source, source_dir, output_dir, messages, slide_no, "动画", allowed_root)
 
     if not raw_spec:
         messages.error(slide_no, "archscribe 代码块缺少 spec，无法复现流程图")
     elif not raw_spec.startswith(REMOTE_ASSET_PREFIXES):
-        resolve_block_asset(raw_spec, source_dir, output_dir, messages, slide_no, "配置")
+        resolve_block_asset(raw_spec, source_dir, output_dir, messages, slide_no, "配置", allowed_root)
 
     poster_source = ""
     if raw_poster:
-        poster_source = resolve_block_asset(raw_poster, source_dir, output_dir, messages, slide_no, "静态海报")
+        poster_source = resolve_block_asset(raw_poster, source_dir, output_dir, messages, slide_no, "静态海报", allowed_root)
     else:
         messages.warn(slide_no, "archscribe 代码块未提供 poster；减少动态效果时仍会播放 GIF")
 
@@ -1230,6 +2151,7 @@ def parse_blocks(
     slide_no: int,
     citations: CitationRegistry | None = None,
     diagram_stage_size: tuple[int, int] = (DIAGRAM_STAGE_WIDTH, DIAGRAM_STAGE_HEIGHT),
+    allowed_root: Path | None = None,
 ) -> list[Block]:
     lines = body.splitlines()
     blocks: list[Block] = []
@@ -1268,11 +2190,11 @@ def parse_blocks(
             if language == "chart":
                 blocks.append(parse_chart("\n".join(fenced), messages, slide_no))
             elif language == "mermaid":
-                blocks.append(parse_mermaid_block("\n".join(fenced), source_dir, messages, slide_no, diagram_stage_size))
+                blocks.append(parse_mermaid_block("\n".join(fenced), source_dir, messages, slide_no, diagram_stage_size, allowed_root))
             elif language == "excalidraw":
-                blocks.append(parse_excalidraw_block("\n".join(fenced), source_dir, messages, slide_no, diagram_stage_size))
+                blocks.append(parse_excalidraw_block("\n".join(fenced), source_dir, messages, slide_no, diagram_stage_size, allowed_root))
             elif language == "archscribe":
-                blocks.append(parse_archscribe("\n".join(fenced), source_dir, output_dir, messages, slide_no))
+                blocks.append(parse_archscribe("\n".join(fenced), source_dir, output_dir, messages, slide_no, allowed_root))
             else:
                 label = html.escape(language or "code")
                 code = html.escape("\n".join(fenced))
@@ -1404,7 +2326,16 @@ def resolve_layout(kind: str, requested: str, media: list[Media], blocks: list[B
     return "split"
 
 
-def parse_slide(chunk: str, number: int, deck: dict[str, object], source_dir: Path, output_dir: Path, messages: BuildMessages, citations: CitationRegistry | None = None) -> Slide:
+def parse_slide(
+    chunk: str,
+    number: int,
+    deck: dict[str, object],
+    source_dir: Path,
+    output_dir: Path,
+    messages: BuildMessages,
+    citations: CitationRegistry | None = None,
+    allowed_root: Path | None = None,
+) -> Slide:
     config, cleaned = clean_directive(chunk)
     title, subtitle, body = pop_headings(cleaned)
     kind = config.get("type", "content").lower()
@@ -1414,7 +2345,7 @@ def parse_slide(chunk: str, number: int, deck: dict[str, object], source_dir: Pa
     if not title:
         messages.error(number, "页面缺少一级标题（# 标题）")
         title = f"未命名页面 {number}"
-    media, body_without_media = extract_media(body, source_dir, output_dir, messages, number)
+    media, body_without_media = extract_media(body, source_dir, output_dir, messages, number, allowed_root)
     pure_image = bool_config(config, "pure-image", False)
     if pure_image and kind not in {"cover", "section"}:
         messages.warn(number, "pure-image 只适用于 cover / section 页面，已忽略")
@@ -1428,7 +2359,16 @@ def parse_slide(chunk: str, number: int, deck: dict[str, object], source_dir: Pa
         messages.error(number, "pure-image 页面只支持图片；视频请使用 content 页面")
     fullstage = not bool_config(config, "footer", True)
     diagram_stage_size = (DIAGRAM_STAGE_WIDTH, DIAGRAM_STAGE_HEIGHT) if fullstage else (1700, 716)
-    blocks = parse_blocks(body_without_media, source_dir, output_dir, messages, number, citations, diagram_stage_size)
+    blocks = parse_blocks(
+        body_without_media,
+        source_dir,
+        output_dir,
+        messages,
+        number,
+        citations,
+        diagram_stage_size,
+        allowed_root,
+    )
     requested = config.get("layout", "auto").lower()
     resolved = resolve_layout(kind, requested, media, blocks, messages, number)
     section = config.get("section", "") or str(deck.get("default-section", ""))
@@ -1447,6 +2387,67 @@ def parse_slide(chunk: str, number: int, deck: dict[str, object], source_dir: Pa
         body_without_media,
         chapter=config.get("chapter", "").strip(),
     )
+
+
+def _annotate_block_authoring(block: Block, item: AuthoringItem) -> None:
+    block.author_id = item.item_id
+    block.author_base_hash = item.base_hash
+    block.author_markdown = item.markdown
+    attributes = (
+        f'data-author-item-id="{html.escape(item.item_id, quote=True)}" '
+        f'data-author-item-kind="{html.escape(item.kind, quote=True)}" '
+        f'data-author-base-hash="{item.base_hash}" '
+    )
+    if "<article " in block.html:
+        block.html = block.html.replace("<article ", f"<article {attributes}", 1)
+    elif "<article>" in block.html:
+        block.html = block.html.replace("<article>", f"<article {attributes.rstrip()}>", 1)
+    if item.kind == "text":
+        block.html = block.html.replace("<h3>", '<h3 data-author-field="title">', 1)
+        opening_end = block.html.find(">") + 1
+        heading_end = block.html.find("</h3>")
+        body_start = heading_end + len("</h3>") if heading_end >= 0 else opening_end
+        body_end = block.html.rfind("</article>")
+        if body_end >= body_start:
+            block.html = (
+                block.html[:body_start]
+                + '<div data-author-field="body">'
+                + block.html[body_start:body_end]
+                + "</div>"
+                + block.html[body_end:]
+            )
+    elif item.kind == "callout":
+        block.html = block.html.replace("<strong>", '<strong data-author-field="title">', 1)
+        block.html = block.html.replace("<p>", '<p data-author-field="body">', 1)
+
+
+def bind_authoring_metadata(slide: Slide, source_slide: AuthoringSlide) -> None:
+    """Attach lossless source identities to the existing rendering projection."""
+    slide.author_base_hash = source_slide.base_hash
+    media_items = [item for item in source_slide.items if item.kind in {"image", "video"}]
+    for media, item in zip(slide.media, media_items):
+        media.author_id = item.item_id
+        media.author_base_hash = item.base_hash
+        media.author_markdown = item.markdown
+
+    block_kind = {
+        "section": "text",
+        "callout": "callout",
+        "table": "table",
+        "code": "code",
+        "chart": "chart",
+        "mermaid": "mermaid",
+        "excalidraw": "excalidraw",
+        "archscribe": "archscribe",
+    }
+    queues: dict[str, list[AuthoringItem]] = {}
+    for item in source_slide.items:
+        queues.setdefault(item.kind, []).append(item)
+    for block in slide.blocks:
+        expected = block_kind.get(block.kind, block.kind)
+        candidates = queues.get(expected, [])
+        if candidates:
+            _annotate_block_authoring(block, candidates.pop(0))
 
 
 def normalize_region(value: object, messages: BuildMessages, slide_no: int, name: str) -> dict[str, int] | None:
@@ -1532,15 +2533,30 @@ def normalize_animation(value: object, messages: BuildMessages, slide_no: int) -
     return {"mode": mode, "order": order[:64], "stepMs": max(40, min(600, step_ms))}
 
 
-def load_layout_overrides(path: Path | None, messages: BuildMessages) -> dict[str, object]:
+_UNSET_LAYOUT_BYTES = object()
+
+
+def load_layout_overrides(
+    path: Path | None,
+    messages: BuildMessages,
+    expected_source_hash: str | None = None,
+    source_bytes: bytes | None | object = _UNSET_LAYOUT_BYTES,
+) -> dict[str, object]:
     if path is None:
         return {"schemaVersion": EDITOR_SCHEMA_VERSION, "stage": {"width": STAGE_WIDTH, "height": STAGE_HEIGHT}, "slides": {}}
-    if not path.exists():
-        messages.error(None, f"布局覆盖文件不存在：{path}")
-        return {"schemaVersion": EDITOR_SCHEMA_VERSION, "stage": {"width": STAGE_WIDTH, "height": STAGE_HEIGHT}, "slides": {}}
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as error:
+        if source_bytes is _UNSET_LAYOUT_BYTES:
+            if not path.exists():
+                messages.error(None, f"布局覆盖文件不存在：{path}")
+                return {"schemaVersion": EDITOR_SCHEMA_VERSION, "stage": {"width": STAGE_WIDTH, "height": STAGE_HEIGHT}, "slides": {}}
+            raw_source = path.read_bytes()
+        elif source_bytes is None:
+            messages.error(None, f"布局覆盖文件不存在：{path}")
+            return {"schemaVersion": EDITOR_SCHEMA_VERSION, "stage": {"width": STAGE_WIDTH, "height": STAGE_HEIGHT}, "slides": {}}
+        else:
+            raw_source = source_bytes
+        payload = json.loads(raw_source.decode("utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
         messages.error(None, f"无法读取布局覆盖文件：{error}")
         return {"schemaVersion": EDITOR_SCHEMA_VERSION, "stage": {"width": STAGE_WIDTH, "height": STAGE_HEIGHT}, "slides": {}}
     if not isinstance(payload, dict) or not isinstance(payload.get("slides", {}), dict):
@@ -1549,6 +2565,14 @@ def load_layout_overrides(path: Path | None, messages: BuildMessages) -> dict[st
     version = str(payload.get("schemaVersion", EDITOR_SCHEMA_VERSION))
     if version != EDITOR_SCHEMA_VERSION:
         messages.warn(None, f"布局覆盖 schemaVersion={version}，当前生成器为 {EDITOR_SCHEMA_VERSION}；将按兼容模式读取")
+    authored_source_hash = str(payload.get("sourceHash", "")).strip().lower()
+    if authored_source_hash and expected_source_hash and authored_source_hash != expected_source_hash.lower():
+        messages.error(None, "布局覆盖的 sourceHash 与当前 Markdown 不一致；为避免把旧布局套到新内容，已拒绝应用")
+        return {
+            "schemaVersion": EDITOR_SCHEMA_VERSION,
+            "stage": {"width": STAGE_WIDTH, "height": STAGE_HEIGHT},
+            "slides": {},
+        }
     return payload
 
 
@@ -1696,7 +2720,13 @@ def visual_media(
 ) -> str:
     panel = f' data-media-panel="{panel_index}"' if panel_index is not None else ""
     active_class = " active" if active else ""
-    caption = f"<figcaption>{html.escape(media.caption)}</figcaption>" if media.caption else ""
+    authoring = (
+        f' data-author-item-id="{html.escape(media.author_id, quote=True)}"'
+        f' data-author-item-kind="{html.escape(media.kind, quote=True)}"'
+        f' data-author-base-hash="{media.author_base_hash}"'
+        if media.author_id else ""
+    )
+    caption = f'<figcaption data-author-field="caption">{html.escape(media.caption)}</figcaption>' if media.caption else ""
     if media.kind == "video":
         mime_type = VIDEO_MIME_TYPES.get(Path(urlsplit(media.source).path).suffix.lower(), "video/mp4")
         poster = f' poster="{html.escape(media.poster_source, quote=True)}"' if media.poster_source else ""
@@ -1707,7 +2737,7 @@ def visual_media(
             else 'controls playsinline preload="metadata" data-slide-video'
         )
         return (
-            f'<figure class="card media-figure video-media{active_class}" data-slide-video-shell tabindex="0"{panel}>'
+            f'<figure class="card media-figure video-media{active_class}" data-slide-video-shell tabindex="0"{panel}{authoring}>'
             '<div class="video-media-content">'
             f'<video {video_attributes} aria-label="{html.escape(media.alt, quote=True)}"{poster} '
             f'style="object-fit:{html.escape(fit)}">'
@@ -1717,7 +2747,7 @@ def visual_media(
             f'</div>{caption}</figure>'
         )
     return (
-        f'<figure class="card media-figure visual-widget{active_class}" data-visual-widget="image" tabindex="0"{panel}>'
+        f'<figure class="card media-figure visual-widget{active_class}" data-visual-widget="image" tabindex="0"{panel}{authoring}>'
         '<div class="visual-widget-content" data-visual-content>'
         f'<img src="{html.escape(media.output_source, quote=True)}" alt="{html.escape(media.alt, quote=True)}" '
         f'style="object-fit:{html.escape(fit)}" draggable="false">'
@@ -1733,16 +2763,25 @@ def render_copy(blocks: list[Block], class_name: str = "text-grid") -> str:
     return f'<div class="{class_name} count-{count}{focus}">' + "".join(block.html for block in blocks) + "</div>"
 
 
+def effective_section_memberships(sections: list[str], slides: list[Slide]) -> list[str]:
+    known = set(sections)
+    current_section = sections[0] if sections else ""
+    memberships: list[str] = []
+    for slide in slides:
+        if slide.section:
+            if slide.section not in known:
+                memberships.append("")
+                continue
+            current_section = slide.section
+        memberships.append(current_section if current_section in known else "")
+    return memberships
+
+
 def collect_section_chapters(sections: list[str], slides: list[Slide]) -> dict[str, list[dict[str, object]]]:
     chapters: dict[str, list[dict[str, object]]] = {section: [] for section in sections}
     seen: dict[str, set[str]] = {section: set() for section in sections}
-    current_section = sections[0] if sections else ""
-    for slide in slides:
-        if slide.section:
-            if slide.section not in chapters:
-                continue
-            current_section = slide.section
-        if not current_section or current_section not in chapters:
+    for slide, current_section in zip(slides, effective_section_memberships(sections, slides)):
+        if not current_section:
             continue
         title = slide.chapter or slide.title
         if not title or title in seen[current_section]:
@@ -1813,8 +2852,14 @@ def render_hero(slide: Slide, deck: dict[str, object], citations: CitationRegist
             return '<div class="pure-image-shell pure-image-missing" aria-label="纯图页面缺少图片"></div>'
         media = slide.media[0]
         fit = slide.config.get("image-fit", "cover")
+        authoring = (
+            f' data-author-item-id="{html.escape(media.author_id, quote=True)}"'
+            f' data-author-item-kind="{html.escape(media.kind, quote=True)}"'
+            f' data-author-base-hash="{media.author_base_hash}"'
+            if media.author_id else ""
+        )
         return (
-            '<figure class="pure-image-shell reveal">'
+            f'<figure class="pure-image-shell reveal"{authoring}>'
             f'<img src="{html.escape(media.output_source, quote=True)}" alt="{html.escape(media.alt, quote=True)}" '
             f'style="object-fit:{html.escape(fit, quote=True)}" draggable="false">'
             '</figure>'
@@ -1832,16 +2877,17 @@ def render_hero(slide: Slide, deck: dict[str, object], citations: CitationRegist
         visual = render_placeholder("封面图占位" if slide.kind == "cover" else "章节图占位")
     return (
         f'<div class="hero-shell hero-{slide.kind} hero-layout-{slide.layout_resolved}"><div class="hero-copy reveal" data-presenter-focus>'
-        f'<p class="hero-kicker">{html.escape(kicker)}</p><h1>{render_inline(slide.title, citations, slide.number)}</h1>'
-        f'<p class="hero-subtitle">{render_inline(slide.subtitle, citations, slide.number)}</p>'
+        f'<p class="hero-kicker">{html.escape(kicker)}</p><h1 data-author-field="slide-title">{render_inline(slide.title, citations, slide.number)}</h1>'
+        f'<p class="hero-subtitle" data-author-field="slide-subtitle">{render_inline(slide.subtitle, citations, slide.number)}</p>'
         f'<p class="hero-meta">{html.escape(meta)}</p></div><div class="hero-visual reveal">{visual}</div></div>'
     )
 
 
 def render_gallery(slide: Slide) -> str:
     fit = slide.config.get("image-fit", "contain")
-    tabbed = slide.config.get("gallery-display", "").strip().lower() == "tabs"
-    if len(slide.media) >= 3 or (tabbed and len(slide.media) >= 2):
+    authored_display = slide.config.get("gallery-display", "").strip().lower()
+    tabbed = authored_display == "tabs" or (authored_display not in {"grid", "tabs"} and len(slide.media) >= 3)
+    if tabbed and len(slide.media) >= 2:
         authored_labels = [label.strip() for label in slide.config.get("tab-labels", "").split("|") if label.strip()]
         labels = authored_labels if len(authored_labels) == len(slide.media) else [str(index + 1) for index in range(len(slide.media))]
         named_class = " named-tabs" if authored_labels and len(authored_labels) == len(slide.media) else ""
@@ -1856,7 +2902,7 @@ def render_gallery(slide: Slide) -> str:
         )
         gallery = f'<div class="media-tabs" data-media-tabs>{panels}<div class="media-tab-list{named_class}">{buttons}</div></div>'
     else:
-        gallery = '<div class="media-grid count-2">' + "".join(
+        gallery = f'<div class="media-grid count-{min(4, len(slide.media))}">' + "".join(
             visual_media(media, fit, video_playback=slide.config.get("video-playback", "manual"))
             for media in slide.media
         ) + "</div>"
@@ -1911,14 +2957,15 @@ def render_slide(
         inner = render_hero(slide, deck, citations)
     else:
         title = render_inline(slide.title, citations, slide.number)
-        subtitle = f'<p class="subtitle">{render_inline(slide.subtitle, citations, slide.number)}</p>' if slide.subtitle else ""
+        subtitle = f'<p class="subtitle" data-author-field="slide-subtitle">{render_inline(slide.subtitle, citations, slide.number)}</p>' if slide.subtitle else ""
         inner = (
-            f'<header class="slide-header reveal" data-presenter-focus><h1>{title}</h1>{subtitle}</header>'
+            f'<header class="slide-header reveal" data-presenter-focus><h1 data-author-field="slide-title">{title}</h1>{subtitle}</header>'
             f'<div class="content">{render_content(slide)}</div>{render_footer(slide, sections, section_chapters)}'
         )
     return (
         f'<section class="{classes}" data-title="{html.escape(slide.title, quote=True)}" '
         f'data-slide-id="{html.escape(slide.slide_id, quote=True)}" data-source-page="P{slide.number}" '
+        f'data-author-base-hash="{html.escape(slide.author_base_hash, quote=True)}" '
         f'data-slide-kind="{html.escape(slide.kind, quote=True)}" data-media-count="{len(slide.media)}" '
         f'data-block-count="{len(slide.blocks)}" data-text-length="{body_text_length(slide.blocks)}" '
         f'data-has-table="{str(any(block.kind == "table" for block in slide.blocks)).lower()}" '
@@ -2510,16 +3557,27 @@ def build(
     diagram_node: Path | None = None,
     diagram_chrome: Path | None = None,
     force_diagrams: bool = False,
+    allowed_asset_root: Path | None = None,
+    source_snapshot: str | None = None,
+    discover_overrides: bool = True,
 ) -> int:
     messages = BuildMessages()
     if not TEMPLATE_PATH.exists():
         print(f"ERROR: template missing: {TEMPLATE_PATH}", file=sys.stderr)
         return 2
-    try:
-        source = source_path.read_text(encoding="utf-8")
-    except (OSError, UnicodeError) as error:
-        print(f"ERROR: cannot read Markdown source {source_path}: {error}", file=sys.stderr)
-        return 2
+    if source_snapshot is None:
+        try:
+            # Keep the authored byte-level newline convention for source hashing and
+            # browser round-trips. Path.read_text() enables universal-newline
+            # translation and would make a CRLF deck disagree with its disk hash.
+            with source_path.open("r", encoding="utf-8", newline="") as source_handle:
+                source = source_handle.read()
+        except (OSError, UnicodeError) as error:
+            print(f"ERROR: cannot read Markdown source {source_path}: {error}", file=sys.stderr)
+            return 2
+    else:
+        source = source_snapshot
+    authoring_document = parse_authoring_document(source, source_path.name)
     mermaid_specs = find_mermaid_specs(source)
     excalidraw_configs = find_excalidraw_configs(source)
     mermaid_cli_count = sum(mermaid_renderer(spec) == "mermaid" for spec in mermaid_specs)
@@ -2573,7 +3631,22 @@ def build(
     if not chunks:
         print("ERROR: no slides found", file=sys.stderr)
         return 2
-    slides = [parse_slide(chunk, index, deck, source_path.parent, output_path.parent, messages, citations) for index, chunk in enumerate(chunks, 1)]
+    slides = [
+        parse_slide(
+            chunk,
+            index,
+            deck,
+            source_path.parent,
+            output_path.parent,
+            messages,
+            citations,
+            allowed_asset_root,
+        )
+        for index, chunk in enumerate(chunks, 1)
+    ]
+    for slide, source_slide in zip(slides, authoring_document.slides):
+        if slide.slide_id == source_slide.slide_id:
+            bind_authoring_metadata(slide, source_slide)
     if mermaid_specs or excalidraw_configs:
         diagram_report["quality"] = {
             slide.slide_id: [block.meta for block in slide.blocks if block.kind in {"mermaid", "excalidraw"}]
@@ -2598,11 +3671,23 @@ def build(
             messages.error(slide.number, f"页面 id={slide.slide_id} 重复；编辑器覆盖要求每页 ID 唯一")
         seen_ids.add(slide.slide_id)
     resolved_overrides_path = overrides_path
-    if resolved_overrides_path is None:
+    if resolved_overrides_path is None and discover_overrides:
         automatic = source_path.with_suffix(".layout.json")
         if automatic.exists():
             resolved_overrides_path = automatic
-    editor_payload = load_layout_overrides(resolved_overrides_path, messages)
+    layout_source_bytes: bytes | None | object = _UNSET_LAYOUT_BYTES
+    if resolved_overrides_path is not None and allowed_asset_root is not None:
+        layout_source_bytes = _asset_bytes(
+            resolved_overrides_path,
+            allowed_asset_root,
+            str(resolved_overrides_path),
+        )
+    editor_payload = load_layout_overrides(
+        resolved_overrides_path,
+        messages,
+        authoring_document.revision,
+        layout_source_bytes,
+    )
     applied_overrides = apply_layout_overrides(slides, editor_payload, messages)
     density = str(deck.get("density", "reading")).lower()
     if density not in {"reading", "speaking"}:
@@ -2614,12 +3699,14 @@ def build(
     sections = collect_sections(deck, slides, messages)
     section_chapters = collect_section_chapters(sections, slides)
     rendered = "\n".join(render_slide(slide, deck, sections, section_chapters, citations) for slide in slides)
+    static_export_assets = static_export_asset_manifest(rendered, output_path.parent, allowed_asset_root)
     title = str(deck.get("title", slides[0].title))
     embedded_editor_config = {
         "schemaVersion": EDITOR_SCHEMA_VERSION,
         "stage": {"width": STAGE_WIDTH, "height": STAGE_HEIGHT},
         "deckTitle": title,
         "source": source_path.name,
+        "sourceHash": authoring_document.revision,
         "shortcuts": {
             "presenterFocus": normalize_presenter_focus_shortcut(
                 editor_payload.get("shortcuts", {}).get("presenterFocus")
@@ -2639,6 +3726,30 @@ def build(
         "slides": {slide.slide_id: slide.editor_override for slide in slides if slide.editor_override},
     }
     editor_json = json.dumps(embedded_editor_config, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
+    authoring_payload = authoring_document_payload(authoring_document)
+    payload_slides = authoring_payload.get("slides")
+    if isinstance(payload_slides, list):
+        for payload_slide, effective_section in zip(payload_slides, effective_section_memberships(sections, slides)):
+            if isinstance(payload_slide, dict):
+                payload_slide["effectiveSection"] = effective_section
+    authoring_source = authoring_payload.get("source")
+    if isinstance(authoring_source, dict):
+        authoring_source["layoutName"] = (
+            resolved_overrides_path.name
+            if resolved_overrides_path
+            else source_path.with_suffix(".layout.json").name
+        )
+        if isinstance(layout_source_bytes, bytes):
+            authoring_source["layoutSha256"] = hashlib.sha256(layout_source_bytes).hexdigest()
+        elif resolved_overrides_path and resolved_overrides_path.is_file():
+            authoring_source["layoutSha256"] = sha256_file(resolved_overrides_path)
+    authoring_json = json.dumps(authoring_payload, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
+    static_export_assets_json = json.dumps(static_export_assets, ensure_ascii=False, separators=(",", ":")).replace("<", "\\u003c")
+    layout_output_name = (
+        resolved_overrides_path.name
+        if resolved_overrides_path
+        else source_path.with_suffix(".layout.json").name
+    )
     replacements = {
         **template_fragments,
         "{{DECK_TITLE}}": html.escape(title),
@@ -2651,9 +3762,12 @@ def build(
         "{{OUTPUT_FILENAME_JSON}}": json.dumps(output_path.name, ensure_ascii=False).replace("<", "\\u003c"),
         "{{SOURCE_FILENAME}}": html.escape(source_path.name, quote=True),
         "{{SOURCE_FILENAME_JSON}}": json.dumps(source_path.name, ensure_ascii=False).replace("<", "\\u003c"),
-        "{{OVERRIDES_FILENAME}}": html.escape(source_path.with_suffix(".layout.json").name, quote=True),
-        "{{OVERRIDES_FILENAME_JSON}}": json.dumps(source_path.with_suffix(".layout.json").name, ensure_ascii=False).replace("<", "\\u003c"),
+        "{{OVERRIDES_FILENAME}}": html.escape(layout_output_name, quote=True),
+        "{{OVERRIDES_FILENAME_JSON}}": json.dumps(layout_output_name, ensure_ascii=False).replace("<", "\\u003c"),
         "{{EDITOR_CONFIG}}": editor_json,
+        "{{AUTHORING_MODEL}}": authoring_json,
+        "{{AUTHORING_MODEL_JSON}}": authoring_json,
+        "{{STATIC_EXPORT_ASSETS}}": static_export_assets_json,
     }
     for key, value in replacements.items():
         template = template.replace(key, value)
@@ -2673,6 +3787,11 @@ def build(
             "referenced": len(citations.numbers),
             "ids": list(citations.numbers),
         },
+        "authoring": {
+            "schemaVersion": "1.0",
+            "sourceSha256": authoring_document.revision,
+            "slides": len(authoring_document.slides),
+        },
     }
     if archscribe_configs:
         report["archscribe"] = archscribe_report
@@ -2680,8 +3799,10 @@ def build(
         report["diagrams"] = diagram_report
     report_path = output_path.with_suffix(".build.json")
     try:
-        write_text_atomic(output_path, template)
-        write_text_atomic(report_path, json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+        write_text_artifacts_atomic((
+            (output_path, template),
+            (report_path, json.dumps(report, ensure_ascii=False, indent=2) + "\n"),
+        ))
     except OSError as error:
         print(f"ERROR: cannot write build artifacts: {error}", file=sys.stderr)
         return 2

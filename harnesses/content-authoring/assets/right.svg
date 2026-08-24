@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720" role="img" aria-labelledby="title desc">
+  <title id="title">右侧示意图</title>
+  <desc id="desc">用于内容编辑 Harness 的橙色矩形。</desc>
+  <rect width="1200" height="720" rx="48" fill="#fff0dc"/>
+  <rect x="104" y="104" width="992" height="512" rx="36" fill="#cc5c18"/>
+  <text x="600" y="390" text-anchor="middle" font-family="sans-serif" font-size="96" font-weight="700" fill="#ffffff">RIGHT</text>
+</svg>

@@ -2,12 +2,15 @@ import contextlib
 import io
 import json
 import os
+import re
 import struct
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import build_slides
 
@@ -653,6 +656,29 @@ Second page.
         side_by_side = build_slides.render_gallery(slide)
         self.assertIn("media-grid count-2", side_by_side)
 
+    def test_three_image_gallery_can_explicitly_use_grid(self):
+        media = [
+            build_slides.Media(f"{index}.png", f"assets/{index}.png", f"图 {index}", "", 1600, 900)
+            for index in range(1, 4)
+        ]
+        slide = build_slides.Slide(
+            number=1,
+            slide_id="three-image-grid",
+            kind="content",
+            title="三图并列",
+            subtitle="",
+            section="前言",
+            layout_requested="gallery",
+            layout_resolved="gallery",
+            config={"gallery-display": "grid"},
+            media=media,
+            blocks=[],
+            raw_body="",
+        )
+        rendered = build_slides.render_gallery(slide)
+        self.assertIn("media-grid count-3", rendered)
+        self.assertNotIn("media-tabs", rendered)
+
     def test_non_heading_content_uses_editorial_type_and_text_dividers(self):
         template = build_slides.TEMPLATE_PATH.read_text(encoding="utf-8")
 
@@ -690,7 +716,8 @@ Second page.
         self.assertIn("event.metaKey || event.ctrlKey || event.altKey", template)
         self.assertIn('event.key === "Escape" && this.layoutEditor.active', template)
         self.assertIn("Math.abs(dx) > Math.abs(dy) * 1.25", template)
-        self.assertIn("if (this.layoutEditor.active || event.target.closest", template)
+        self.assertIn("this.mediaPlayback?.isFullscreen || event.target.closest", template)
+        self.assertIn('[data-visual-widget],[data-slide-video-shell],.layout-editor-panel', template)
         self.assertIn("file.size > 4 * 1024 * 1024", template)
         self.assertIn('["ArrowLeft", "ArrowRight", "Home", "End"]', template)
 
@@ -858,12 +885,13 @@ Second page.
         slides = [
             build_slides.Slide(1, "intro", "content", "开场", "", "基础", "text", "text", {}, [], [], "", "概览"),
             build_slides.Slide(2, "intro-more", "content", "更多开场", "", "基础", "text", "text", {}, [], [], "", "概览"),
-            build_slides.Slide(3, "setup", "content", "配置", "", "基础", "text", "text", {}, [], [], ""),
+            build_slides.Slide(3, "setup", "content", "配置", "", "", "text", "text", {}, [], [], ""),
             build_slides.Slide(4, "advanced", "content", "深入标题", "", "深入", "text", "text", {}, [], [], ""),
         ]
 
         chapters = build_slides.collect_section_chapters(["基础", "深入"], slides)
 
+        self.assertEqual(build_slides.effective_section_memberships(["基础", "深入"], slides), ["基础", "基础", "基础", "深入"])
         self.assertEqual(chapters["基础"], [
             {"title": "概览", "page": 1},
             {"title": "配置", "page": 3},
@@ -894,7 +922,16 @@ Second page.
         self.assertIn("{{MEDIA_PLAYBACK_CSS}}", template)
         self.assertIn("{{MEDIA_PLAYBACK_RUNTIME}}", template)
         self.assertIn("class MediaPlayback", runtime)
+        self.assertIn("requestFullscreen", runtime)
+        self.assertIn("webkitEnterFullscreen", runtime)
+        self.assertIn("pendingRecord", runtime)
+        self.assertIn('aria-modal", "true', runtime)
+        self.assertIn("sanitizeClone", runtime)
+        self.assertIn("video-fullscreen-button", runtime)
+        self.assertIn("data-video-fullscreen", runtime)
         self.assertIn(".video-media", style)
+        self.assertIn(".video-fullscreen-button", style)
+        self.assertIn(".is-video-fullscreen", style)
 
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -956,6 +993,308 @@ footer: false
             self.assertIn('<video autoplay loop muted playsinline preload="auto" data-slide-video data-video-autoplay', rendered)
             self.assertNotIn('<video controls', rendered)
 
+    def test_static_export_feature_is_composed_with_deduplicated_local_assets(self):
+        template = build_slides.TEMPLATE_PATH.read_text(encoding="utf-8")
+        style = build_slides.TEMPLATE_FRAGMENT_PATHS["{{STATIC_EXPORT_CSS}}"].read_text(encoding="utf-8")
+        runtime = build_slides.TEMPLATE_FRAGMENT_PATHS["{{STATIC_EXPORT_RUNTIME}}"].read_text(encoding="utf-8")
+        self.assertIn("{{STATIC_EXPORT_CSS}}", template)
+        self.assertIn("{{STATIC_EXPORT_RUNTIME}}", template)
+        self.assertIn('id="editorStaticExportMount"', template)
+        self.assertIn('id="deckStaticExportAssets"', template)
+        self.assertIn("class StaticDeckExport", runtime)
+        self.assertIn("buildPdf(frames)", runtime)
+        self.assertIn("buildPptx(frames, {animated = false}", runtime)
+        self.assertIn("async exportAnimatedPptx", runtime)
+        self.assertIn('mode: "animated"', runtime)
+        self.assertIn('<p:transition spd="med"><p:fade thruBlk="0"/></p:transition>', runtime)
+        self.assertNotIn("<p:normalViewPr/>", runtime)
+        self.assertIn('<p:gridSpacing cx="76200" cy="76200"/>', runtime)
+        self.assertIn("beforeCapture", runtime)
+        self.assertIn('async renderFrames(plan = null, {mode = "static"} = {})', runtime)
+        self.assertIn("animation: none !important", runtime)
+        self.assertIn("static-export-progress", style)
+        self.assertIn("#editorExportAnimatedPptx", style)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            assets = root / "assets"
+            assets.mkdir()
+            image = assets / "shared.svg"
+            image.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720"><rect width="1200" height="720" fill="#6f60e5"/></svg>', encoding="utf-8")
+            private_link = assets / "linked-only.svg"
+            private_link.write_text('<svg xmlns="http://www.w3.org/2000/svg"><text>must not be embedded</text></svg>', encoding="utf-8")
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            markdown.write_text("""<!-- slide
+id: first
+layout: media
+footer: false
+-->
+# 第一页
+
+![相同图片](assets/shared.svg)
+
+[仅作为普通链接的本地 SVG](assets/linked-only.svg)
+
+普通正文中的 url(assets/linked-only.svg) 也不得触发素材读取。
+
+---
+
+<!-- slide
+id: second
+layout: media
+footer: false
+-->
+# 第二页
+
+![相同图片](assets/shared.svg)
+""", encoding="utf-8")
+
+            self.assertEqual(build_slides.build(markdown, output, strict=True), 0)
+            rendered = output.read_text(encoding="utf-8")
+            match = re.search(r'<script id="deckStaticExportAssets" type="application/json">(.*?)</script>', rendered, re.S)
+            self.assertIsNotNone(match)
+            manifest = json.loads(match.group(1))
+            self.assertEqual(manifest["schemaVersion"], "1.0")
+            self.assertEqual(len(manifest["sources"]), 1)
+            self.assertEqual(len(manifest["assets"]), 1)
+            self.assertNotIn("assets/linked-only.svg", manifest["sources"])
+            digest = next(iter(manifest["sources"].values()))
+            self.assertEqual(digest, build_slides.sha256_file(image))
+            self.assertRegex(manifest["assets"][digest], r"^data:image/svg\+xml;base64,")
+            self.assertIn("new StaticDeckExport", rendered)
+            self.assertIn("beforeCapture: () => mediaPlayback.exitFullscreen", rendered)
+            self.assertIn("window.__SLIDE_STATIC_EXPORT__", rendered)
+            self.assertIn('id="editorExportPdf"', rendered)
+            self.assertIn('id="editorExportPptx"', rendered)
+            self.assertIn('id="editorExportAnimatedPptx"', rendered)
+            self.assertIn("导出带转场 PowerPoint（实验）", rendered)
+            self.assertNotIn("{{STATIC_EXPORT_CSS}}", rendered)
+            self.assertNotIn("{{STATIC_EXPORT_RUNTIME}}", rendered)
+            self.assertNotIn("{{STATIC_EXPORT_ASSETS}}", rendered)
+
+    def test_authoring_document_preserves_exact_source_and_utf16_ranges(self):
+        source = (
+            "\ufeff---\r\ntitle: 可逆模型\r\n---\r\n\r\n"
+            "<!-- slide\r\nid: first\r\nlayout: gallery\r\ngallery-display: tabs\r\n"
+            "section: 基础 Section\r\nchapter: 共享 Chapter\r\n-->\r\n"
+            "# 第一页😀\r\n## 副标题\r\n\r\n"
+            "![图一](assets/one.png \"图注一\")\r\n\r\n"
+            "### 文本块\r\n\r\n正文[^source]\r\n\r\n"
+            "> [!TIP] 提示\r\n> Callout 正文\r\n\r\n"
+            "---\r\n\r\n# 第二页\r\n\r\n"
+            "```mermaid\r\n---\r\n```\r\n\r\n"
+            "[^source]: 原始资料 — https://example.com/source\r\n"
+        )
+        document = build_slides.parse_authoring_document(source)
+        payload = build_slides.authoring_document_payload(document)
+
+        self.assertEqual(document.source, source)
+        self.assertTrue(document.bom)
+        self.assertEqual(document.newline, "\r\n")
+        self.assertEqual(len(document.slides), 2)
+        self.assertEqual([item.kind for item in document.slides[0].items], ["image", "text", "callout"])
+        self.assertEqual([citation.citation_id for citation in document.citations], ["source"])
+        self.assertEqual(payload["source"]["offsetEncoding"], "utf-16")
+        self.assertEqual(payload["slides"][0]["config"]["section"], "基础 Section")
+        self.assertEqual(payload["slides"][0]["config"]["chapter"], "共享 Chapter")
+        reconstructed = payload["source"]["prefix"]
+        for index, slide in enumerate(payload["slides"]):
+            reconstructed += slide["source"]
+            if index < len(payload["source"]["separators"]):
+                reconstructed += payload["source"]["separators"][index]
+        reconstructed += payload["source"]["suffix"]
+        self.assertEqual(reconstructed, source)
+
+        encoded = source.encode("utf-16-le")
+        for slide in payload["slides"]:
+            source_range = slide["sourceRange"]
+            sliced = encoded[source_range["start"] * 2 : source_range["end"] * 2].decode("utf-16-le")
+            self.assertEqual(sliced, slide["source"])
+            for item in slide["items"]:
+                item_range = item["sourceRange"]
+                sliced = encoded[item_range["start"] * 2 : item_range["end"] * 2].decode("utf-16-le")
+                self.assertEqual(sliced, item["markdown"])
+
+    def test_build_source_hash_uses_exact_crlf_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            source = "# CRLF 页面\r\n\r\n正文。\r\n"
+            markdown.write_bytes(source.encode("utf-8"))
+
+            self.assertEqual(build_slides.build(markdown, output, strict=True), 0)
+            report = json.loads(output.with_suffix(".build.json").read_text(encoding="utf-8"))
+            self.assertEqual(report["authoring"]["sourceSha256"], build_slides.sha256_file(markdown))
+
+    def test_authoring_item_ids_are_slide_scoped_and_position_independent(self):
+        without_media = """<!-- slide
+id: stable
+-->
+# 标题
+
+### 文本块
+
+相同正文。
+
+> [!NOTE] 重复
+> 相同提醒。
+
+> [!NOTE] 重复
+> 相同提醒。
+"""
+        with_media = without_media.replace("# 标题\n\n", "# 标题\n\n![新增图片](assets/new.png)\n\n")
+        first = build_slides.parse_authoring_document(without_media).slides[0]
+        second = build_slides.parse_authoring_document(with_media).slides[0]
+        first_text_id = next(item.item_id for item in first.items if item.kind == "text")
+        second_text_id = next(item.item_id for item in second.items if item.kind == "text")
+        self.assertEqual(first_text_id, second_text_id)
+        callout_ids = [item.item_id for item in first.items if item.kind == "callout"]
+        self.assertEqual(len(callout_ids), len(set(callout_ids)))
+        self.assertTrue(callout_ids[1].endswith("-2"))
+
+    def test_build_attaches_authoring_identity_to_slides_blocks_and_media(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            assets = root / "assets"
+            assets.mkdir()
+            for name in ("one.png", "two.png"):
+                (assets / name).write_bytes(b"\x89PNG\r\n\x1a\n" + b"\0" * 8 + struct.pack(">II", 1600, 900))
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            markdown.write_text("""<!-- slide
+id: authored
+type: content
+layout: gallery
+gallery-display: tabs
+-->
+# 可编辑页面
+## 可编辑副标题
+
+![图一](assets/one.png "图注一")
+![图二](assets/two.png "图注二")
+
+### 文本块
+
+正文。
+
+> [!TIP] Callout
+> 提示正文。
+""", encoding="utf-8")
+
+            self.assertEqual(build_slides.build(markdown, output, strict=True), 0)
+            rendered = output.read_text(encoding="utf-8")
+            report = json.loads(output.with_suffix(".build.json").read_text(encoding="utf-8"))
+            document = build_slides.parse_authoring_document(markdown.read_text(encoding="utf-8"))
+            payload = build_slides.authoring_document_payload(document)
+            self.assertEqual(payload["slides"][0]["galleryDisplay"], "tabs")
+            self.assertEqual([item["kind"] for item in payload["slides"][0]["items"]], ["image", "image", "text", "callout"])
+            self.assertIn('data-slide-id="authored"', rendered)
+            self.assertRegex(rendered, r'data-author-base-hash="[0-9a-f]{64}"')
+            self.assertIn('data-author-item-kind="image"', rendered)
+            self.assertIn('data-author-item-kind="text"', rendered)
+            self.assertIn('data-author-item-kind="callout"', rendered)
+            self.assertIn('data-author-field="slide-title"', rendered)
+            self.assertIn('data-author-field="slide-subtitle"', rendered)
+            self.assertIn('data-author-field="title"', rendered)
+            self.assertIn('data-author-field="body"', rendered)
+            self.assertIn('data-author-field="caption"', rendered)
+            self.assertEqual(report["authoring"]["sourceSha256"], document.revision)
+
+    def test_layout_source_hash_rejects_stale_content_mapping(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            overrides = root / "slides.layout.json"
+            markdown.write_text("# 当前源码\n\n正文。\n", encoding="utf-8")
+            overrides.write_text(json.dumps({
+                "schemaVersion": "1.0",
+                "sourceHash": "0" * 64,
+                "slides": {"p1": {"layout": "text"}},
+            }), encoding="utf-8")
+
+            result = build_slides.build(markdown, output, overrides_path=overrides)
+            report = json.loads(output.with_suffix(".build.json").read_text(encoding="utf-8"))
+            self.assertEqual(result, 1)
+            self.assertTrue(any("sourceHash" in message for message in report["errors"]))
+            self.assertEqual(report["layoutOverrides"]["appliedSlides"], [])
+
+    def test_authoring_model_preserves_explicit_layout_filename_and_hash(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            overrides = root / "review.layout.json"
+            source = "# 当前源码\n\n正文。\n"
+            markdown.write_text(source, encoding="utf-8")
+            overrides.write_text(json.dumps({
+                "schemaVersion": "1.0",
+                "sourceHash": build_slides.sha256_source(source),
+                "slides": {},
+            }), encoding="utf-8")
+
+            self.assertEqual(build_slides.build(markdown, output, strict=True, overrides_path=overrides), 0)
+            rendered = output.read_text(encoding="utf-8")
+            match = re.search(r'<script id="deckAuthoringModel" type="application/json">(.*?)</script>', rendered, re.S)
+            self.assertIsNotNone(match)
+            payload = json.loads(match.group(1))
+            self.assertEqual(payload["source"]["layoutName"], "review.layout.json")
+            self.assertEqual(payload["source"]["layoutSha256"], build_slides.sha256_file(overrides))
+            self.assertIn('this.outputName = "review.layout.json"', rendered)
+            editor_match = re.search(r'<script id="deckEditorConfig" type="application/json">(.*?)</script>', rendered, re.S)
+            self.assertIsNotNone(editor_match)
+            editor_payload = json.loads(editor_match.group(1))
+            self.assertEqual(editor_payload["sourceHash"], build_slides.sha256_source(source))
+
+    def test_authoring_model_exposes_effective_inherited_sections(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            markdown.write_text("""---
+title: Section inheritance
+sections: ["基础", "深入"]
+---
+
+<!-- slide
+id: first
+section: 基础
+-->
+# 第一页
+
+正文。
+
+---
+
+<!-- slide
+id: inherited
+chapter: 延续章节
+-->
+# 继承页
+
+正文。
+
+---
+
+<!-- slide
+id: advanced
+section: 深入
+-->
+# 深入页
+
+正文。
+""", encoding="utf-8")
+
+            self.assertEqual(build_slides.build(markdown, output, strict=True), 0)
+            rendered = output.read_text(encoding="utf-8")
+            match = re.search(r'<script id="deckAuthoringModel" type="application/json">(.*?)</script>', rendered, re.S)
+            self.assertIsNotNone(match)
+            payload = json.loads(match.group(1))
+            self.assertEqual([slide["effectiveSection"] for slide in payload["slides"]], ["基础", "基础", "深入"])
+            self.assertNotIn("section", payload["slides"][1]["config"])
+
     def test_atomic_writer_replaces_content_without_temp_files(self):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "artifact.txt"
@@ -966,6 +1305,258 @@ footer: false
             if os.name != "nt":
                 self.assertEqual(target.stat().st_mode & 0o777, 0o644)
             self.assertEqual(list(target.parent.glob(f".{target.name}.*.tmp")), [])
+
+    def test_static_manifest_hashes_and_embeds_one_opened_payload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            asset = root / "asset.png"
+            payload = b"one immutable opened payload"
+            asset.write_bytes(payload)
+            with (
+                mock.patch.object(build_slides, "sha256_file", side_effect=AssertionError("reopened for hash")),
+                mock.patch.object(build_slides, "local_data_uri", side_effect=AssertionError("reopened for data URI")),
+            ):
+                manifest = build_slides.static_export_asset_manifest(
+                    '<img src="asset.png">',
+                    root,
+                    root,
+                )
+            digest = build_slides.hashlib.sha256(payload).hexdigest()
+            self.assertEqual(manifest["sources"], {"asset.png": digest})
+            self.assertEqual(
+                manifest["assets"][digest],
+                "data:image/png;base64," + build_slides.base64.b64encode(payload).decode("ascii"),
+            )
+
+    def test_static_manifest_does_not_follow_post_check_symlink_swap(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            asset = root / "asset.png"
+            outside = root.parent / f"{root.name}-outside.png"
+            asset.write_bytes(b"inside")
+            outside.write_bytes(b"outside-secret")
+            self.addCleanup(outside.unlink, missing_ok=True)
+            original_open = build_slides.os.open
+            swapped = False
+
+            def open_then_swap(path, flags, mode=0o777, *, dir_fd=None):
+                nonlocal swapped
+                descriptor = original_open(path, flags, mode, dir_fd=dir_fd)
+                if not swapped and dir_fd is None and Path(path) == root.resolve():
+                    asset.unlink()
+                    asset.symlink_to(outside)
+                    swapped = True
+                return descriptor
+
+            with mock.patch.object(build_slides.os, "open", side_effect=open_then_swap):
+                manifest = build_slides.static_export_asset_manifest(
+                    '<img src="asset.png">',
+                    root,
+                    root,
+                )
+            self.assertTrue(swapped)
+            self.assertEqual(manifest["sources"], {})
+            self.assertNotIn("outside-secret", json.dumps(manifest))
+
+    def test_rooted_static_manifest_rejects_local_svg_reference(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "nested.png").write_bytes(b"nested")
+            (root / "asset.svg").write_text(
+                '<svg xmlns="http://www.w3.org/2000/svg"><image href="nested.png"/></svg>',
+                encoding="utf-8",
+            )
+            with self.assertRaises(build_slides.UnsafeAssetReferenceError):
+                build_slides.static_export_asset_manifest(
+                    '<img src="asset.svg">',
+                    root,
+                    root,
+                )
+
+    def test_build_report_commit_failure_restores_previous_artifact_pair(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            markdown = root / "slides.md"
+            output = root / "index.html"
+            report = root / "index.build.json"
+            markdown.write_text("# 新页面\n\n正文。\n", encoding="utf-8")
+            output.write_text("old html", encoding="utf-8")
+            report.write_text("old report", encoding="utf-8")
+            original_replace = build_slides.os.replace
+            failed = False
+
+            def fail_new_report_commit(source, destination):
+                nonlocal failed
+                if (
+                    not failed
+                    and Path(destination) == report
+                    and Path(source).name.endswith(".tmp")
+                ):
+                    failed = True
+                    raise OSError("injected report commit failure")
+                return original_replace(source, destination)
+
+            with mock.patch.object(build_slides.os, "replace", side_effect=fail_new_report_commit):
+                result = build_slides.build(markdown, output, strict=True)
+
+            self.assertTrue(failed)
+            self.assertEqual(result, 2)
+            self.assertEqual(output.read_text(encoding="utf-8"), "old html")
+            self.assertEqual(report.read_text(encoding="utf-8"), "old report")
+            self.assertEqual(list(root.glob(".*.tmp")), [])
+            self.assertEqual(list(root.glob(".*.bak")), [])
+
+    def test_artifact_backup_failure_never_replaces_original_with_empty_slot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            first = root / "first.txt"
+            second = root / "second.txt"
+            first.write_text("first old", encoding="utf-8")
+            second.write_text("second old", encoding="utf-8")
+            original_backup = build_slides._backup_slot
+            failed = False
+
+            def fail_second_backup(path):
+                nonlocal failed
+                if not failed and Path(path) == second:
+                    failed = True
+                    raise OSError("injected backup move failure")
+                return original_backup(path)
+
+            with (
+                mock.patch.object(build_slides, "_backup_slot", side_effect=fail_second_backup),
+                self.assertRaises(OSError),
+            ):
+                build_slides.write_text_artifacts_atomic((
+                    (first, "first new"),
+                    (second, "second new"),
+                ))
+
+            self.assertTrue(failed)
+            self.assertEqual(first.read_text(encoding="utf-8"), "first old")
+            self.assertEqual(second.read_text(encoding="utf-8"), "second old")
+            self.assertEqual(list(root.glob(".*.tmp")), [])
+            self.assertEqual(list(root.glob(".*.bak")), [])
+
+    def test_overlapping_artifact_pairs_are_serialized(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            html = root / "index.html"
+            report = root / "index.build.json"
+            first_entered = threading.Event()
+            release_first = threading.Event()
+            second_entered = threading.Event()
+            original_write = build_slides._write_text_artifacts_locked
+            entry_count = 0
+            entry_guard = threading.Lock()
+
+            def controlled_write(entries):
+                nonlocal entry_count
+                with entry_guard:
+                    entry_count += 1
+                    current = entry_count
+                if current == 1:
+                    first_entered.set()
+                    self.assertTrue(release_first.wait(5), "timed out releasing first artifact writer")
+                else:
+                    second_entered.set()
+                return original_write(entries)
+
+            errors = []
+
+            def write_pair(label):
+                try:
+                    build_slides.write_text_artifacts_atomic(((html, f"{label}-html"), (report, f"{label}-report")))
+                except Exception as error:  # pragma: no cover - surfaced by assertion below.
+                    errors.append(error)
+
+            with mock.patch.object(build_slides, "_write_text_artifacts_locked", side_effect=controlled_write):
+                first = threading.Thread(target=write_pair, args=("A",))
+                second = threading.Thread(target=write_pair, args=("B",))
+                first.start()
+                self.assertTrue(first_entered.wait(5), "first artifact writer did not enter")
+                second.start()
+                self.assertFalse(second_entered.wait(0.1), "second writer entered before the first released its lock")
+                release_first.set()
+                first.join(5)
+                second.join(5)
+
+            self.assertFalse(first.is_alive() or second.is_alive())
+            self.assertEqual(errors, [])
+            self.assertTrue(second_entered.is_set())
+            self.assertEqual(html.read_text(encoding="utf-8"), "B-html")
+            self.assertEqual(report.read_text(encoding="utf-8"), "B-report")
+
+    def test_artifact_rollback_does_not_overwrite_external_newer_content(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            html = root / "index.html"
+            report = root / "index.build.json"
+            html.write_text("old-html", encoding="utf-8")
+            report.write_text("old-report", encoding="utf-8")
+            original_replace = build_slides.os.replace
+
+            def fail_report_after_external_html_write(source, destination):
+                if Path(destination) == report and Path(source).name.endswith(".tmp"):
+                    html.write_text("external-newer-html", encoding="utf-8")
+                    raise OSError("injected report commit failure")
+                return original_replace(source, destination)
+
+            with (
+                mock.patch.object(
+                    build_slides.os,
+                    "replace",
+                    side_effect=fail_report_after_external_html_write,
+                ),
+                self.assertRaises(OSError) as raised,
+            ):
+                build_slides.write_text_artifacts_atomic((
+                    (html, "new-html"),
+                    (report, "new-report"),
+                ))
+
+            self.assertEqual(html.read_text(encoding="utf-8"), "external-newer-html")
+            self.assertEqual(report.read_text(encoding="utf-8"), "old-report")
+            self.assertTrue(
+                any("rollback skipped" in note for note in getattr(raised.exception, "__notes__", ())),
+                getattr(raised.exception, "__notes__", ()),
+            )
+            self.assertEqual(list(root.glob(".*.tmp")), [])
+            self.assertEqual(list(root.glob(".*.bak")), [])
+
+    def test_artifact_success_verification_detects_external_mixed_pair(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            html = root / "index.html"
+            report = root / "index.build.json"
+            html.write_text("old-html", encoding="utf-8")
+            report.write_text("old-report", encoding="utf-8")
+            original_replace = build_slides.os.replace
+
+            def mutate_html_after_report_commit(source, destination):
+                result = original_replace(source, destination)
+                if Path(destination) == report and Path(source).name.endswith(".tmp"):
+                    html.write_text("external-newer-html", encoding="utf-8")
+                return result
+
+            with (
+                mock.patch.object(build_slides.os, "replace", side_effect=mutate_html_after_report_commit),
+                self.assertRaises(OSError) as raised,
+            ):
+                build_slides.write_text_artifacts_atomic((
+                    (html, "new-html"),
+                    (report, "new-report"),
+                ))
+
+            self.assertIn("artifact changed during commit verification", str(raised.exception))
+            self.assertEqual(html.read_text(encoding="utf-8"), "external-newer-html")
+            self.assertEqual(report.read_text(encoding="utf-8"), "old-report")
+            self.assertTrue(
+                any("rollback skipped" in note for note in getattr(raised.exception, "__notes__", ())),
+                getattr(raised.exception, "__notes__", ()),
+            )
+            self.assertEqual(list(root.glob(".*.tmp")), [])
+            self.assertEqual(list(root.glob(".*.bak")), [])
 
 
 if __name__ == "__main__":

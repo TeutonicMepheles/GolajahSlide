@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Pinned build-time diagram renderers for GolajahSlide",
   "scripts": {
-    "test": "npm run test:python && npm run test:presenter-focus && npm run test:footer-chapter-navigation && npm run test:citations && npm run test:global-logo && npm run test:media-playback && npm run test:diagram-design",
+    "test": "npm run test:python && npm run test:presenter-focus && npm run test:footer-chapter-navigation && npm run test:citations && npm run test:global-logo && npm run test:media-playback && npm run test:content-authoring && npm run test:static-export && npm run test:diagram-design",
     "test:python": "python -m unittest discover -s tests -v",
     "render:excalidraw": "node tools/render_excalidraw.mjs",
     "test:presenter-focus": "node tests/test_presenter_focus.mjs",
@@ -13,6 +13,8 @@
     "test:citations": "node tests/test_citations.mjs",
     "test:global-logo": "node tests/test_global_logo.mjs",
     "test:media-playback": "node tests/test_media_playback.mjs",
+    "test:content-authoring": "node tests/test_content_authoring.mjs",
+    "test:static-export": "node tests/test_static_export.mjs",
     "test:diagram-design": "node tests/test_diagram_design.mjs"
   },
   "devDependencies": {

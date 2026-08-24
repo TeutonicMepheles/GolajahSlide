@@ -17,6 +17,11 @@
     "referenced": 0,
     "ids": []
   },
+  "authoring": {
+    "schemaVersion": "1.0",
+    "sourceSha256": "0781536552df94af4b091ceff2284d05078b63bb8eaec55a36b65faf485c0ab8",
+    "slides": 2
+  },
   "diagrams": {
     "detected": 2,
     "renderRequested": true,
