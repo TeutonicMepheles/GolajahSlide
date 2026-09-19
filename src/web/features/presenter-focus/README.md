@@ -43,3 +43,7 @@ npm run test:presenter-focus
 ```
 
 Focused example: `harnesses/presenter-focus/slides.md`
+
+### Content editing shortcut boundary
+
+The shared `body.content-authoring-active` mode marker suppresses the focus shortcut even between editable fields. IME composition events also leave focus state unchanged.

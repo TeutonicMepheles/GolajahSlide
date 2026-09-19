@@ -33,6 +33,7 @@ Static Export is a flattened derivative of a sanitized live-DOM clone, not an ed
 |---|---|
 | `build_slides.py` | Compatible CLI and current build-runtime composition root |
 | `golajah_slide_agent.py` | JSON-first Agent service, CLI, safe edit transaction, and local stdio MCP adapter |
+| `src/importers/` | Optional build-time source adapters; Lark CLI fetch/normalize/media embedding, no browser or credential ownership |
 | `src/web/features/<feature>/` | Browser Feature behavior, styles, public contract, and local documentation |
 | `templates/deck.html` | Browser composition shell and shared markup only |
 | `harnesses/<feature>/` | Minimal executable scenario for one Feature |

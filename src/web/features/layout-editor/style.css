@@ -1,0 +1,4 @@
+/* Native option menus may use a light system background despite white select text. */
+.layout-editor-panel .editor-select { color-scheme: dark; }
+.layout-editor-panel .editor-select option { color: #f7f6fb; background-color: #25232d; }
+.layout-editor-panel .editor-select option:disabled { color: #918d9b; }

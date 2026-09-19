@@ -38,6 +38,44 @@ try {
   assert.equal(await page.$$eval(".slide[data-slide-kind='content']", nodes => nodes.length), 3);
   assert.equal(await page.$$eval("[data-author-item-id]", nodes => new Set(nodes.map(node => node.dataset.authorItemId)).size === nodes.length), true);
 
+  // Exercise real keyboard input, then the focus gap between editable fields.
+  await page.keyboard.press("e");
+  await page.waitForFunction(() => document.activeElement?.id === "editorClose");
+  await page.waitForSelector('[data-author-action="toggle-mode"]', {visible: true});
+  await new Promise(resolve => setTimeout(resolve, 300));
+  await page.click('[data-author-action="toggle-mode"]');
+  const editable = '.slide.active [data-author-field][contenteditable]';
+  await page.click(editable);
+  await page.keyboard.down("Control");
+  await page.keyboard.press("End");
+  await page.keyboard.up("Control");
+  await page.keyboard.type(" eEhHfFaA", {delay: 60});
+  assert.equal(await page.$eval(editable, node => node.textContent.endsWith(" eEhHfFaA")), true);
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("Home");
+  assert.equal(await page.evaluate(() => window.__SLIDE_CONTENT_AUTHORING__.active), true);
+  await page.evaluate(() => document.activeElement.blur());
+  for (const key of ["e", "E", "h", "H", "f", "a", "Space", "ArrowRight", "PageDown", "End"]) {
+    await page.keyboard.press(key);
+    assert.equal(await page.evaluate(() => document.body.classList.contains("editor-open") && window.__SLIDE_CONTENT_AUTHORING__.active), true, `content mode survives ${key} without field focus`);
+    assert.equal(await page.$eval('.slide.active', node => node.dataset.slideId), "authoring-first");
+    assert.equal(await page.evaluate(() => window.__SLIDE_PRESENTER_FOCUS__.enabled), false);
+  }
+  await page.click('[data-author-action="toggle-mode"]');
+  await page.evaluate(() => {
+    document.activeElement.blur();
+    for (const key of ["e", "h", "ArrowRight", "Escape"]) {
+      document.body.dispatchEvent(new KeyboardEvent("keydown", {key, bubbles: true, isComposing: true}));
+    }
+  });
+  assert.equal(await page.evaluate(() => document.body.classList.contains("editor-open")), true);
+  assert.equal(await page.$eval('.slide.active', node => node.dataset.slideId), "authoring-first");
+  assert.equal(await page.evaluate(() => window.__SLIDE_PRESENTER_FOCUS__.enabled), false);
+  await page.keyboard.press("e");
+  await page.waitForFunction(() => !document.body.classList.contains("editor-open"));
+  await page.evaluate(() => localStorage.clear());
+  await page.reload({waitUntil: "load"});
+
   const cacheKeys = await page.evaluate(() => ({
     legacy: window.__SLIDE_PRESENTATION__.storageKey(),
     layout: window.__SLIDE_LAYOUT_EDITOR__.storageKey()
@@ -372,7 +410,7 @@ try {
   assert.equal(chapterCreated.dataset, "新增 $& Chapter");
   assert(chapterCreated.options.includes("新增 $& Chapter"));
   assert.match(chapterCreated.serialized, /chapter: "新增 \$& Chapter"/);
-  assert.match(chapterCreated.serialized, /移动图片后需要重新计算媒体数和布局。\n\n---\n\n<!-- slide/);
+  assert.match(chapterCreated.serialized, /移动图片后需要重新计算媒体数和布局。\r?\n\r?\n---\r?\n\r?\n<!-- slide/);
   assert.match(chapterCreated.unsafeCode, /单行/);
   assert.match(chapterCreated.unicodeLineCode, /单行/);
   assert.deepEqual({layoutChanged: chapterCreated.layoutChanged, galleryChanged: chapterCreated.galleryChanged}, {layoutChanged: false, galleryChanged: false});
@@ -628,7 +666,7 @@ try {
   assert.deepEqual(interaction.layouts, {gallery: "split", target: "gallery", galleryChanged: true, targetChanged: true});
   assert.equal(interaction.chapter, "On");
   assert.deepEqual(interaction.targetAfterImport, {media: "2", blocks: "1", layout: "gallery", tabs: 2});
-  assert.match(interaction.markdown, /### 标题\n\n正文/);
+  assert.match(interaction.markdown, /### 标题\r?\n\r?\n正文/);
   assert.match(interaction.markdown, /> \[!TIP\] 可移动 Callout/);
   assert.match(interaction.markdown, /gallery-display:\s*tabs/);
   assert.match(interaction.markdown, /id: authoring-gallery[\s\S]*?layout: split/);
@@ -636,7 +674,7 @@ try {
   assert.match(interaction.markdown, /!\[pasted-example\]\(assets\/test\/pasted-example\.png "pasted-example"\)/);
   assert.match(interaction.sanitizedMarkdown, /!\[坏）图 ---\]\(assets\/test\/pasted-example\.png "引号”图注 ---"\)/);
   assert.match(interaction.insertedDirective, /^<!-- slide\nlayout: gallery\ngallery-display: tabs\n-->\n# 无指令页面/);
-  assert.equal(interaction.normalizedMixedReplacement, "新\n内容\n末尾");
+  assert.equal(interaction.normalizedMixedReplacement.replaceAll("\r\n", "\n"), "新\n内容\n末尾");
   assert(interaction.markdown.indexOf("# 双图展示方式") < interaction.markdown.indexOf("[!TIP] 可移动 Callout"));
   assert(interaction.markdown.indexOf("[!TIP] 可移动 Callout") < interaction.markdown.indexOf("# 跨页移动目标"));
 

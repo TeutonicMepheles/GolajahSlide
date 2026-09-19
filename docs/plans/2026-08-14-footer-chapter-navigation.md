@@ -3,9 +3,11 @@
 - Plan ID: `20260814-footer-chapter-navigation`
 - Status: `Implemented`
 - Created: `2026-08-14`
-- Last updated: `2026-08-14`
+- Last updated: `2026-09-19`
 
 ## Goal
+
+2026-09-19 follow-up: unassigned covers no longer inherit a Section; explicit assignments and content-page inheritance remain supported. Course cover removed from menus, safety and sharing/fees grouped as two Chapter items under 使用规范与共享制度, resources replaced by an empty sharing/fees title page. Python membership/navigation tests (3) and browser navigation harness pass. Course QA: 29 pages, 42 images, no overflow or console errors. All example outputs regenerated. `npm test` rerun: 134 Python tests, 10 failures and 32 errors remain in file locking/filesystem/hash checks; see `work/section-npm-test.log`.
 
 让页脚 Section 进度条成为可快速定位的章节导航：悬浮或键盘聚焦 Section 时，向上展开纵向子章节面板；选择子章节后跳转到该子章节第一次出现的 Page。
 

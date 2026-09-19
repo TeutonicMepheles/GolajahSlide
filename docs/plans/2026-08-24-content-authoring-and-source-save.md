@@ -3,7 +3,7 @@
 - Plan ID: `20260824-content-authoring-source-save`
 - Status: `Implemented`
 - Created: `2026-08-24`
-- Last updated: `2026-08-24`
+- Last updated: `2026-09-19`
 
 ## Goal
 
@@ -62,6 +62,10 @@
 - [x] 切页会清理上一页内容选择，上传、拖放和粘贴不会误替换上一页图片。
 
 ## Validation evidence
+
+- 2026-09-19 keyboard regression: reproduced `E` closing the editor after an editable field loses focus. Content mode now suspends presentation, focus, and visual-widget shortcuts; IME composition bypasses shortcuts and Escape selection handling. Content-authoring browser tests pass with real `eEhHfFaA` input, caret keys, field blur, navigation keys, composition events, and restored `E` behavior after leaving content mode. Rebuilt course passes the same real-keyboard regression and all-page QA (29 pages, 43 images, no overflow or console errors). Basic, diagrams, Archscribe and Lark examples rebuilt from source.
+- 2026-09-19 full-suite limitation: `npm test` ran 133 Python tests with 10 failures and 32 errors (POSIX-only advisory locking, Windows filesystem operations, and source hash assertions); log: `work/keyboard-npm-test.log`. Separately ran browser suites: presenter-focus, footer-chapter-navigation, citations, global-logo, media-playback, content-authoring, static-export, diagram-design and layout-editor passed. List-hierarchy course fixture fails with `[]` versus `[1, 2]`; this keyboard fix does not change its Markdown or hierarchy.
+- 2026-09-19 Lark freshness and offline browser verification also passed after rebuilding with the importer media-embedding step (8 pages, 2 viewports).
 
 - `python3 -m unittest discover -s tests -v`: 112 项通过，覆盖 Agent CLI/MCP、源码模型、稳定 ID、UTF-16/CRLF 往返、有效 Section 继承、显式布局文件名与指纹、布局冲突和显式多图布局。
 - `npm run test:content-authoring`: Focused Harness 严格构建并通过浏览器回归，覆盖旧文字/布局缓存隔离、新增/重排、Gallery 切换、跨页移动、Chapter 选择/新增/标题回退、同 Section 投影、IME 与 Unicode/标量/directive 安全、净零草稿清理、切页与异步图片导入选择隔离、保存后 strict 重建、布局指令与 sidecar 同步、文件写回及源码/布局冲突拒绝；同时验证文字/图像默认区域、五类选项归属与展开规则和 375×800 窄屏滚动/溢出。

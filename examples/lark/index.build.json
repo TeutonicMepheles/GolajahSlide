@@ -1,0 +1,39 @@
+{
+  "source": "examples/lark/index.lark/slides.md",
+  "output": "examples/lark/index.html",
+  "slides": 8,
+  "layouts": {
+    "1": "hero-split",
+    "2": "hero-split",
+    "3": "split",
+    "4": "media",
+    "5": "text",
+    "6": "table",
+    "7": "chart",
+    "8": "text"
+  },
+  "layoutOverrides": {
+    "source": null,
+    "appliedSlides": []
+  },
+  "warnings": [],
+  "errors": [],
+  "citations": {
+    "defined": 0,
+    "referenced": 0,
+    "ids": []
+  },
+  "authoring": {
+    "schemaVersion": "1.0",
+    "sourceSha256": "d1c6ba9ce38d99b0140362e4fe12369863f66c06d70b7a17bf49110f2c64fc5c",
+    "slides": 8
+  },
+  "sourceImport": {
+    "sourceType": "lark",
+    "reference": "https://www.feishu.cn/docx/HUzTdcJX8oB33jxRXLZcpKfun1f",
+    "documentId": "HUzTdcJX8oB33jxRXLZcpKfun1f",
+    "title": "GolajahSlide · 飞书文档构建示例",
+    "mediaCount": 2,
+    "embeddedImages": true
+  }
+}

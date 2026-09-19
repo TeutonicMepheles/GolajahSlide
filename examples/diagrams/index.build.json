@@ -19,54 +19,7 @@
   },
   "authoring": {
     "schemaVersion": "1.0",
-    "sourceSha256": "0781536552df94af4b091ceff2284d05078b63bb8eaec55a36b65faf485c0ab8",
+    "sourceSha256": "1976172fa6a924afb32f647877fac8c0621b28e07920c8f95dd3d03606dc3c50",
     "slides": 2
-  },
-  "diagrams": {
-    "detected": 2,
-    "renderRequested": true,
-    "mermaid": {
-      "detected": 0,
-      "rendered": [],
-      "cached": []
-    },
-    "diagramDesign": {
-      "detected": 1,
-      "rendered": [],
-      "cached": [
-        "assets/mermaid-build-flow.svg"
-      ]
-    },
-    "excalidraw": {
-      "detected": 1,
-      "rendered": [],
-      "cached": [
-        "assets/editable-diagram.svg"
-      ]
-    },
-    "quality": {
-      "mermaid-svg-flow": [
-        {
-          "engine": "diagram-design",
-          "src": "assets/mermaid-build-flow.svg",
-          "viewBoxWidth": 1840.0,
-          "viewBoxHeight": 800.0,
-          "sourceMinFontSize": 28.0,
-          "projectedMinFontSize": 28.0,
-          "minimumSafeMargin": 70.0
-        }
-      ],
-      "excalidraw-svg-flow": [
-        {
-          "engine": "excalidraw",
-          "src": "assets/editable-diagram.svg",
-          "viewBoxWidth": 1264.0,
-          "viewBoxHeight": 434.0,
-          "sourceMinFontSize": 32.0,
-          "projectedMinFontSize": 46.58,
-          "minimumSafeMargin": 32.0
-        }
-      ]
-    }
   }
 }

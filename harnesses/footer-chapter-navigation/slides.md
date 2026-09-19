@@ -98,3 +98,11 @@ chapter: 深入配置
 ### 首页定位
 
 同名子章节只保留第一次出现的页码。
+
+---
+
+<!-- slide
+id: unassigned-cover
+type: cover
+-->
+# 不归入章节的封面

@@ -261,7 +261,7 @@
         this.stage.addEventListener("dragover", event => this.handleStageDragOver(event), {signal});
         this.stage.addEventListener("drop", event => this.handleStageDrop(event), {signal});
         addEventListener("keydown", event => {
-          if (!this.active || event.defaultPrevented) return;
+          if (!this.active || event.defaultPrevented || event.isComposing || event.keyCode === 229) return;
           if (event.key === "Escape" && this.selectedId) {
             event.preventDefault();
             this.select(null);

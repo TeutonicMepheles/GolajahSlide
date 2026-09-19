@@ -18,21 +18,7 @@
   },
   "authoring": {
     "schemaVersion": "1.0",
-    "sourceSha256": "eaab8427a5a231987eff6806016f9fa63de07c4780da728eed8ccf02ee4d5ac7",
+    "sourceSha256": "9c8ad4e8f92308fee22c17aacde6e7ddcd1553f224642c6b2a231fffc771d7a6",
     "slides": 1
-  },
-  "archscribe": {
-    "detected": 1,
-    "renderRequested": false,
-    "rendered": [],
-    "cached": [],
-    "typography": {
-      "archscribe-build-flow": {
-        "sourceMinFontSize": 17.0,
-        "projectedMinFontSize": 28.18,
-        "minimumSafeMargin": 30.0,
-        "minimumRasterMargin": 26.0
-      }
-    }
   }
 }

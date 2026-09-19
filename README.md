@@ -52,6 +52,18 @@ python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 
 `--strict` 会把设计警告也视为失败，建议在正式交付前使用。
 
+#### 可选安装：从飞书文档构建
+
+安装并登录 `lark-cli` 后，可以直接读取飞书文档或 Wiki 文档链接：
+
+```bash
+python build_slides.py --lark "https://www.feishu.cn/docx/HUzTdcJX8oB33jxRXLZcpKfun1f" -o examples/lark/index.html --strict
+```
+
+这份[飞书示例文档](https://www.feishu.cn/docx/HUzTdcJX8oB33jxRXLZcpKfun1f)来自基础示例的 8 页内容。
+编辑后重新运行即可更新课件；导入图片会嵌入 HTML。完整规则、配置方式和支持边界见
+[飞书内容源说明](docs/LARK-SOURCE.md)。本地 Markdown 构建无需飞书 CLI。
+
 #### 可选安装：重新生成 Mermaid / Excalidraw 图表
 
 只有在图表源码发生变化时，才需要 Node.js 20+ 和项目锁定的 Mermaid CLI 等工具：

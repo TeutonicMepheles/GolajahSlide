@@ -50,6 +50,7 @@ try {
   assert.deepEqual(generatedContract.chapterLabels, ["概览", "配置"]);
   assert.deepEqual(generatedContract.targets, [0, 2]);
   assert.equal(generatedContract.currentCount, 1);
+  assert.equal(await page.$$eval('.section-footer-chapter-label', nodes => nodes.some(node => node.textContent.includes('不归入章节的封面'))), false);
 
   const basicsTrigger = await page.$(".slide.active .section-footer-item:nth-child(1) [data-section-nav-trigger]");
   assert(basicsTrigger, "active slide should expose the first Section trigger");

@@ -47,6 +47,8 @@ TEMPLATE_FRAGMENT_PATHS = {
     "{{CITATIONS_CSS}}": WEB_FEATURE_ROOT / "citations" / "style.css",
     "{{CITATIONS_RUNTIME}}": WEB_FEATURE_ROOT / "citations" / "runtime.js",
     "{{PRESENTER_FOCUS_CSS}}": WEB_FEATURE_ROOT / "presenter-focus" / "style.css",
+    "{{LAYOUT_EDITOR_CSS}}": WEB_FEATURE_ROOT / "layout-editor" / "style.css",
+    "{{LAYOUT_EDITOR_RUNTIME}}": WEB_FEATURE_ROOT / "layout-editor" / "runtime.js",
     "{{PRESENTER_FOCUS_RUNTIME}}": WEB_FEATURE_ROOT / "presenter-focus" / "runtime.js",
     "{{FOOTER_CHAPTER_NAVIGATION_CSS}}": WEB_FEATURE_ROOT / "footer-chapter-navigation" / "style.css",
     "{{FOOTER_CHAPTER_NAVIGATION_RUNTIME}}": WEB_FEATURE_ROOT / "footer-chapter-navigation" / "runtime.js",
@@ -2143,6 +2145,63 @@ def paragraph_block(parts: list[str], title: str | None = None, citations: Citat
     return Block("section", f'<article class="card text-card section-card" data-presenter-focus>{heading}{content}</article>', plain)
 
 
+def parse_list(
+    lines: list[str],
+    start: int,
+    citations: CitationRegistry | None = None,
+    slide_no: int = 0,
+) -> tuple[str, int]:
+    """Render one indentation level; children belong inside their parent's li."""
+    def item_at(index: int):
+        expanded = lines[index].expandtabs(4)
+        match = LIST_RE.match(expanded)
+        if not match:
+            return None
+        indent = len(expanded) - len(expanded.lstrip())
+        return indent, match.group(1)[0].isdigit(), match.group(1), match.group(2).strip()
+
+    first = item_at(start)
+    assert first is not None
+    level, ordered, marker, _ = first
+    tag = "ol" if ordered else "ul"
+    number = int(re.match(r"\d+", marker).group()) if ordered else 1
+    attributes = f' start="{number}"' if ordered and number != 1 else ""
+    items: list[str] = []
+    i = start
+    while i < len(lines):
+        item = item_at(i)
+        if item is None or item[0] != level or item[1] != ordered:
+            break
+        content = render_inline(item[3], citations, slide_no)
+        i += 1
+        while i < len(lines):
+            if not lines[i].strip():
+                following = i + 1
+                while following < len(lines) and not lines[following].strip():
+                    following += 1
+                next_item = item_at(following) if following < len(lines) else None
+                if next_item and next_item[0] >= level:
+                    i = following
+                    continue
+                break
+            child = item_at(i)
+            if child:
+                if child[0] <= level:
+                    break
+                nested, i = parse_list(lines, i, citations, slide_no)
+                content += nested
+                continue
+            expanded = lines[i].expandtabs(4)
+            indent = len(expanded) - len(expanded.lstrip())
+            stripped = expanded.strip()
+            if indent <= level or stripped.startswith(("#", "```", "~~~", ">", "---", "|")):
+                break
+            content += " " + render_inline(stripped, citations, slide_no)
+            i += 1
+        items.append(f"<li>{content}</li>")
+    return f"<{tag}{attributes}>" + "".join(items) + f"</{tag}>", i
+
+
 def parse_blocks(
     body: str,
     source_dir: Path,
@@ -2227,16 +2286,8 @@ def parse_blocks(
             continue
         list_match = LIST_RE.match(line)
         if list_match:
-            ordered = list_match.group(1)[0].isdigit()
-            items: list[str] = []
-            while i < len(lines):
-                match = LIST_RE.match(lines[i])
-                if not match or match.group(1)[0].isdigit() != ordered:
-                    break
-                items.append(match.group(2).strip())
-                i += 1
-            tag = "ol" if ordered else "ul"
-            current_parts.append(f"<{tag}>" + "".join(f"<li>{render_inline(item, citations, slide_no)}</li>" for item in items) + f"</{tag}>")
+            rendered_list, i = parse_list(lines, i, citations, slide_no)
+            current_parts.append(rendered_list)
             continue
         paragraph: list[str] = [stripped]
         i += 1
@@ -2768,6 +2819,9 @@ def effective_section_memberships(sections: list[str], slides: list[Slide]) -> l
     current_section = sections[0] if sections else ""
     memberships: list[str] = []
     for slide in slides:
+        if slide.kind == "cover" and not slide.section:
+            memberships.append("")
+            continue
         if slide.section:
             if slide.section not in known:
                 memberships.append("")
@@ -3822,18 +3876,20 @@ def main() -> int:
     parser.add_argument(
         "source",
         nargs="?",
-        default="examples/basic/slides.md",
-        type=Path,
+        default=None,
         help="Markdown source (default: examples/basic/slides.md)",
     )
     parser.add_argument(
         "-o",
         "--output",
-        default="examples/basic/index.html",
+        default=None,
         type=Path,
         help="HTML output (default: examples/basic/index.html)",
     )
     parser.add_argument("--overrides", type=Path, help="layout JSON exported by editor mode; defaults to <source>.layout.json when present")
+    parser.add_argument("--lark", help="Feishu/Lark docx or Wiki URL (or document token); fetch with lark-cli before building")
+    parser.add_argument("--lark-cli", help="optional lark-cli executable path")
+    parser.add_argument("--lark-as", choices=["user", "bot"], default="user", help="Lark identity (default: user)")
     parser.add_argument("--strict", action="store_true", help="treat design warnings as build failures")
     parser.add_argument("--render-archscribe", action="store_true", help="render archscribe fences before building the slides")
     parser.add_argument("--force-archscribe", action="store_true", help="render Archscribe assets even when outputs are newer than the spec")
@@ -3850,10 +3906,24 @@ def main() -> int:
     parser.add_argument("--diagram-node", type=Path, help="Node.js executable used by diagram renderers")
     parser.add_argument("--diagram-chrome", type=Path, help="Chrome/Chromium executable used by diagram renderers")
     args = parser.parse_args()
+    if args.lark and args.source:
+        parser.error("provide either a Markdown source or --lark, not both")
+    lark_reference = args.lark or (args.source if args.source and args.source.startswith("https://") else None)
+    output = (args.output or Path("work/lark/index.html" if lark_reference else "examples/basic/index.html")).resolve()
+    import_directory = output.parent / (output.stem + ".lark")
+    if lark_reference:
+        from src.importers.lark import LarkClient, LarkImportError, import_document, embed_media
+        try:
+            source = import_document(lark_reference, import_directory, LarkClient(args.lark_cli, args.lark_as))
+        except (LarkImportError, OSError) as error:
+            print(f"ERROR: {error}", file=sys.stderr)
+            return 2
+    else:
+        source = Path(args.source or "examples/basic/slides.md").resolve()
     overrides = args.overrides.resolve() if args.overrides else None
-    return build(
-        args.source.resolve(),
-        args.output.resolve(),
+    result = build(
+        source,
+        output,
         args.strict,
         overrides,
         args.render_archscribe,
@@ -3866,6 +3936,13 @@ def main() -> int:
         args.diagram_chrome,
         args.force_diagrams,
     )
+    if lark_reference and result == 0:
+        try:
+            embed_media(output, import_directory)
+        except (LarkImportError, OSError) as error:
+            print(f"ERROR: {error}", file=sys.stderr)
+            return 2
+    return result
 
 
 if __name__ == "__main__":

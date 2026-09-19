@@ -903,6 +903,19 @@ Second page.
         self.assertIn('data-slide-target="2" data-page-number="3"', footer)
         self.assertIn('aria-current="location"', footer)
 
+    def test_unassigned_cover_does_not_inherit_section(self):
+        slides = [
+            build_slides.Slide(1, "cover", "cover", "封面", "", "", "text", "text", {}, [], [], ""),
+            build_slides.Slide(2, "body", "content", "正文", "", "", "text", "text", {}, [], [], ""),
+            build_slides.Slide(3, "explicit", "cover", "显式归属", "", "深入", "text", "text", {}, [], [], ""),
+            build_slides.Slide(4, "another-cover", "cover", "另一封面", "", "", "text", "text", {}, [], [], ""),
+            build_slides.Slide(5, "following", "content", "后续正文", "", "", "text", "text", {}, [], [], ""),
+        ]
+        self.assertEqual(build_slides.effective_section_memberships(["基础", "深入"], slides), ["", "基础", "深入", "", "深入"])
+        chapters = build_slides.collect_section_chapters(["基础", "深入"], slides)
+        self.assertEqual(chapters["基础"], [{"title": "正文", "page": 2}])
+        self.assertEqual(chapters["深入"], [{"title": "显式归属", "page": 3}, {"title": "后续正文", "page": 5}])
+
     def test_footer_chapter_navigation_feature_is_composed(self):
         template = build_slides.TEMPLATE_PATH.read_text(encoding="utf-8")
         style = build_slides.TEMPLATE_FRAGMENT_PATHS["{{FOOTER_CHAPTER_NAVIGATION_CSS}}"].read_text(encoding="utf-8")

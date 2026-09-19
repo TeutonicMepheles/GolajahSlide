@@ -744,6 +744,7 @@
 {{CITATIONS_CSS}}
 {{CONTENT_AUTHORING_CSS}}
 {{STATIC_EXPORT_CSS}}
+{{LAYOUT_EDITOR_CSS}}
     .slide[data-editor-typography="true"] :is(.text-card p, .text-card li, .code-card code, .data-table td) {
       line-height: var(--editor-body-line-height) !important;
       color: var(--editor-body-color) !important;
@@ -1471,6 +1472,7 @@
       }
       bind() {
         addEventListener("keydown", event => {
+          if (event.isComposing || event.keyCode === 229) return;
           if (event.key === "Escape") {
             if (this.active?.isAnnotating) {
               event.preventDefault();
@@ -1484,7 +1486,7 @@
             return;
           }
           if (event.target.closest?.("[data-slide-video-shell]")) return;
-          if (event.target.closest?.("input, textarea, select, button, a, [contenteditable=true]")) return;
+          if (event.target.isContentEditable || document.body.classList.contains("content-authoring-active") || event.target.closest?.("input, textarea, select, button, a")) return;
           if (event.key === " " && this.active?.isAnnotating) {
             this.spacePressed = true;
             this.active.root.classList.add("is-space-pan");
@@ -1892,7 +1894,7 @@
         if (!entry) {
           entry = {
             layout: "auto",
-            regions: this.presetRegions(slide, this.generatedLayout(slide)),
+            regions: measureLayoutRegions(slide, this.actualParts(slide)) || this.presetRegions(slide, this.generatedLayout(slide)),
             title: slide.dataset.title,
             sourcePage: slide.dataset.sourcePage
           };
@@ -2858,6 +2860,7 @@
 {{MEDIA_PLAYBACK_RUNTIME}}
 {{CONTENT_AUTHORING_RUNTIME}}
 {{STATIC_EXPORT_RUNTIME}}
+{{LAYOUT_EDITOR_RUNTIME}}
 
     /* ===========================================
        PRESENTATION CONTROLLER
@@ -2927,13 +2930,13 @@
           if (Number.isFinite(target)) this.show(target - 1, false);
         });
         addEventListener("keydown", event => {
-          if (event.defaultPrevented || this.widgetManager.fullscreenWidget || this.mediaPlayback?.isFullscreen) return;
+          if (event.defaultPrevented || event.isComposing || event.keyCode === 229 || this.widgetManager.fullscreenWidget || this.mediaPlayback?.isFullscreen) return;
           if (event.key === "Escape" && this.layoutEditor.active) {
             event.preventDefault();
             this.layoutEditor.setActive(false);
             return;
           }
-          if (event.metaKey || event.ctrlKey || event.altKey || event.target.isContentEditable || event.target.closest?.(".layout-editor-panel,button,input,textarea,select")) return;
+          if (this.contentAuthoring?.active || event.metaKey || event.ctrlKey || event.altKey || event.target.isContentEditable || event.target.closest?.(".layout-editor-panel,button,input,textarea,select")) return;
           if (["ArrowRight","ArrowDown","PageDown"," "].includes(event.key)) { event.preventDefault(); this.step(1); }
           else if (["ArrowLeft","ArrowUp","PageUp"].includes(event.key)) { event.preventDefault(); this.step(-1); }
           else if (event.key === "Home") this.show(0);

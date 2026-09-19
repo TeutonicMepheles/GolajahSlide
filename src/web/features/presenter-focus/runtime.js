@@ -13,7 +13,8 @@
         this.registerTextTargets();
         this.button.addEventListener("click", () => this.toggle());
         addEventListener("keydown", event => {
-          if (event.defaultPrevented || event.repeat ||
+          if (event.defaultPrevented || event.repeat || event.isComposing || event.keyCode === 229 ||
+              document.body.classList.contains("content-authoring-active") ||
               event.target.isContentEditable ||
               event.target.closest?.("button,input,textarea,select,a,[contenteditable=true]") ||
               !this.matchesShortcut(event)) return;
