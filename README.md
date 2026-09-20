@@ -52,6 +52,14 @@ python3 build_slides.py path/to/slides.md -o path/to/index.html --strict
 
 `--strict` 会把设计警告也视为失败，建议在正式交付前使用。
 
+#### 在其他机器上接续编辑
+
+将工具仓库与课件源码仓库分别克隆到同一父目录。课件仓库应保存 Markdown、引用素材、布局侧车文件（如有）、构建入口与工具版本记录；生成的 HTML 不能代替这些可编辑源文件。
+
+若课件包含 `toolchain.json`，使用其中指定的工具 commit 与课件自己的构建入口。需要旧版本时，另建工具 checkout，不要重置有未提交改动的工作区。普通 Markdown 构建只需 Python；仅运行工具开发测试或可选图表渲染时才需要 Node.js 依赖。
+
+浏览器编辑后应将内容与布局保存回源码目录，再运行 Python 构建。换机器前提交源码、素材和布局文件；另一台机器在工作区干净时通过 `git pull --ff-only` 更新两个仓库，再重建 HTML。
+
 #### 可选安装：从飞书文档构建
 
 安装并登录 `lark-cli` 后，可以直接读取飞书文档或 Wiki 文档链接：
